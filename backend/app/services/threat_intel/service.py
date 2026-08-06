@@ -8,6 +8,8 @@ from app.services.threat_intel.models import ThreatEvidence, ProviderResponse, T
 
 from app.core.config import settings
 from app.services.threat_intel.providers.virustotal import VirusTotalProvider
+from app.services.threat_intel.providers.phishtank import PhishTankProvider
+from app.services.threat_intel.providers.urlhaus import URLHausProvider
 
 logger = logging.getLogger("app.services.threat_intel.service")
 
@@ -19,6 +21,17 @@ class ThreatIntelService:
         vt_provider = VirusTotalProvider(api_key=settings.VIRUSTOTAL_API_KEY)
         if vt_provider.is_enabled:
             self.register_provider(vt_provider)
+
+        # Instantiate and auto-register PhishTank
+        pt_provider = PhishTankProvider(api_key=settings.PHISHTANK_API_KEY)
+        if pt_provider.is_enabled:
+            self.register_provider(pt_provider)
+
+        # Instantiate and auto-register URLHaus
+        uh_provider = URLHausProvider()
+        if uh_provider.is_enabled:
+            self.register_provider(uh_provider)
+
 
 
     def register_provider(self, provider: BaseThreatIntelProvider) -> None:
