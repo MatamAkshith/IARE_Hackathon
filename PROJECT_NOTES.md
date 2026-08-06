@@ -42,7 +42,7 @@ Every implementation must remain consistent with these sections. Every completed
 | **Remaining** | Risk Scoring Engine | Explainable rules-based risk assessment engine. |
 | **Remaining** | Campaign Correlation | Attacker attribution and clustering based on shared footprints. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
-| **Remaining** | Dashboard UI | Analyst control panel and queue dashboard. |
+| **Completed** | Dashboard UI | Analyst control panel and queue dashboard. |
 | **Remaining** | Reporting | Exportable Markdown/PDF reports detailing threats evidence. |
 | **Remaining** | Deployment | Final packaging and cloud/docker deployment patterns. |
 
@@ -369,6 +369,8 @@ backend/app/
 - **2026-08-06 (Sprint 1 - Task 17 - 21:30):** **Task 17 (Threat Intelligence Foundation - Stage 4.1):** Set up external threat intelligence placeholder keys in configuration. Created `BaseThreatIntelProvider` abstract interfaces using `abc`, common Pydantic response models (`models.py`), and the service registry orchestration pattern (`service.py:ThreatIntelService`) to execute enabled providers concurrently.
 - **2026-08-06 (Sprint 1 - Task 18 - 21:40):** **Task 18 (VirusTotal Integration - Stage 4.2):** Implemented `VirusTotalProvider` invoking URL (URL-safe base64 parameters) and Domain lookup endpoints. Mapped analysis category statistics results to common verdicts, extracted engine records details to standard matches, and captured HTTP status exceptions. Updated registry constructor mappings.
 - **2026-08-06 (Sprint 1 - Task 19 - 22:00):** **Task 19 (PhishTank & URLHaus Integration - Stage 4.3):** Implemented `PhishTankProvider` and `URLHausProvider` executing POST reputation queries. Mapped database flag rules and query statuses to verdicts, extracted threat names and tags to standardized matches, and handled exceptions.
+- **2026-08-06 (Sprint 1 - Task 20 - 22:45):** **Task 20 (Dashboard Stage 1 - Frontend Foundation & Layout):** Built the complete, responsive SOC-themed React frontend shell. Wired up index.html, index.css, main.jsx, and App.jsx. Centralized routes utilizing React Router v6 mapping to coming-soon placeholders for Dashboard, Scans, Campaigns, Reports, and Settings. Created AppLayout with Sidebar navigation highlights, brand sky-blue theme configs, and Topbar featuring responsive mobile drawer toggle controls.
+
 
 
 
