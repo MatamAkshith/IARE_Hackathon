@@ -12,8 +12,8 @@ export default function RiskChart({ data = [] }) {
     <div className="border border-[#1a2336] bg-[#090d16] p-5 rounded-xl space-y-5">
       <div className="flex items-center gap-2 border-b border-[#1a2336]/60 pb-3">
         <svg className="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.003 9.003 0 1020.945 13H11V3.055z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.003 9.003 0 1 0 20.945 13H11V3.055z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.488 9H15V3.512A9.025 9.025 0 0 1 20.488 9z" />
         </svg>
         <h3 className="font-semibold text-slate-200 text-sm tracking-wide">Threat Risk Distribution</h3>
       </div>
