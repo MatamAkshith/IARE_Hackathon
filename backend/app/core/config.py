@@ -1,8 +1,8 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str
-    PROJECT_VERSION: str
+    PROJECT_NAME: str = "ThreatLens API"
+    PROJECT_VERSION: str = "0.1.0"
     ENVIRONMENT: str = "development"
     CORS_ORIGINS: list[str] = ["*"]
 
