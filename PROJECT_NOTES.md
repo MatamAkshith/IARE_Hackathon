@@ -50,6 +50,8 @@ The data layer and RESTful API layer are decoupled using four core patterns:
 3. **Data Access (Repository Pattern)**: Implements `CRUDBase` as a generic helper module mapping standard ORM methods (`get`, `get_multi`, `create`, `update`, `remove`) using TypeVars. Specific CRUD repositories subclass `CRUDBase` and expose global singleton instances.
 4. **API Routing (FastAPI REST Endpoints)**: Clean separation of resource route files under `backend/app/api/v1/endpoints/` exposing pluralized routing mounts.
 5. **Feature Extraction Engine (URL Domain Intelligence)**: Standardized service layer (`DomainIntelService`) responsible for normalizing URLs, parsing domain hierarchies via `tldextract`, resolving A/MX/NS records via `dnspython`, querying registry creation dates via `python-whois`, and generating domain age values. Structured JSON datasets are saved in the database under `domain_intel` feature attributes.
+6. **Feature Extraction Engine (Network & Certificate Intelligence)**: Standardized service layer (`NetworkIntelService`) responsible for resolving host IP routing and reverse DNS (socket PTR queries), extracting peer SSL/TLS certificate metadata (availability, issuer, common name, Subject Alternative Names, validity timestamps, days until expiry, signature algorithm, TLS protocol version, cipher suite) via non-verifying connections to port 443, and capturing HTTP GET connections response properties (status code, redirect chain history, final destination URL). Records are stored in the database features list under `network_intel`.
+
 
 ### Integration Workflow
 ```
@@ -151,6 +153,7 @@ backend/app/
 - **2026-08-06 (Sprint 1 - Task 10 - 19:42):** **Task 10 (Pydantic Schema Validation & Repository Layer):** Implemented validation layer schemas and data access CRUD repository singletons (inheriting from a generic `CRUDBase` class). Injected repository singletons into the FastAPI dependencies container `deps.py`, ready for endpoints routing. Fully compiled documentation structures and changes.
 - - **2026-08-06 (Sprint 1 - Task 11 - 19:50):** **Task 11 (Foundational CRUD RESTful API Layer):** Implemented standard RESTful routers mapping GET (lists & detail), POST (201 status), PUT, and DELETE handlers for domains, scans, campaigns, features, and risk scores. Mounted all routers under versioned api tags. Verified the entire compilation and endpoints layout in Swagger Docs.
 - - **2026-08-06 (Sprint 1 - Task 12 - 20:00):** **Task 12 (Domain Intelligence Extraction Engine - Stage 3.1):** Deployed the domain parser and resolver service (`DomainIntelService`) handling URL normalizations, TLD suffixes parsing via `tldextract`, active A/MX/NS queries via `dnspython`, and creation/expiration tracking via `python-whois`. Exposed the `POST /api/v1/extract/domain` endpoint resolving scan requirements and persisting extracted attributes to database feature records.
+- - **2026-08-06 (Sprint 1 - Task 13 - 20:10):** **Task 13 (Network & Certificate Intelligence - Stage 3.2):** Implemented `NetworkIntelService` extracting host IP, reverse DNS (PTR pointer lookup), peer SSL/TLS certificate details (issuer, subject, validity timelines, expiry delta, signature algorithms, TLS version, cipher suite) via socket wrapping, and GET connection metadata (status codes, redirects history, final destination URL). Exposed `POST /api/v1/extract/network` saving data to database feature records.
 
 ---
 
@@ -162,5 +165,7 @@ Ensure the local PostgreSQL database is running, then run the following checks:
 3. **Interactive OpenAPI Docs**: Navigate to `http://127.0.0.1:8000/docs` and confirm the 6 core resource groups (`Domains`, `Scans`, `Campaigns`, `Features`, `Risk Scores`, `Feature Extraction`) show the endpoint actions.
 4. **Validation Test**: Try sending a `POST /api/v1/domains` request with a missing required parameter (e.g. omitting `url`) and verify that FastAPI throws a `422 Unprocessable Entity` validation error response.
 5. **Operational Verification**: Try a `GET /api/v1/domains/999` and verify that the system correctly catches the null response and raises a `404 Not Found` response code.
-6. **Feature Extraction Verification**: Submit a `POST /api/v1/extract/domain` with payload `{"url": "https://google.com", "scan_id": 1}` (ensure a scan with ID 1 exists first) and verify it extracts domain metadata, calculates domain age, resolves DNS, and returns a HTTP 201 response with the structured JSON payload.
+6. **Feature Extraction Verification**: Submit a `POST /api/v1/extract/domain` with payload `{"url": "https://google.com", "scan_id": 1}` and verify it extracts domain metadata.
+7. **Network Extraction Verification**: Submit a `POST /api/v1/extract/network` with payload `{"url": "https://google.com", "scan_id": 1}` and verify it resolves IP, extracts SSL details (availability, days until expiry, issuer), redirect history, and returns HTTP 201 status with the structured JSON payload.
+
 
