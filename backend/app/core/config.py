@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     POSTGRES_POOL_SIZE: int = 10
     POSTGRES_MAX_OVERFLOW: int = 20
 
+    VIRUSTOTAL_API_KEY: str | None = None
+    PHISHTANK_API_KEY: str | None = None
+    URLHAUS_API_KEY: str | None = None
+    ABUSEIPDB_API_KEY: str | None = None
+    ALIENVAULT_OTX_API_KEY: str | None = None
+
+
    # 4 spaces indentation for the decorator
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
