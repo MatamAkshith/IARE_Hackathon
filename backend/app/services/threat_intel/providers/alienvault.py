@@ -1,12 +1,8 @@
-import time
-import logging
 from typing import Any, Dict, List, Optional
 import httpx
 
 from app.services.threat_intel.base import BaseThreatIntelProvider
 from app.services.threat_intel.models import ProviderResponse, ThreatVerdict, ThreatMatch
-
-logger = logging.getLogger("app.services.threat_intel.providers.alienvault")
 
 class AlienVaultProvider(BaseThreatIntelProvider):
     def __init__(self, api_key: Optional[str]) -> None:
@@ -27,7 +23,7 @@ class AlienVaultProvider(BaseThreatIntelProvider):
             "Accept": "application/json"
         }
 
-    def _normalize_response(self, raw_data: Dict[str, Any], response_time_ms: int) -> ProviderResponse:
+    def _normalize_response(self, raw_data: Dict[str, Any]) -> ProviderResponse:
         pulse_info = raw_data.get("pulse_info", {})
         count = pulse_info.get("count", 0)
 
@@ -55,41 +51,28 @@ class AlienVaultProvider(BaseThreatIntelProvider):
             verdict=verdict,
             matches=matches,
             raw_response=raw_data,
-            response_time_ms=response_time_ms
+            response_time_ms=0
         )
 
     async def lookup_ip(self, ip: str) -> ProviderResponse:
-        return await self._query_indicator("IPv4", ip)
+        return await self._query_indicator("IPv4", ip, "ip")
 
     async def lookup_domain(self, domain: str) -> ProviderResponse:
-        return await self._query_indicator("domain", domain)
+        return await self._query_indicator("domain", domain, "domain")
 
     async def lookup_url(self, url: str) -> ProviderResponse:
-        return await self._query_indicator("url", url)
+        return await self._query_indicator("url", url, "url")
 
-    async def _query_indicator(self, type_str: str, indicator: str) -> ProviderResponse:
-        start_time = time.time()
-        
-        if not self.is_enabled:
-            return ProviderResponse(
-                provider_name=self.provider_name,
-                verdict=ThreatVerdict.UNKNOWN,
-                matches=[],
-                raw_response={},
-                error="Provider is disabled or API key is missing",
-                response_time_ms=0
-            )
+    async def _query_indicator(self, type_str: str, indicator: str, indicator_type: str) -> ProviderResponse:
+        async def _run():
+            api_url = f"https://otx.alienvault.com/api/v1/indicators/{type_str}/{indicator}/general"
 
-        api_url = f"https://otx.alienvault.com/api/v1/indicators/{type_str}/{indicator}/general"
-
-        async with httpx.AsyncClient(timeout=10) as client:
-            try:
+            async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.get(api_url, headers=self._get_headers())
-                response_time_ms = int((time.time() - start_time) * 1000)
 
                 if response.status_code == 200:
                     raw_data = response.json()
-                    return self._normalize_response(raw_data, response_time_ms)
+                    return self._normalize_response(raw_data)
                 else:
                     return ProviderResponse(
                         provider_name=self.provider_name,
@@ -97,16 +80,7 @@ class AlienVaultProvider(BaseThreatIntelProvider):
                         matches=[],
                         raw_response={},
                         error=f"AlienVault OTX API returned HTTP {response.status_code}",
-                        response_time_ms=response_time_ms
+                        response_time_ms=0
                     )
-            except Exception as e:
-                response_time_ms = int((time.time() - start_time) * 1000)
-                logger.warning(f"AlienVault OTX {type_str} lookup exception: {e}")
-                return ProviderResponse(
-                    provider_name=self.provider_name,
-                    verdict=ThreatVerdict.UNKNOWN,
-                    matches=[],
-                    raw_response={},
-                    error=f"Connection/Timeout exception: {str(e)}",
-                    response_time_ms=response_time_ms
-                )
+
+        return await self._safe_lookup(indicator, indicator_type, _run())

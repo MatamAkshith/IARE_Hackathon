@@ -1,17 +1,12 @@
-import time
-import logging
 from typing import Any, Dict, List, Optional
 import httpx
 
 from app.services.threat_intel.base import BaseThreatIntelProvider
 from app.services.threat_intel.models import ProviderResponse, ThreatVerdict, ThreatMatch
 
-logger = logging.getLogger("app.services.threat_intel.providers.phishtank")
-
 class PhishTankProvider(BaseThreatIntelProvider):
     def __init__(self, api_key: Optional[str]) -> None:
         self._api_key = api_key
-        # PhishTank can run without a key
         self._enabled = True
 
     @property
@@ -23,28 +18,22 @@ class PhishTankProvider(BaseThreatIntelProvider):
         return self._enabled
 
     async def lookup_url(self, url: str) -> ProviderResponse:
-        start_time = time.time()
-        
-        payload: Dict[str, Any] = {
-            "url": url,
-            "format": "json"
-        }
-        if self._api_key and self._api_key.strip():
-            payload["app_key"] = self._api_key
+        async def _run():
+            payload: Dict[str, Any] = {
+                "url": url,
+                "format": "json"
+            }
+            if self._api_key and self._api_key.strip():
+                payload["app_key"] = self._api_key
 
-        api_url = "https://checkurl.phishtank.com/checkurl/"
-        headers = {
-            "User-Agent": "phishtank/threatlens",
-            "Accept": "application/json"
-        }
+            api_url = "https://checkurl.phishtank.com/checkurl/"
+            headers = {
+                "User-Agent": "phishtank/threatlens",
+                "Accept": "application/json"
+            }
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            try:
-                # PhishTank checkurl API expects application/x-www-form-urlencoded (data=payload)
+            async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.post(api_url, data=payload, headers=headers)
-
-
-                response_time_ms = int((time.time() - start_time) * 1000)
 
                 if response.status_code == 200:
                     raw_data = response.json()
@@ -72,7 +61,7 @@ class PhishTankProvider(BaseThreatIntelProvider):
                         verdict=verdict,
                         matches=matches,
                         raw_response=raw_data,
-                        response_time_ms=response_time_ms
+                        response_time_ms=0
                     )
                 else:
                     return ProviderResponse(
@@ -81,42 +70,13 @@ class PhishTankProvider(BaseThreatIntelProvider):
                         matches=[],
                         raw_response={},
                         error=f"PhishTank API returned HTTP {response.status_code}",
-                        response_time_ms=response_time_ms
+                        response_time_ms=0
                     )
-            except Exception as e:
-                response_time_ms = int((time.time() - start_time) * 1000)
-                logger.warning(f"PhishTank URL lookup exception: {e}")
-                return ProviderResponse(
-                    provider_name=self.provider_name,
-                    verdict=ThreatVerdict.UNKNOWN,
-                    matches=[],
-                    raw_response={},
-                    error=f"Connection/Timeout exception: {str(e)}",
-                    response_time_ms=response_time_ms
-                )
+
+        return await self._safe_lookup(url, "url", _run())
 
     async def lookup_domain(self, domain: str) -> ProviderResponse:
-        """
-        PhishTank only supports URL-level checks.
-        """
-        return ProviderResponse(
-            provider_name=self.provider_name,
-            verdict=ThreatVerdict.UNKNOWN,
-            matches=[],
-            raw_response={},
-            error="Domain lookup is unsupported by PhishTank",
-            response_time_ms=0
-        )
+        return self._unsupported_indicator("domain")
 
     async def lookup_ip(self, ip: str) -> ProviderResponse:
-        """
-        PhishTank only supports URL-level checks.
-        """
-        return ProviderResponse(
-            provider_name=self.provider_name,
-            verdict=ThreatVerdict.UNKNOWN,
-            matches=[],
-            raw_response={},
-            error="IP lookup is unsupported by PhishTank",
-            response_time_ms=0
-        )
+        return self._unsupported_indicator("ip")

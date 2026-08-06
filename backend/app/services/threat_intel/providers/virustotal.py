@@ -1,13 +1,9 @@
 import base64
-import time
-import logging
 from typing import Any, Dict, List, Optional
 import httpx
 
 from app.services.threat_intel.base import BaseThreatIntelProvider
 from app.services.threat_intel.models import ProviderResponse, ThreatVerdict, ThreatMatch
-
-logger = logging.getLogger("app.services.threat_intel.providers.virustotal")
 
 class VirusTotalProvider(BaseThreatIntelProvider):
     def __init__(self, api_key: Optional[str]) -> None:
@@ -29,9 +25,6 @@ class VirusTotalProvider(BaseThreatIntelProvider):
         }
 
     def _map_stats_to_verdict(self, stats: Dict[str, int]) -> ThreatVerdict:
-        """
-        Map VT last_analysis_stats to ThreatVerdict.
-        """
         malicious = stats.get("malicious", 0)
         suspicious = stats.get("suspicious", 0)
         harmless = stats.get("harmless", 0)
@@ -47,9 +40,6 @@ class VirusTotalProvider(BaseThreatIntelProvider):
         return ThreatVerdict.UNKNOWN
 
     def _extract_matches(self, attributes: Dict[str, Any]) -> List[ThreatMatch]:
-        """
-        Extract engine detections as ThreatMatch entries.
-        """
         matches = []
         results = attributes.get("last_analysis_results", {})
         for engine, res_val in results.items():
@@ -67,193 +57,85 @@ class VirusTotalProvider(BaseThreatIntelProvider):
         return matches
 
     async def lookup_url(self, url: str) -> ProviderResponse:
-        start_time = time.time()
-        
-        if not self.is_enabled:
-            return ProviderResponse(
-                provider_name=self.provider_name,
-                verdict=ThreatVerdict.UNKNOWN,
-                matches=[],
-                raw_response={},
-                error="Provider is disabled or API key is missing",
-                response_time_ms=0
-            )
-
-        # Base64 encode the URL (URL-safe, no padding)
-        try:
+        async def _run():
             url_id = base64.urlsafe_b64encode(url.encode()).decode().strip("=")
-        except Exception as e:
-            return ProviderResponse(
-                provider_name=self.provider_name,
-                verdict=ThreatVerdict.UNKNOWN,
-                matches=[],
-                raw_response={},
-                error=f"Base64 encoding URL failed: {str(e)}",
-                response_time_ms=int((time.time() - start_time) * 1000)
-            )
-
-        api_url = f"https://www.virustotal.com/api/v3/urls/{url_id}"
-        
-        async with httpx.AsyncClient(timeout=10) as client:
-            try:
+            api_url = f"https://www.virustotal.com/api/v3/urls/{url_id}"
+            
+            async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.get(api_url, headers=self._get_headers())
-                response_time_ms = int((time.time() - start_time) * 1000)
-
+                
                 if response.status_code == 200:
                     raw_data = response.json()
                     attributes = raw_data.get("data", {}).get("attributes", {})
                     stats = attributes.get("last_analysis_stats", {})
-                    
                     verdict = self._map_stats_to_verdict(stats)
                     matches = self._extract_matches(attributes)
-                    
                     return ProviderResponse(
                         provider_name=self.provider_name,
                         verdict=verdict,
                         matches=matches,
                         raw_response=raw_data,
-                        response_time_ms=response_time_ms
+                        response_time_ms=0
                     )
                 elif response.status_code == 401:
-                    return ProviderResponse(
-                        provider_name=self.provider_name,
-                        verdict=ThreatVerdict.UNKNOWN,
-                        matches=[],
-                        raw_response={},
-                        error="Invalid API key (401)",
-                        response_time_ms=response_time_ms
-                    )
+                    error_msg = "Invalid API key (401)"
                 elif response.status_code == 404:
-                    return ProviderResponse(
-                        provider_name=self.provider_name,
-                        verdict=ThreatVerdict.UNKNOWN,
-                        matches=[],
-                        raw_response={},
-                        error="Resource not found (404)",
-                        response_time_ms=response_time_ms
-                    )
+                    error_msg = "Resource not found (404)"
                 elif response.status_code == 429:
-                    return ProviderResponse(
-                        provider_name=self.provider_name,
-                        verdict=ThreatVerdict.UNKNOWN,
-                        matches=[],
-                        raw_response={},
-                        error="Rate limit exceeded (429)",
-                        response_time_ms=response_time_ms
-                    )
+                    error_msg = "Rate limit exceeded (429)"
                 else:
-                    return ProviderResponse(
-                        provider_name=self.provider_name,
-                        verdict=ThreatVerdict.UNKNOWN,
-                        matches=[],
-                        raw_response={},
-                        error=f"VirusTotal API returned HTTP {response.status_code}",
-                        response_time_ms=response_time_ms
-                    )
-            except Exception as e:
-                response_time_ms = int((time.time() - start_time) * 1000)
-                logger.warning(f"VirusTotal URL lookup exception: {e}")
+                    error_msg = f"VirusTotal API returned HTTP {response.status_code}"
+
                 return ProviderResponse(
                     provider_name=self.provider_name,
                     verdict=ThreatVerdict.UNKNOWN,
                     matches=[],
                     raw_response={},
-                    error=f"Connection/Timeout exception: {str(e)}",
-                    response_time_ms=response_time_ms
+                    error=error_msg,
+                    response_time_ms=0
                 )
+
+        return await self._safe_lookup(url, "url", _run())
 
     async def lookup_domain(self, domain: str) -> ProviderResponse:
-        start_time = time.time()
-        
-        if not self.is_enabled:
-            return ProviderResponse(
-                provider_name=self.provider_name,
-                verdict=ThreatVerdict.UNKNOWN,
-                matches=[],
-                raw_response={},
-                error="Provider is disabled or API key is missing",
-                response_time_ms=0
-            )
-
-        api_url = f"https://www.virustotal.com/api/v3/domains/{domain}"
-        
-        async with httpx.AsyncClient(timeout=10) as client:
-            try:
+        async def _run():
+            api_url = f"https://www.virustotal.com/api/v3/domains/{domain}"
+            
+            async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.get(api_url, headers=self._get_headers())
-                response_time_ms = int((time.time() - start_time) * 1000)
-
+                
                 if response.status_code == 200:
                     raw_data = response.json()
                     attributes = raw_data.get("data", {}).get("attributes", {})
                     stats = attributes.get("last_analysis_stats", {})
-                    
                     verdict = self._map_stats_to_verdict(stats)
                     matches = self._extract_matches(attributes)
-                    
                     return ProviderResponse(
                         provider_name=self.provider_name,
                         verdict=verdict,
                         matches=matches,
                         raw_response=raw_data,
-                        response_time_ms=response_time_ms
+                        response_time_ms=0
                     )
                 elif response.status_code == 401:
-                    return ProviderResponse(
-                        provider_name=self.provider_name,
-                        verdict=ThreatVerdict.UNKNOWN,
-                        matches=[],
-                        raw_response={},
-                        error="Invalid API key (401)",
-                        response_time_ms=response_time_ms
-                    )
+                    error_msg = "Invalid API key (401)"
                 elif response.status_code == 404:
-                    return ProviderResponse(
-                        provider_name=self.provider_name,
-                        verdict=ThreatVerdict.UNKNOWN,
-                        matches=[],
-                        raw_response={},
-                        error="Resource not found (404)",
-                        response_time_ms=response_time_ms
-                    )
+                    error_msg = "Resource not found (404)"
                 elif response.status_code == 429:
-                    return ProviderResponse(
-                        provider_name=self.provider_name,
-                        verdict=ThreatVerdict.UNKNOWN,
-                        matches=[],
-                        raw_response={},
-                        error="Rate limit exceeded (429)",
-                        response_time_ms=response_time_ms
-                    )
+                    error_msg = "Rate limit exceeded (429)"
                 else:
-                    return ProviderResponse(
-                        provider_name=self.provider_name,
-                        verdict=ThreatVerdict.UNKNOWN,
-                        matches=[],
-                        raw_response={},
-                        error=f"VirusTotal API returned HTTP {response.status_code}",
-                        response_time_ms=response_time_ms
-                    )
-            except Exception as e:
-                response_time_ms = int((time.time() - start_time) * 1000)
-                logger.warning(f"VirusTotal Domain lookup exception: {e}")
+                    error_msg = f"VirusTotal API returned HTTP {response.status_code}"
+
                 return ProviderResponse(
                     provider_name=self.provider_name,
                     verdict=ThreatVerdict.UNKNOWN,
                     matches=[],
                     raw_response={},
-                    error=f"Connection/Timeout exception: {str(e)}",
-                    response_time_ms=response_time_ms
+                    error=error_msg,
+                    response_time_ms=0
                 )
 
+        return await self._safe_lookup(domain, "domain", _run())
+
     async def lookup_ip(self, ip: str) -> ProviderResponse:
-        """
-        IP lookup is currently unsupported in this stage.
-        """
-        return ProviderResponse(
-            provider_name=self.provider_name,
-            verdict=ThreatVerdict.UNKNOWN,
-            matches=[],
-            raw_response={},
-            error="IP reputation lookups are unsupported in this stage.",
-            response_time_ms=0
-        )
+        return self._unsupported_indicator("ip")

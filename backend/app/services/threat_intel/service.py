@@ -46,6 +46,9 @@ class ThreatIntelService:
         if av_provider.is_enabled:
             self.register_provider(av_provider)
 
+        logger.info(f"Initialized ThreatIntelService. Active providers: {list(self._providers.keys())}")
+
+
 
 
 

@@ -1,13 +1,8 @@
-import time
-import logging
 from typing import Any, Dict, List, Optional
 import httpx
 
 from app.services.threat_intel.base import BaseThreatIntelProvider
 from app.services.threat_intel.models import ProviderResponse, ThreatVerdict, ThreatMatch
-
-logger = logging.getLogger("app.services.threat_intel.providers.urlhaus")
-
 from app.core.config import settings
 
 class URLHausProvider(BaseThreatIntelProvider):
@@ -24,34 +19,28 @@ class URLHausProvider(BaseThreatIntelProvider):
         return self._enabled
 
     async def lookup_url(self, url: str) -> ProviderResponse:
-        start_time = time.time()
-        
-        # Safe bypass if API key is not present or missing
-        if not self._api_key or not self._api_key.strip():
-            return ProviderResponse(
-                provider_name=self.provider_name,
-                verdict=ThreatVerdict.UNKNOWN,
-                matches=[],
-                raw_response={},
-                error="Bypassed URLHaus lookup: API key is missing or not configured",
-                response_time_ms=0
-            )
-        
-        payload = {
-            "url": url
-        }
-        api_url = "https://urlhaus-api.abuse.ch/v1/url/"
-        headers = {
-            "Auth-Key": self._api_key,
-            "Accept": "application/json"
-        }
+        async def _run():
+            if not self._api_key or not self._api_key.strip():
+                return ProviderResponse(
+                    provider_name=self.provider_name,
+                    verdict=ThreatVerdict.UNKNOWN,
+                    matches=[],
+                    raw_response={},
+                    error="Bypassed URLHaus lookup: API key is missing or not configured",
+                    response_time_ms=0
+                )
 
-        async with httpx.AsyncClient(timeout=10) as client:
-            try:
-                # URLHaus expects application/x-www-form-urlencoded
+            payload = {
+                "url": url
+            }
+            api_url = "https://urlhaus-api.abuse.ch/v1/url/"
+            headers = {
+                "Auth-Key": self._api_key,
+                "Accept": "application/json"
+            }
+
+            async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.post(api_url, data=payload, headers=headers)
-                response_time_ms = int((time.time() - start_time) * 1000)
-
 
                 if response.status_code == 200:
                     raw_data = response.json()
@@ -81,7 +70,7 @@ class URLHausProvider(BaseThreatIntelProvider):
                         verdict=verdict,
                         matches=matches,
                         raw_response=raw_data,
-                        response_time_ms=response_time_ms
+                        response_time_ms=0
                     )
                 else:
                     return ProviderResponse(
@@ -90,42 +79,13 @@ class URLHausProvider(BaseThreatIntelProvider):
                         matches=[],
                         raw_response={},
                         error=f"URLHaus API returned HTTP {response.status_code}",
-                        response_time_ms=response_time_ms
+                        response_time_ms=0
                     )
-            except Exception as e:
-                response_time_ms = int((time.time() - start_time) * 1000)
-                logger.warning(f"URLHaus URL lookup exception: {e}")
-                return ProviderResponse(
-                    provider_name=self.provider_name,
-                    verdict=ThreatVerdict.UNKNOWN,
-                    matches=[],
-                    raw_response={},
-                    error=f"Connection/Timeout exception: {str(e)}",
-                    response_time_ms=response_time_ms
-                )
+
+        return await self._safe_lookup(url, "url", _run())
 
     async def lookup_domain(self, domain: str) -> ProviderResponse:
-        """
-        URLHaus URL endpoint does not directly support clean Domain reputation queries in this structure.
-        """
-        return ProviderResponse(
-            provider_name=self.provider_name,
-            verdict=ThreatVerdict.UNKNOWN,
-            matches=[],
-            raw_response={},
-            error="Domain lookup is unsupported by URLHaus in this stage",
-            response_time_ms=0
-        )
+        return self._unsupported_indicator("domain")
 
     async def lookup_ip(self, ip: str) -> ProviderResponse:
-        """
-        URLHaus URL endpoint does not directly support clean IP reputation queries.
-        """
-        return ProviderResponse(
-            provider_name=self.provider_name,
-            verdict=ThreatVerdict.UNKNOWN,
-            matches=[],
-            raw_response={},
-            error="IP lookup is unsupported by URLHaus in this stage",
-            response_time_ms=0
-        )
+        return self._unsupported_indicator("ip")

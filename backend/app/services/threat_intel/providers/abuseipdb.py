@@ -1,12 +1,8 @@
-import time
-import logging
 from typing import Any, Dict, List, Optional
 import httpx
 
 from app.services.threat_intel.base import BaseThreatIntelProvider
 from app.services.threat_intel.models import ProviderResponse, ThreatVerdict, ThreatMatch
-
-logger = logging.getLogger("app.services.threat_intel.providers.abuseipdb")
 
 class AbuseIPDBProvider(BaseThreatIntelProvider):
     def __init__(self, api_key: Optional[str]) -> None:
@@ -22,29 +18,16 @@ class AbuseIPDBProvider(BaseThreatIntelProvider):
         return self._enabled
 
     async def lookup_ip(self, ip: str) -> ProviderResponse:
-        start_time = time.time()
-        
-        if not self.is_enabled:
-            return ProviderResponse(
-                provider_name=self.provider_name,
-                verdict=ThreatVerdict.UNKNOWN,
-                matches=[],
-                raw_response={},
-                error="Provider is disabled or API key is missing",
-                response_time_ms=0
-            )
+        async def _run():
+            api_url = "https://api.abuseipdb.com/api/v2/check"
+            params = {"ipAddress": ip}
+            headers = {
+                "Key": self._api_key or "",
+                "Accept": "application/json"
+            }
 
-        api_url = "https://api.abuseipdb.com/api/v2/check"
-        params = {"ipAddress": ip}
-        headers = {
-            "Key": self._api_key or "",
-            "Accept": "application/json"
-        }
-
-        async with httpx.AsyncClient(timeout=10) as client:
-            try:
+            async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.get(api_url, headers=headers, params=params)
-                response_time_ms = int((time.time() - start_time) * 1000)
 
                 if response.status_code == 200:
                     raw_data = response.json()
@@ -74,7 +57,7 @@ class AbuseIPDBProvider(BaseThreatIntelProvider):
                         verdict=verdict,
                         matches=matches,
                         raw_response=raw_data,
-                        response_time_ms=response_time_ms
+                        response_time_ms=0
                     )
                 else:
                     return ProviderResponse(
@@ -83,42 +66,13 @@ class AbuseIPDBProvider(BaseThreatIntelProvider):
                         matches=[],
                         raw_response={},
                         error=f"AbuseIPDB API returned HTTP {response.status_code}",
-                        response_time_ms=response_time_ms
+                        response_time_ms=0
                     )
-            except Exception as e:
-                response_time_ms = int((time.time() - start_time) * 1000)
-                logger.warning(f"AbuseIPDB IP lookup exception: {e}")
-                return ProviderResponse(
-                    provider_name=self.provider_name,
-                    verdict=ThreatVerdict.UNKNOWN,
-                    matches=[],
-                    raw_response={},
-                    error=f"Connection/Timeout exception: {str(e)}",
-                    response_time_ms=response_time_ms
-                )
+
+        return await self._safe_lookup(ip, "ip", _run())
 
     async def lookup_url(self, url: str) -> ProviderResponse:
-        """
-        AbuseIPDB only supports IP reputation queries.
-        """
-        return ProviderResponse(
-            provider_name=self.provider_name,
-            verdict=ThreatVerdict.UNKNOWN,
-            matches=[],
-            raw_response={},
-            error="URL reputation lookup is unsupported by AbuseIPDB",
-            response_time_ms=0
-        )
+        return self._unsupported_indicator("url")
 
     async def lookup_domain(self, domain: str) -> ProviderResponse:
-        """
-        AbuseIPDB only supports IP reputation queries.
-        """
-        return ProviderResponse(
-            provider_name=self.provider_name,
-            verdict=ThreatVerdict.UNKNOWN,
-            matches=[],
-            raw_response={},
-            error="Domain reputation lookup is unsupported by AbuseIPDB",
-            response_time_ms=0
-        )
+        return self._unsupported_indicator("domain")
