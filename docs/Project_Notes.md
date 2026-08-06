@@ -41,22 +41,21 @@ Corporate brand impersonation and high-fidelity phishing websites have become in
 | R-001 | Scanning engines get blocked by Cloudflare/Cloudfront on targets | High | High | Rotate scrape proxies and user-agent strings. Fallback to headless browser capture engines. |
 | R-002 | AI models take too long to run synchronously | Medium | High | Decouple scanning from response via FastAPI background tasks or a task queue. |
 
+> *NOTE TO AGENT: You must read and review `PROJECT_NOTES.md` at the start of every task/prompt to maintain full context of project progress, design decisions, and active changes.*
+
+---
+
 ## Completed Implementation Progress & Feature Tracking
 
-### Stage 1: Core Framework Initialization
-- **FastAPI Lifespan Setup**: Configured app setup using `asynccontextmanager` context lifespan blocks, outputting clean lifecycle startup and shutdown events logs.
-- **API Routing Framework**: Implemented top-level and versioned API router mounts (`/api/v1`).
-- **Health Verification Services**: Deployed route structures for `/api/v1/health` (metadata info), `/api/v1/health/ready` (system readiness checks placeholder), and `/api/v1/health/live` (lightweight liveness checks).
+## Sprint 1
 
-### Stage 2: Configuration & Request-Processing Pipeline
-- **Centralized Environment Module**: Implemented Pydantic-Settings environment manager (`BaseSettings`) loading validated variables from `.env` dynamically with fallback settings default values.
-- **Request Traceability (Request ID Middleware)**: Deployed custom middleware generating a unique tracing `uuid` and injecting it as `X-Request-ID` in HTTP headers.
-- **Timing and Monitoring Logs (Logging Middleware)**: Deployed processing duration logger tracing HTTP method, path, response code, and corresponding Request ID.
-- **CORS Config**: CORS configuration enabled via settings integration.
+- **2026-08-06 (Sprint 1 - Task 1 - 09:25):** **Task 1 (Boilerplate Structure Setup):** Generated complete project boilerplate and folder structures (`backend/app`, `frontend/src`, `docs`, `config`, `docker`, `tests`, `scripts`), creating the main root setup files (`README.md`, `.gitignore`, `.env.example`, `docker-compose.yml`) and starting documentations template.
+- **2026-08-06 (Sprint 1 - Task 2 - 09:41):** **Task 2 (Backend Core Entry Setup):** Set up backend entry points `backend/app/main.py`, the core router `backend/app/api/router.py`, the root endpoint `backend/app/api/endpoints/root.py` and basic `Dockerfile` and `docker-compose.yml` local configs in `backend/` utilizing FastAPI and Uvicorn.
+- **2026-08-06 (Sprint 1 - Task 3 - 09:43):** **Task 3 (Centralized Configuration Layer):** Implemented Settings class using Pydantic Settings base validation (`BaseSettings`, `SettingsConfigDict`) to load variables from `.env` dynamically with fallback settings default values.
+- **2026-08-06 (Sprint 1 - Task 4 - 09:47):** **Task 4 (Request-Processing Middleware):** Integrated CORSMiddleware, custom `RequestIDMiddleware` (UUID tracking header injection as `X-Request-ID`), and custom timing/response `LoggingMiddleware`.
+- **2026-08-06 (Sprint 1 - Task 5 - 09:54):** **Task 5 (Lifespan & Health Check Routers):** Added FastAPI lifespan lifecycle hooks (`Starting/Shutting down ThreatLens API framework...`) and structured versioned health checks endpoints `/health`, `/ready`, `/live` under the `/api/v1` router prefix.
+- **2026-08-06 (Sprint 1 - Task 6 - 10:07):** **Task 6 (Database Engine Setup):** Configured core database engine connection pool specifications (`pool_pre_ping=True`, `pool_size`, `max_overflow`), integrating PostgreSQL driver requirements (using psycopg3 adapter).
+- **2026-08-06 (Sprint 1 - Task 7 - 10:19):** **Task 7 (ORM Base & Dependencies Setup):** Created SQLAlchemy ORM foundation by designing declarative Base class using `@as_declarative()` with automated table name conversions, audit columns (`id`, `created_at`, `updated_at`), and `get_db()` request-scoped connection generator dependency.
+- **2026-08-06 (Sprint 1 - Task 8 - 13:58):** **Task 8 (Feature Progress Documentation Update):** Populated project notes documentation index to track completed backend configuration milestones and implementation changes.
 
-### Stage 3: Database & ORM Infrastructure
-- **SQLAlchemy Engine**: Configured database connection engine with robust pooling parameters (`pool_pre_ping=True`, `pool_size`, `max_overflow`), using the modern `psycopg` (v3) PostgreSQL adapter.
-- **Declarative Base**: Formulated central base declarative class mapping automated table lowercase schemas (`__tablename__`) and including audit columns (`id`, `created_at`, `updated_at`).
-- **Session Factory**: Created `SessionLocal` database thread-safe session generator.
-- **Dependency Injectors**: Designed request-scoped context generator function `get_db()` resolving database connection sessions lifecycle management.
 
