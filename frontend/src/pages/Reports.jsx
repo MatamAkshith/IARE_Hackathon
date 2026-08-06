@@ -1,5 +1,6 @@
-import React from 'react'
-import { threatIntelligenceData } from '../data/threatIntelligenceData'
+import useReports from '../hooks/useReports'
+import SkeletonLoader from '../components/SkeletonLoader'
+import ErrorFallback from '../components/ErrorFallback'
 import ThreatFeedPanel from '../components/reports/ThreatFeedPanel'
 import IOCTable from '../components/reports/IOCTable'
 import ReputationCard from '../components/reports/ReputationCard'
@@ -8,7 +9,13 @@ import IncidentReportPreview from '../components/reports/IncidentReportPreview'
 import ExportPreview from '../components/reports/ExportPreview'
 
 export default function Reports() {
-  const { threatFeeds, iocs, reputation, recommendations, reportPreview, exportOptions } = threatIntelligenceData
+  const { reports, loading, error, refetch } = useReports()
+
+  if (loading) return <SkeletonLoader />
+  if (error) return <ErrorFallback message={error} onRetry={refetch} />
+  if (!reports) return null
+
+  const { threatFeeds, iocs, reputation, recommendations, reportPreview, exportOptions } = reports
 
   return (
     <div className="space-y-6">

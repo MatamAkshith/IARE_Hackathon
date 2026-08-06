@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { investigationData } from '../data/investigationData'
+import useScans from '../hooks/useScans'
 import URLInputCard from '../components/investigation/URLInputCard'
 import ScanStatus from '../components/investigation/ScanStatus'
 import RiskSummary from '../components/investigation/RiskSummary'
@@ -9,30 +9,17 @@ import BadgeGroup from '../components/investigation/BadgeGroup'
 
 export default function Investigation() {
   const [url, setUrl] = useState('')
-  const [status, setStatus] = useState('idle') // idle, queued, scanning, completed
-  const [showResults, setShowResults] = useState(false)
+  const { result, loading, status, error, triggerScan, clearScan } = useScans()
 
   const handleScan = () => {
-    setStatus('queued')
-    setShowResults(false)
-
-    // Simulate pre-flight check loader delay
-    setTimeout(() => {
-      setStatus('scanning')
-      
-      // Simulate extraction pipeline query delay
-      setTimeout(() => {
-        setStatus('completed')
-        setShowResults(true)
-      }, 700)
-
-    }, 300)
+    if (url.trim()) {
+      triggerScan(url)
+    }
   }
 
   const handleClear = () => {
     setUrl('')
-    setStatus('idle')
-    setShowResults(false)
+    clearScan()
   }
 
   return (
@@ -64,21 +51,26 @@ export default function Investigation() {
 
         {/* Right Side Panel: Threat Reports (Visible when scan completes) */}
         <div className="lg:col-span-2">
-          {showResults ? (
+          {error ? (
+            <div className="border border-rose-900 bg-rose-950/10 p-6 rounded-xl text-center text-rose-400 text-xs shadow-md">
+              <span className="block font-bold uppercase tracking-wider mb-1">Scan Pipeline Error</span>
+              {error}
+            </div>
+          ) : result && status === 'completed' ? (
             <div className="space-y-6 animate-fade-in">
               {/* Risk Summary and Findings Tags */}
               <div className="space-y-4">
-                <RiskSummary risk={investigationData.risk} />
-                <BadgeGroup badges={investigationData.badges} />
+                <RiskSummary risk={result.risk} />
+                <BadgeGroup badges={result.badges} />
               </div>
 
               {/* Narratives and Accordions */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                 <div className="space-y-6">
-                  <ExplanationPanel findings={investigationData.explanation} />
+                  <ExplanationPanel findings={result.explanation} />
                 </div>
                 <div className="space-y-6">
-                  <EvidenceAccordion evidence={investigationData.evidence} />
+                  <EvidenceAccordion evidence={result.evidence} />
                 </div>
               </div>
             </div>

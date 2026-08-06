@@ -1,5 +1,6 @@
-import React from 'react'
-import { campaignData } from '../data/campaignData'
+import useCampaigns from '../hooks/useCampaigns'
+import SkeletonLoader from '../components/SkeletonLoader'
+import ErrorFallback from '../components/ErrorFallback'
 import CampaignSummaryCard from '../components/campaign/CampaignSummaryCard'
 import RelationshipGraph from '../components/campaign/RelationshipGraph'
 import ConnectedDomainsTable from '../components/campaign/ConnectedDomainsTable'
@@ -9,7 +10,13 @@ import ConfidenceCard from '../components/campaign/ConfidenceCard'
 import CampaignTimeline from '../components/campaign/CampaignTimeline'
 
 export default function Campaigns() {
-  const { summary, connectedDomains, infrastructure, sharedEvidence, confidence, timeline } = campaignData
+  const { campaigns, loading, error, refetch } = useCampaigns()
+
+  if (loading) return <SkeletonLoader />
+  if (error) return <ErrorFallback message={error} onRetry={refetch} />
+  if (!campaigns) return null
+
+  const { summary, connectedDomains, infrastructure, sharedEvidence, confidence, timeline } = campaigns
 
   return (
     <div className="space-y-6">

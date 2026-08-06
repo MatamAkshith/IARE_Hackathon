@@ -1,5 +1,6 @@
-import React from 'react'
-import { dashboardData } from '../data/dashboardData'
+import useDashboard from '../hooks/useDashboard'
+import SkeletonLoader from '../components/SkeletonLoader'
+import ErrorFallback from '../components/ErrorFallback'
 import KPICard from '../components/dashboard/KPICard'
 import RecentScansTable from '../components/dashboard/RecentScansTable'
 import RiskChart from '../components/dashboard/RiskChart'
@@ -9,7 +10,13 @@ import ThreatSummary from '../components/dashboard/ThreatSummary'
 import StatusPanel from '../components/dashboard/StatusPanel'
 
 export default function Dashboard() {
-  const { kpis, scans, riskDistribution, campaigns, timeline, threatSummary, services } = dashboardData
+  const { dashboard, loading, error, refetch } = useDashboard()
+
+  if (loading) return <SkeletonLoader />
+  if (error) return <ErrorFallback message={error} onRetry={refetch} />
+  if (!dashboard) return null
+
+  const { kpis, scans, riskDistribution, campaigns, timeline, threatSummary, services } = dashboard
 
   // Custom inline SVG icons for each KPI card type
   const kpiIcons = {
