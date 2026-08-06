@@ -3,3 +3,6 @@ uvicorn==0.30.1
 pydantic-settings==2.3.4
 sqlalchemy==2.0.31
 psycopg==3.2.9
+tldextract==5.1.2
+python-whois==0.9.4
+dnspython==2.6.1
