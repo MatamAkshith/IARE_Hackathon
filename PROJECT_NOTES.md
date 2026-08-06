@@ -256,6 +256,8 @@ The data layer and RESTful API layer are decoupled using four core patterns:
 7. **Feature Extraction Engine (Webpage HTML Intelligence)**: Standardized service layer (`WebpageIntelService`) fetching HTML content safely and parsing metadata tags (title, description, keywords, language, favicon, canonical, Open Graph properties), form structures (total forms, password inputs, login forms detection via name/id/class keywords), resource references (js count, css count, image count, internal/external resource counts), and links mapping (internal/external href tags) using BeautifulSoup.
 8. **Feature Extraction Engine (Feature Aggregation Pipeline)**: Orchestration layer (`FeatureAggregationService`) that executes all extraction services (Domain, Network, Webpage) concurrently/sequentially, handles timeouts or host failures gracefully by returning partial results, and combines outputs into a single normalized evidence dictionary containing metadata, status indicators, and errors.
 9. **Threat Intelligence Foundation (Stage 4.1)**: Structured modular framework (`app/services/threat_intel/`) containing Pydantic schemas (`models.py`) mapping verdicts and matches, an abstract base provider (`base.py:BaseThreatIntelProvider`) using `abc` with mandatory async methods (`lookup_url`, `lookup_domain`, `lookup_ip`), and a registry-based orchestration service (`service.py:ThreatIntelService`) to register and execute all configured feeds concurrently.
+10. **VirusTotal Integration (Stage 4.2)**: Specific threat provider integration (`app/services/threat_intel/providers/virustotal.py`) implementing v3 API URLs and Domains endpoints. Encodes URLs using URL-safe base64 parameter hashing, parses analysis engine indicators, normalizes responses into standardized schemas, and handles errors (401, 404, 429) gracefully.
+
 
 
 ### Integration Workflow
@@ -363,6 +365,8 @@ backend/app/
 - - **2026-08-06 (Sprint 1 - Task 15 - 20:22):** **Task 15 (Feature Extraction API & Finalization - Stage 3.5 & 3.6):** Exposed the complete Feature Extraction engine endpoints: `POST /api/v1/extract/` submitting a URL for full orchestration extraction and saving results; `GET /api/v1/extract/{id}` retrieving extraction evidence by database ID; `GET /api/v1/extract/history/{scan_id}` listing scan history features. Executed final stabilization passes.
 - **2026-08-06 (Sprint 1 - Task 16 - 20:50):** **Task 16 (Documentation Enhancement):** Added development rule standards, technology stack classifications, workflow layouts, relationship diagrams, roadmaps, risk-scoring heuristics schemas, and campaign attribution footprints. Synchronized notes index copies.
 - **2026-08-06 (Sprint 1 - Task 17 - 21:30):** **Task 17 (Threat Intelligence Foundation - Stage 4.1):** Set up external threat intelligence placeholder keys in configuration. Created `BaseThreatIntelProvider` abstract interfaces using `abc`, common Pydantic response models (`models.py`), and the service registry orchestration pattern (`service.py:ThreatIntelService`) to execute enabled providers concurrently.
+- **2026-08-06 (Sprint 1 - Task 18 - 21:40):** **Task 18 (VirusTotal Integration - Stage 4.2):** Implemented `VirusTotalProvider` invoking URL (URL-safe base64 parameters) and Domain lookup endpoints. Mapped analysis category statistics results to common verdicts, extracted engine records details to standard matches, and captured HTTP status exceptions. Updated registry constructor mappings.
+
 
 ---
 

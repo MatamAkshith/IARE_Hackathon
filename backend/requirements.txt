@@ -9,3 +9,4 @@ dnspython==2.6.1
 requests==2.31.0
 cryptography==42.0.5
 beautifulsoup4==4.12.3
+httpx==0.28.1

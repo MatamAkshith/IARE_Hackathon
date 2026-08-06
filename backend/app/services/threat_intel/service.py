@@ -6,11 +6,20 @@ import asyncio
 from app.services.threat_intel.base import BaseThreatIntelProvider
 from app.services.threat_intel.models import ThreatEvidence, ProviderResponse, ThreatVerdict
 
+from app.core.config import settings
+from app.services.threat_intel.providers.virustotal import VirusTotalProvider
+
 logger = logging.getLogger("app.services.threat_intel.service")
 
 class ThreatIntelService:
     def __init__(self) -> None:
         self._providers: Dict[str, BaseThreatIntelProvider] = {}
+        
+        # Instantiate and auto-register VirusTotal if enabled
+        vt_provider = VirusTotalProvider(api_key=settings.VIRUSTOTAL_API_KEY)
+        if vt_provider.is_enabled:
+            self.register_provider(vt_provider)
+
 
     def register_provider(self, provider: BaseThreatIntelProvider) -> None:
         """
