@@ -19,147 +19,150 @@ export default function ThreatFeedPanel({ feeds = {} }) {
         <h3 className="font-semibold text-slate-200 text-sm tracking-wide font-sans truncate">External Intelligence Feeds</h3>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full min-w-0">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full min-w-0">
         {/* VirusTotal Card */}
-        <div className="border border-[#1a2336] bg-[#090d16] p-4.5 rounded-xl hover:border-slate-700/60 hover:-translate-y-0.5 transition-all duration-300 shadow-sm flex flex-col justify-between w-full min-w-0 overflow-hidden">
-          <div className="space-y-3.5 min-w-0">
-            <div className="flex items-center justify-between border-b border-[#1a2336]/40 pb-2 min-w-0">
+        <div className="border border-[#1a2336] bg-[#090d16] p-6 rounded-xl hover:border-slate-700/60 hover:-translate-y-0.5 transition-all duration-300 shadow-sm flex flex-col justify-between w-full h-full min-w-0 overflow-hidden">
+          <div className="space-y-4 min-w-0">
+            <div className="flex items-center justify-between border-b border-[#1a2336]/40 pb-2.5 min-w-0">
               <span className="text-xs font-black text-slate-200 font-sans tracking-wide truncate">VirusTotal Intel</span>
-              <span className="text-[9px] font-mono font-bold uppercase text-brand-400 bg-brand-950/20 px-2 py-0.5 border border-brand-850/30 rounded flex-shrink-0">
+              <span className="text-[9px] font-mono font-bold uppercase text-brand-400 bg-brand-950/20 px-2.5 py-1 border border-brand-850/30 rounded flex-shrink-0 h-5.5 flex items-center justify-center">
                 {virusTotal.status}
               </span>
             </div>
             <div className="text-xs w-full min-w-0">
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Detection Ratio</span>
-                <span className="text-rose-400 font-mono font-bold text-right break-words min-w-0 flex-1">{virusTotal.detectionRatio}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Detection Ratio</span>
+                <span className="text-rose-400 font-mono font-bold text-right break-words min-w-0 flex-1 text-xs">{virusTotal.detectionRatio}</span>
               </div>
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Reputation Metric</span>
-                <span className="text-rose-400 font-mono font-semibold text-right break-words min-w-0 flex-1">{virusTotal.reputation}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Reputation Metric</span>
+                <span className="text-rose-400 font-mono font-semibold text-right break-words min-w-0 flex-1 text-xs">{virusTotal.reputation}</span>
               </div>
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Community Verdict</span>
-                <span className="text-rose-400 font-mono font-semibold text-right break-words min-w-0 flex-1">{virusTotal.communityScore}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Community Verdict</span>
+                <span className="text-rose-400 font-mono font-semibold text-right break-words min-w-0 flex-1 text-xs">{virusTotal.communityScore}</span>
               </div>
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Threat Ingest Time</span>
-                <span className="text-slate-300 font-mono text-right break-words min-w-0 flex-1">{virusTotal.lastAnalysis}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Ingest Time</span>
+                <span className="text-slate-300 font-mono text-right break-words min-w-0 flex-1 text-xs">{virusTotal.lastAnalysis}</span>
               </div>
             </div>
           </div>
-          <div className="pt-2.5 mt-3.5 border-t border-[#151d2c] flex justify-between items-center text-[10px] min-w-0">
-            <span className="text-slate-500 font-bold uppercase tracking-wider truncate">Severity Verdict</span>
-            <span className="px-2 py-0.5 rounded font-mono font-bold uppercase bg-rose-950/20 text-rose-400 border border-rose-850/30 flex-shrink-0">
+          <div className="pt-4 mt-4 border-t border-[#1a2336]/60 flex justify-between items-center text-[10.5px] min-w-0">
+            <span className="text-slate-500 font-bold uppercase tracking-widest text-[9.5px] truncate">Severity Verdict</span>
+            <span className="px-2.5 py-1 rounded font-mono font-bold uppercase bg-rose-950/20 text-rose-400 border border-rose-850/30 flex-shrink-0 h-5.5 flex items-center justify-center">
               {virusTotal.riskLevel}
             </span>
           </div>
         </div>
 
         {/* PhishTank Card */}
-        <div className="border border-[#1a2336] bg-[#090d16] p-4.5 rounded-xl hover:border-slate-700/60 hover:-translate-y-0.5 transition-all duration-300 shadow-sm flex flex-col justify-between w-full min-w-0 overflow-hidden">
-          <div className="space-y-3.5 min-w-0">
-            <div className="flex items-center justify-between border-b border-[#1a2336]/40 pb-2 min-w-0">
+        <div className="border border-[#1a2336] bg-[#090d16] p-6 rounded-xl hover:border-slate-700/60 hover:-translate-y-0.5 transition-all duration-300 shadow-sm flex flex-col justify-between w-full h-full min-w-0 overflow-hidden">
+          <div className="space-y-4 min-w-0">
+            <div className="flex items-center justify-between border-b border-[#1a2336]/40 pb-2.5 min-w-0">
               <span className="text-xs font-black text-slate-200 font-sans tracking-wide truncate">PhishTank Ingestion</span>
-              <span className="text-[9px] font-mono font-bold uppercase text-brand-400 bg-brand-950/20 px-2 py-0.5 border border-brand-850/30 rounded flex-shrink-0">
+              <span className="text-[9px] font-mono font-bold uppercase text-brand-400 bg-brand-950/20 px-2.5 py-1 border border-brand-850/30 rounded flex-shrink-0 h-5.5 flex items-center justify-center">
                 {phishTank.status}
               </span>
             </div>
             <div className="text-xs w-full min-w-0">
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Verdict Status</span>
-                <span className="text-rose-400 font-bold font-sans text-right break-words min-w-0 flex-1">{phishTank.verifiedStatus}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Verdict Status</span>
+                <span className="text-rose-400 font-bold font-sans text-right break-words min-w-0 flex-1 text-xs">{phishTank.verifiedStatus}</span>
               </div>
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Reports Ingested</span>
-                <span className="text-slate-300 font-mono font-bold text-right break-words min-w-0 flex-1">{phishTank.phishingReports} logs</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Reports Ingested</span>
+                <span className="text-slate-300 font-mono font-bold text-right break-words min-w-0 flex-1 text-xs">{phishTank.phishingReports} logs</span>
               </div>
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Impersonation Target</span>
-                <span className="text-slate-300 font-semibold text-right break-words min-w-0 flex-1">{phishTank.targetBrand}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Target Brand</span>
+                <span className="text-slate-300 font-semibold text-right break-words min-w-0 flex-1 text-xs">{phishTank.targetBrand}</span>
               </div>
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Submission Date</span>
-                <span className="text-slate-400 font-mono text-right break-words min-w-0 flex-1">{phishTank.submissionDate}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Submission Date</span>
+                <span className="text-slate-400 font-mono text-right break-words min-w-0 flex-1 text-xs">{phishTank.submissionDate}</span>
               </div>
             </div>
           </div>
-          <div className="pt-2.5 mt-3.5 border-t border-[#151d2c] flex justify-between items-center text-[10px] min-w-0">
-            <span className="text-slate-500 font-bold uppercase tracking-wider truncate">Scoring Confidence</span>
-            <span className="px-2 py-0.5 rounded font-mono font-bold uppercase bg-brand-950/20 text-brand-400 border border-brand-850/30 flex-shrink-0">
+          <div className="pt-4 mt-4 border-t border-[#1a2336]/60 flex justify-between items-center text-[10.5px] min-w-0">
+            <span className="text-slate-500 font-bold uppercase tracking-widest text-[9.5px] truncate">Scoring Confidence</span>
+            <span className="px-2.5 py-1 rounded font-mono font-bold uppercase bg-brand-950/20 text-brand-400 border border-brand-850/30 flex-shrink-0 h-5.5 flex items-center justify-center">
               {phishTank.confidence}
             </span>
           </div>
         </div>
 
         {/* URLHaus Card */}
-        <div className="border border-[#1a2336] bg-[#090d16] p-4.5 rounded-xl hover:border-slate-700/60 hover:-translate-y-0.5 transition-all duration-300 shadow-sm flex flex-col justify-between w-full min-w-0 overflow-hidden">
-          <div className="space-y-3.5 min-w-0">
-            <div className="flex items-center justify-between border-b border-[#1a2336]/40 pb-2 min-w-0">
+        <div className="border border-[#1a2336] bg-[#090d16] p-6 rounded-xl hover:border-slate-700/60 hover:-translate-y-0.5 transition-all duration-300 shadow-sm flex flex-col justify-between w-full h-full min-w-0 overflow-hidden">
+          <div className="space-y-4 min-w-0">
+            <div className="flex items-center justify-between border-b border-[#1a2336]/40 pb-2.5 min-w-0">
               <span className="text-xs font-black text-slate-200 font-sans tracking-wide truncate">URLHaus Database</span>
-              <span className="text-[9px] font-mono font-bold uppercase text-brand-400 bg-brand-950/20 px-2 py-0.5 border border-brand-850/30 rounded flex-shrink-0">
+              <span className="text-[9px] font-mono font-bold uppercase text-brand-400 bg-brand-950/20 px-2.5 py-1 border border-brand-850/30 rounded flex-shrink-0 h-5.5 flex items-center justify-center">
                 {urlHaus.status}
               </span>
             </div>
             <div className="text-xs w-full min-w-0">
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Malware Family</span>
-                <span className="text-slate-300 font-semibold text-right break-words min-w-0 flex-1">{urlHaus.malwareFamily}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Malware Family</span>
+                <span className="text-slate-300 font-semibold text-right break-words min-w-0 flex-1 text-xs">{urlHaus.malwareFamily}</span>
               </div>
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Threat Category</span>
-                <span className="text-rose-400 font-mono font-bold text-right break-words min-w-0 flex-1">{urlHaus.threatCategory}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Threat Category</span>
+                <span className="text-rose-400 font-mono font-bold text-right break-words min-w-0 flex-1 text-xs">{urlHaus.threatCategory}</span>
               </div>
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Domain Status</span>
-                <span className="text-rose-400 font-bold font-sans text-right break-words min-w-0 flex-1">{urlHaus.urlStatus}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Domain Status</span>
+                <span className="text-rose-400 font-bold font-sans text-right break-words min-w-0 flex-1 text-xs">{urlHaus.urlStatus}</span>
               </div>
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Active Host Status</span>
-                <span className="text-rose-400 font-mono font-bold text-right break-words min-w-0 flex-1">{urlHaus.hostStatus}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Host Status</span>
+                <span className="text-rose-400 font-mono font-bold text-right break-words min-w-0 flex-1 text-xs">{urlHaus.hostStatus}</span>
               </div>
             </div>
           </div>
-          <div className="pt-2.5 mt-3.5 border-t border-[#151d2c] flex flex-wrap gap-1 min-w-0">
-            {urlHaus.tags?.map((tag, idx) => (
-              <span key={idx} className="px-1.5 py-0.5 rounded text-[8.5px] font-mono font-bold bg-[#141b2c] text-slate-400 border border-slate-800 flex-shrink-0">
-                #{tag}
-              </span>
-            ))}
+          <div className="pt-4 mt-4 border-t border-[#1a2336]/60 flex justify-between items-center text-[10.5px] min-w-0">
+            <span className="text-slate-500 font-bold uppercase tracking-widest text-[9.5px] truncate">Attribution Tags</span>
+            <div className="flex flex-wrap gap-1 justify-end max-w-[62%]">
+              {urlHaus.tags?.map((tag, idx) => (
+                <span key={idx} className="px-1.5 py-0.5 rounded text-[8.5px] font-mono font-bold bg-[#141b2c] text-slate-400 border border-slate-850 flex-shrink-0">
+                  #{tag}
+                </span>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* AbuseIPDB Card */}
-        <div className="border border-[#1a2336] bg-[#090d16] p-4.5 rounded-xl hover:border-slate-700/60 hover:-translate-y-0.5 transition-all duration-300 shadow-sm flex flex-col justify-between w-full min-w-0 overflow-hidden">
-          <div className="space-y-3.5 min-w-0">
-            <div className="flex items-center justify-between border-b border-[#1a2336]/40 pb-2 min-w-0">
+        <div className="border border-[#1a2336] bg-[#090d16] p-6 rounded-xl hover:border-slate-700/60 hover:-translate-y-0.5 transition-all duration-300 shadow-sm flex flex-col justify-between w-full h-full min-w-0 overflow-hidden">
+          <div className="space-y-4 min-w-0">
+            <div className="flex items-center justify-between border-b border-[#1a2336]/40 pb-2.5 min-w-0">
               <span className="text-xs font-black text-slate-200 font-sans tracking-wide truncate">AbuseIPDB Registry</span>
-              <span className="text-[9px] font-mono font-bold uppercase text-brand-400 bg-brand-950/20 px-2 py-0.5 border border-brand-850/30 rounded flex-shrink-0">
+              <span className="text-[9px] font-mono font-bold uppercase text-brand-400 bg-brand-950/20 px-2.5 py-1 border border-brand-850/30 rounded flex-shrink-0 h-5.5 flex items-center justify-center">
                 {abuseIPDB.status}
               </span>
             </div>
             <div className="text-xs w-full min-w-0">
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Geo IP Country</span>
-                <span className="text-slate-300 font-medium font-sans text-right break-words min-w-0 flex-1">{abuseIPDB.country}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Geo IP Country</span>
+                <span className="text-slate-300 font-medium font-sans text-right break-words min-w-0 flex-1 text-xs">{abuseIPDB.country}</span>
               </div>
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Hosting ISP Provider</span>
-                <span className="text-slate-300 font-mono text-right break-words min-w-0 flex-1">{abuseIPDB.isp}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Hosting ISP</span>
+                <span className="text-slate-300 font-mono text-right break-words min-w-0 flex-1 text-xs">{abuseIPDB.isp}</span>
               </div>
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Usage Type</span>
-                <span className="text-slate-400 text-right break-words min-w-0 flex-1">{abuseIPDB.usageType}</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Usage Type</span>
+                <span className="text-slate-400 text-right break-words min-w-0 flex-1 text-xs">{abuseIPDB.usageType}</span>
               </div>
-              <div className="flex justify-between items-start py-1.5 border-b border-[#151d2c]/50 last:border-b-0 gap-2.5 w-full min-w-0">
-                <span className="text-slate-500 w-36 flex-shrink-0 text-left truncate font-medium">Total Abuse Reports</span>
-                <span className="text-rose-400 font-mono font-bold text-right break-words min-w-0 flex-1">{abuseIPDB.reports} cases</span>
+              <div className="flex justify-between items-start py-2.5 border-b border-[#151d2c]/50 last:border-b-0 gap-3 w-full min-w-0">
+                <span className="text-slate-500 w-[38%] flex-shrink-0 text-left truncate font-bold text-[9px] uppercase tracking-wider">Total Reports</span>
+                <span className="text-rose-400 font-mono font-bold text-right break-words min-w-0 flex-1 text-xs">{abuseIPDB.reports} cases</span>
               </div>
             </div>
           </div>
-          <div className="pt-2.5 mt-3.5 border-t border-[#151d2c] flex justify-between items-center text-[10px] min-w-0">
-            <span className="text-slate-500 font-bold uppercase tracking-wider truncate">Abuse Confidence</span>
-            <span className="px-2 py-0.5 rounded font-mono font-bold uppercase bg-rose-950/20 text-rose-400 border border-rose-850/30 animate-pulse flex-shrink-0">
+          <div className="pt-4 mt-4 border-t border-[#1a2336]/60 flex justify-between items-center text-[10.5px] min-w-0">
+            <span className="text-slate-500 font-bold uppercase tracking-widest text-[9.5px] truncate">Abuse Confidence</span>
+            <span className="px-2.5 py-1 rounded font-mono font-bold uppercase bg-rose-950/20 text-rose-400 border border-rose-850/30 animate-pulse flex-shrink-0 h-5.5 flex items-center justify-center">
               {abuseIPDB.abuseConfidence}
             </span>
           </div>
