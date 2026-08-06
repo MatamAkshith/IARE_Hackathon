@@ -1,16 +1,93 @@
 import React from 'react'
+import { dashboardData } from '../data/dashboardData'
+import KPICard from '../components/dashboard/KPICard'
+import RecentScansTable from '../components/dashboard/RecentScansTable'
+import RiskChart from '../components/dashboard/RiskChart'
+import CampaignOverview from '../components/dashboard/CampaignOverview'
+import ThreatTimeline from '../components/dashboard/ThreatTimeline'
+import ThreatSummary from '../components/dashboard/ThreatSummary'
+import StatusPanel from '../components/dashboard/StatusPanel'
 
 export default function Dashboard() {
+  const { kpis, scans, riskDistribution, campaigns, timeline, threatSummary, services } = dashboardData
+
+  // Custom inline SVG icons for each KPI card type
+  const kpiIcons = {
+    'total-scans': (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+    ),
+    'high-risk': (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    ),
+    'active-campaigns': (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636l-3.536 3.536m0 0A4 4 0 1011.293 14.7a4.007 4.007 0 003.535-3.535m-3.535 3.535L7.757 18.364m0 0A4 4 0 103.5 14.12a4.007 4.007 0 004.257 4.243z" />
+      </svg>
+    ),
+    'avg-risk': (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+    'threat-sources': (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+      </svg>
+    ),
+    'recent-activity': (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    )
+  }
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold tracking-tight text-[#f1f5f9]">Security Operations Center Dashboard</h1>
-      <p className="text-sm text-slate-400">
-        Monitor real-time threat intelligence ingestion pipeline, aggregate active campaigns, and track domain risk scoring statistics.
-      </p>
-      
-      {/* Visual placeholder box */}
-      <div className="border border-dashed border-[#1a2336] rounded-xl p-8 bg-[#090d16]/30 text-center text-slate-500 text-xs">
-        Dashboard telemetry analytics and risk score controls coming soon.
+    <div className="space-y-6">
+      {/* Header Area */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold tracking-tight text-[#f1f5f9]">Security Operations Center Dashboard</h1>
+        <p className="text-xs text-slate-400">
+          Real-time ingestion queue monitoring, campaign attributions, and risk assessment indicators.
+        </p>
+      </div>
+
+      {/* KPI Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {kpis.map((kpi) => (
+          <KPICard
+            key={kpi.id}
+            title={kpi.title}
+            value={kpi.value}
+            trend={kpi.trend}
+            icon={kpiIcons[kpi.id] || kpiIcons['total-scans']}
+            type={kpi.type}
+          />
+        ))}
+      </div>
+
+      {/* Main split grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Side: Domain Telemetry Table */}
+        <div className="lg:col-span-2 space-y-6">
+          <RecentScansTable scans={scans} />
+        </div>
+
+        {/* Right Side: Visual widgets stack */}
+        <div className="space-y-6">
+          <RiskChart data={riskDistribution} />
+          
+          <CampaignOverview campaigns={campaigns} />
+          
+          <ThreatSummary summary={threatSummary} />
+          
+          <ThreatTimeline events={timeline} />
+          
+          <StatusPanel services={services} />
+        </div>
       </div>
     </div>
   )
