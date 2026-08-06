@@ -4,10 +4,212 @@
 
 ---
 
-## 1. Project Vision & Problem Statement
+## Development Rule
+Before implementing any feature, always review:
+1. **Current Development Status**
+2. **System Architecture**
+3. **Decision Log**
+4. **Completed Progress Tracker**
+
+Every implementation must remain consistent with these sections. Every completed task must update:
+- **Progress Tracker**
+- **Documentation**
+- **Architecture** (if changed)
+- **Decision Log** (if applicable)
+- **Verification Checklist** (if required)
+
+---
+
+## 1. Current Development Status
+
+| Status | Component / Feature Group | Details |
+| :--- | :--- | :--- |
+| **Completed** | Project Boilerplate | Folder structure setup, configs, entry points. |
+| **Completed** | Backend Foundation | FastAPI entry, CORS middleware, UUID RequestID tracing. |
+| **Completed** | Configuration Layer | Pydantic Settings env validation. |
+| **Completed** | Middleware | Request timing and CORSMiddleware. |
+| **Completed** | Health & Lifecycle | Readiness check (`/ready`) querying PostgreSQL. |
+| **Completed** | Database Engine | Core SQLAlchemy engine with production connection pool settings. |
+| **Completed** | ORM Models | Declarative mapped entities (`Domain`, `Campaign`, `Scan`, `Feature`, `RiskScore`). |
+| **Completed** | Repository Pattern | Generic CRUDBase class & repository singletons injected in FastAPI deps. |
+| **Completed** | REST APIs | CRUD endpoints for all mapped entities. |
+| **Completed** | Feature Extraction Engine | URL Normalization, TLD parsing, WHOIS querying, DNS querying (A/MX/NS). |
+| **Completed** | Network & TLS Intel | IP PTR reverse DNS, non-verifying TLS cert parse (CN, SANs, Issuer, Expiry). |
+| **Completed** | Webpage HTML Intel | BeautifulSoup metadata, forms count, password detection, resource counters. |
+| **Completed** | Aggregation Pipeline | Unified feature extraction scheduler, failing gracefully, storing JSON. |
+| **Current** | Threat Intelligence Integration | Preparing integrations with threat intel feeds. |
+| **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
+| **Remaining** | Risk Scoring Engine | Explainable rules-based risk assessment engine. |
+| **Remaining** | Campaign Correlation | Attacker attribution and clustering based on shared footprints. |
+| **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
+| **Remaining** | Dashboard UI | Analyst control panel and queue dashboard. |
+| **Remaining** | Reporting | Exportable Markdown/PDF reports detailing threats evidence. |
+| **Remaining** | Deployment | Final packaging and cloud/docker deployment patterns. |
+
+---
+
+## 2. Complete Technology Stack
+
+### Frontend
+- **React**: Single page application framework.
+- **Vite**: Rapid frontend builder and server.
+- **TailwindCSS**: CSS framework for modern design aesthetics.
+
+### Backend
+- **FastAPI**: Main high-performance RESTful API router framework.
+- **Python**: Core programming language.
+
+### Database & Persistence
+- **PostgreSQL**: Primary transactional database.
+- **SQLAlchemy**: Relational mapper (ORM) for schema interactions.
+- **Pydantic V2**: Request validation and response serialization.
+
+### Extraction Libraries
+- **requests**: Standard HTTP GET client with redirect tracking.
+- **BeautifulSoup**: HTML webpage element parsing.
+- **dnspython**: Active DNS querying.
+- **python-whois**: Registrar and age tracking.
+- **socket & ssl**: Port 443 socket wrapping and certificate parsing.
+
+### Future Integrations
+- **Threat Feeds**: VirusTotal, PhishTank, URLHaus, AbuseIPDB.
+- **Brand Matching**: OpenCV, imagehash, RapidFuzz.
+
+---
+
+## 3. End-to-End System Workflow
+
+Runtime execution flow of URL submissions:
+
+```text
+User Submits URL (Dashboard)
+      ↓
+Create Scan Entity (DB Registry)
+      ↓
+Feature Extraction Pipeline
+  ├─ DomainIntelService (DNS, WHOIS)
+  ├─ NetworkIntelService (IP PTR, SSL/TLS cert)
+  └─ WebpageIntelService (BeautifulSoup HTML parsing)
+      ↓
+Threat Intelligence Feeds (VirusTotal, PhishTank, URLHaus, AbuseIPDB)
+      ↓
+Brand Intelligence (OpenCV matching, Favicon hashes, text similarity)
+      ↓
+Campaign Correlation Engine (group assets by footprint attributes)
+      ↓
+Risk Scoring Engine (0-100 explainable score computed)
+      ↓
+LLM Explanation (SOC analyst summary narrative)
+      ↓
+Dashboard Refresh (Analyst updates)
+      ↓
+Incident Report Generation (Markdown / PDF export)
+```
+
+1. **User Submits URL**: Analyst inputs target url through the React UI queue.
+2. **Create Scan**: System creates a Scan database record and links it to a Domain entity.
+3. **Feature Extraction**: Aggregation Pipeline queries DNS, WHOIS registry, wrapper port 443 SSL certificate, and webpage HTML.
+4. **Threat Intelligence Collection**: Feeds query reputation databases for quick matches.
+5. **Brand Intelligence**: OpenCV template and image hashing evaluates lookalike assets.
+6. **Campaign Correlation**: Attacker attribute matches identify campaign groups.
+7. **Risk Scoring**: Risk engine translates signals to a transparent score.
+8. **LLM Explanation**: Translates evidence logs to human narrative.
+9. **Dashboard / Report**: Exports evidence package to SOC dashboard or PDF.
+
+---
+
+## 4. Database Relationship Overview
+
+Entities in the ThreatLens database layer are mapped as follows:
+
+```text
+  ┌───────────────────┐
+  │     Campaign      │
+  └─────────┬─────────┘
+            │ 1
+            │
+            │ *
+  ┌─────────▼─────────┐
+  │      Domain       │
+  └─────────┬─────────┘
+            │ 1
+            │
+            │ *
+  ┌─────────▼─────────┐
+  │       Scan        │
+  └────┬──────────┬───┘
+       │ 1        │ 1
+       │          │
+       │ *        │ *
+┌──────▼──────┐ ┌─▼───────────┐
+│   Feature   │ │  RiskScore  │
+└─────────────┘ └─────────────┘
+```
+
+- **Campaign**: Groups multiple Domains under an identified adversary campaign.
+- **Domain**: Represents the unique hostname target submitted for analysis.
+- **Scan**: Represents an individual execution run on a Domain URL.
+- **Feature**: Holds structured json evidence results (e.g. domain age, TLS, HTML attributes) extracted during the Scan.
+- **RiskScore**: Holds the final explainable calculated score and contributing weights.
+
+---
+
+## 5. Development Roadmap
+
+- **Milestone 4 (Threat Intelligence Integration)**: Hook API client calls to check domain reputation on VirusTotal, PhishTank, URLHaus, and AbuseIPDB.
+- **Milestone 5 (Brand Intelligence)**: Deploy visual logo matches via OpenCV, favicon hashes (`imagehash`), and page text structure matching (`RapidFuzz`).
+- **Milestone 6 (Risk Scoring Engine)**: Establish the explainable weighted engine combining parameters.
+- **Milestone 7 (Campaign Correlation Engine)**: Deploy footprint mapping heuristics to group domain groups.
+- **Milestone 8 (Explainable AI)**: Narrative summary generation.
+- **Milestone 9 (Dashboard)**: Build React dashboard and queue tables.
+- **Milestone 10 (Reporting)**: Implement PDF/Markdown incident report generators.
+- **Milestone 11 (Integration)**: Final verification and cross-service tuning.
+- **Milestone 12 (Deployment)**: Dockerized deployment manifests.
+
+---
+
+## 6. Planned Risk Scoring Design
+
+> [!NOTE]
+> *This outlines the planned Risk Engine design. It is not yet implemented.*
+
+The ThreatLens Risk Engine calculates a transparent score from `0` (clean) to `100` (critical) using the following weighted signals:
+- **Domain Age**: Younger domains trigger higher risk weights (critical when <30 days).
+- **Registrar Reputation**: Flags known high-abuse registrars.
+- **SSL Certificate Validity**: Flags lack of SSL, short lifespans, or mismatching Common Names.
+- **Threat Intelligence**: Scoring modifiers based on VT detections or blacklist matches.
+- **Brand Similarity**: Flags visual logo or textual matches referencing protected enterprise assets.
+- **HTML structure**: Matches form input elements (password inputs) hosted on untrusted domains.
+- **Infrastructure Similarity**: Flags shared malicious IPs or nameservers.
+- **Campaign Confidence**: Scoring adjustments if linked to an active Campaign group.
+
+The risk report will detail the exact weights that contributed to the score, allowing analysts to justify domain takedown requests.
+
+---
+
+## 7. Campaign Correlation Design
+
+> [!NOTE]
+> *This outlines the planned Campaign Correlation design. It is not yet implemented.*
+
+Rather than treating target URLs as isolated events, ThreatLens groups assets into unified Campaign clusters based on shared infrastructure attributes. By matching footprints, analysts can identify the scope of target brands impersonation campaigns.
+
+Correlated evidence attributes include:
+- **Registrar similarity**: Domains registered near-simultaneously through matching registrars.
+- **Shared nameservers**: Matching DNS nameservers.
+- **Infrastructure reuse**: Hosting domains on identical IP ranges.
+- **SSL Cert properties**: Identical certificates signatures or issuers.
+- **Favicon hashes**: Matching icon visual assets.
+- **HTML structure similarity**: Matching templates structure.
+
+The correlation engine produces a Campaign group detailing associated domains, shared evidence, a correlation confidence score, and a brief explanation.
+
+---
+
+## 8. Project Vision & Problem Statement
 
 ### Project Vision
-ThreatLens aims to be the definitive open-source enterprise brand protection platform. By combining real-time OSINT scraping, machine learning heuristic classifiers, computer vision page structural similarity, and natural language sentiment analysis, ThreatLens democratizes threat detection. We empower security groups of all sizes to preemptively secure their online presence and neutralize attacks before they cause financial or reputational damage.
+ThreatLens aims to be the definitive open-source enterprise brand protection platform, specializing in **AI-assisted phishing investigation, explainable risk analysis, and campaign attribution**. By coordinating network/webpage intelligence features, calculating explainable risk scores, and correlating shared infrastructure footprints, ThreatLens equips SOC analysts with the concrete evidence needed to attribution threat campaigns and expedite domain takedowns.
 
 ### Problem Statement
 Corporate brand impersonation and high-fidelity phishing websites have become increasingly cheap and trivial to launch. Attackers rapidly deploy lookalike domains, scrape official corporate assets, and trick employees or clients. Existing security solutions are often reactive, opaque, or slow to flag new threats. SOC analysts are overwhelmed with raw logs and lack actionable evidence (e.g. OCR transcripts, brand asset matching details, structural comparison scores) required to justify rapid domain takedown requests.
@@ -19,7 +221,7 @@ Corporate brand impersonation and high-fidelity phishing websites have become in
 
 ---
 
-## 2. Scope & Boundaries
+## 9. Scope & Boundaries
 
 ### MVP Scope
 - **Domain Scan Queue**: An analyst-facing dashboard to submit suspicious URLs.
@@ -37,7 +239,7 @@ Corporate brand impersonation and high-fidelity phishing websites have become in
 
 ---
 
-## 3. System Architecture & Design Segregation
+## 10. System Architecture & Design Segregation
 
 ### Architectural Design
 The data layer and RESTful API layer are decoupled using four core patterns:
@@ -121,7 +323,7 @@ backend/app/
 
 ---
 
-## 4. Decision Log
+## 11. Decision Log
 
 | Date | Decision | Rationale | Alternatives Considered | Status |
 | :--- | :--- | :--- | :--- | :--- |
@@ -130,7 +332,7 @@ backend/app/
 
 ---
 
-## 5. Risk Register
+## 12. Risk Register
 
 | Risk ID | Risk Description | Likelihood | Impact | Mitigation Plan |
 | :--- | :--- | :--- | :--- | :--- |
@@ -139,7 +341,7 @@ backend/app/
 
 ---
 
-## 6. Completed Progress Tracker & Revision History
+## 13. Completed Progress Tracker & Revision History
 
 ### Sprint 1
 - **2026-08-06 (Sprint 1 - Task 1 - 09:25):** **Task 1 (Boilerplate Structure Setup):** Generated complete project boilerplate and folder structures (`backend/app`, `frontend/src`, `docs`, `config`, `docker`, `tests`, `scripts`), creating the main root setup files (`README.md`, `.gitignore`, `.env.example`, `docker-compose.yml`) and starting documentations template.
@@ -157,10 +359,11 @@ backend/app/
 - - **2026-08-06 (Sprint 1 - Task 13 - 20:10):** **Task 13 (Network & Certificate Intelligence - Stage 3.2):** Implemented `NetworkIntelService` extracting host IP, reverse DNS (PTR pointer lookup), peer SSL/TLS certificate details (issuer, subject, validity timelines, expiry delta, signature algorithms, TLS version, cipher suite) via socket wrapping, and GET connection metadata (status codes, redirects history, final destination URL). Exposed `POST /api/v1/extract/network` saving data to database feature records.
 - - **2026-08-06 (Sprint 1 - Task 14 - 20:15):** **Task 14 (Webpage Feature Extraction & Aggregation Pipeline - Stage 3.3 & 3.4):** Deployed the webpage structure and element counter (`WebpageIntelService`) pulling page html metadata, form controls, resources, and link metrics using BeautifulSoup. Created orchestration pipeline (`FeatureAggregationService`) that aggregates domain, network, and webpage services safely into a single unified JSON evidence record. Updated `POST /api/v1/extract/domain` endpoint to store the complete aggregated object in the database features registry under key `domain_intel`.
 - - **2026-08-06 (Sprint 1 - Task 15 - 20:22):** **Task 15 (Feature Extraction API & Finalization - Stage 3.5 & 3.6):** Exposed the complete Feature Extraction engine endpoints: `POST /api/v1/extract/` submitting a URL for full orchestration extraction and saving results; `GET /api/v1/extract/{id}` retrieving extraction evidence by database ID; `GET /api/v1/extract/history/{scan_id}` listing scan history features. Executed final stabilization passes.
+- **2026-08-06 (Sprint 1 - Task 16 - 20:50):** **Task 16 (Documentation Enhancement):** Added development rule standards, technology stack classifications, workflow layouts, relationship diagrams, roadmaps, risk-scoring heuristics schemas, and campaign attribution footprints. Synchronized notes index copies.
 
 ---
 
-## 7. Verification Checklist for Manual Testing
+## 14. Verification Checklist for Manual Testing
 
 Ensure the local PostgreSQL database is running, then run the following checks:
 1. **Server Startup**: Run `uvicorn app.main:app --reload` and check that database tables initialization triggers successfully.
