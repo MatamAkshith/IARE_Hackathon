@@ -7,6 +7,7 @@ from app.api.v1.endpoints.features import router as features_router
 from app.api.v1.endpoints.risk_scores import router as risk_scores_router
 from app.api.v1.endpoints.extraction import router as extraction_router
 from app.api.v1.endpoints.threat_intel import router as threat_intel_router
+from app.api.v1.endpoints.unified_evidence import router as unified_evidence_router
 
 v1_router = APIRouter()
 v1_router.include_router(health_router, prefix="/health", tags=["Health"])
@@ -17,6 +18,8 @@ v1_router.include_router(features_router, prefix="/features", tags=["Features"])
 v1_router.include_router(risk_scores_router, prefix="/risk-scores", tags=["Risk Scores"])
 v1_router.include_router(extraction_router, prefix="/extract", tags=["Feature Extraction"])
 v1_router.include_router(threat_intel_router, prefix="/threat-intel", tags=["Threat Intelligence"])
+v1_router.include_router(unified_evidence_router, prefix="/unified-evidence", tags=["Unified Evidence"])
+
 
 
 

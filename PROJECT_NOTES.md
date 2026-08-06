@@ -38,11 +38,10 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Webpage HTML Intel | BeautifulSoup metadata, forms count, password detection, resource counters. |
 | **Completed** | Aggregation Pipeline | Unified feature extraction scheduler, failing gracefully, storing JSON. |
 | **Completed** | Threat Intelligence Integration | Integrations with VirusTotal, PhishTank, URLHaus, AbuseIPDB, and AlienVault OTX feeds with concurrent aggregation engine and lookups REST APIs. |
+| **Completed** | Unified Evidence Engine | Merge strategy, normalization pipeline, confidence scoring, DB persistence, REST API - Milestone 5 100% Complete. |
 
-| **Current** | Unified Evidence Engine | Structuring models, schemas, and service classes to merge internal scans and threat intel indicators (Stage 5.1). |
+| **Current** | Risk Scoring Engine | Explainable rules-based risk assessment engine (Milestone 6 - Next). |
 | **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
-
-| **Remaining** | Risk Scoring Engine | Explainable rules-based risk assessment engine. |
 | **Remaining** | Campaign Correlation | Attacker attribution and clustering based on shared footprints. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
 | **Remaining** | Dashboard UI | Analyst control panel and queue dashboard. |
@@ -267,6 +266,7 @@ The data layer and RESTful API layer are decoupled using four core patterns:
 15. **Evidence Merging Strategy (Stage 5.2)**: Implements `DefaultMergeStrategy` (`strategy.py`) inheriting from `BaseMergeStrategy` to handle conflict resolution and deduplication. Overlapping keys (such as `domain_age` or `ip_address`) are reconciled by prioritizing external threat intelligence over internal scans, recording overrides in `conflict_resolutions` for full traceability.
 16. **Evidence Normalization Pipeline (Stage 5.3)**: Standardizes type representations via `EvidenceNormalizer` (`normalizer.py`), casting form flags to booleans, extracting digits from age spans to integers, strip-cleaning schemes/netloc values from URL indicators, and standardizing empty fields to `None`, writing detailed normalization log summaries.
 17. **Confidence Scoring Engine (Stage 5.3)**: Computes reliability levels via `EvidenceConfidenceEngine` (`confidence.py`). Evaluates individual fields mapping indicators (`virustotal_verdict`, `provider_responses`, etc.) to `HIGH` confidence, heuristics inputs (`has_login_form`, `ssl_valid`, etc.) to `MEDIUM` confidence, and missing/corrupted tags to `UNKNOWN`/`LOW`. Overall consensus registers as `HIGH` if any critical indicator matches `HIGH` or averages score values.
+18. **Unified Evidence Persistence & API (Stage 5.4)**: Persists processed evidence via `UnifiedEvidenceRecord` SQLAlchemy ORM model (`app/db/models/unified_evidence.py`) with indexed `indicator` and composite `indicator+timestamp` columns for fast history queries. Service methods `save_evidence(db, evidence)` and `get_evidence_by_indicator(db, indicator)` manage storage. REST endpoints `POST /api/v1/unified-evidence/process` (merge+normalize+save) and `GET /api/v1/unified-evidence/{indicator}` (history retrieval) complete the public interface.
 
 
 
@@ -401,6 +401,7 @@ backend/app/
 - **2026-08-06 (Sprint 1 - Task 24 - 23:30):** **Task 24 (Unified Evidence Models & Foundation - Stage 5.1):** Created foundational packages, schemas (`EvidenceCategory`, `EvidenceConfidence`, `EvidenceSource`, `EvidenceMetadata`, `UnifiedEvidence` structures) and interfaces for Unified Evidence module. Configured metadata indicators parameters and placeholder orchestrator service.
 - **2026-08-06 (Sprint 1 - Task 25 - 23:45):** **Task 25 (Internal & External Evidence Merge - Stage 5.2):** Implemented `DefaultMergeStrategy` resolving conflicts by prioritizing external threat intel over internal extraction, and deduplicating identical fields. Updated service class to map sources and provider logs dynamically and populate conflict overrides.
 - **2026-08-06 (Sprint 1 - Task 26 - 23:55):** **Task 26 (Evidence Normalization & Confidence Engine - Stage 5.3):** Built standard data type standardizer class (`EvidenceNormalizer`) casting boolean states and parsing integers age spans. Developed confidence scoring rules selector (`EvidenceConfidenceEngine`) assigning items confidence levels and overall investigation consensus values.
+- **2026-08-06 (Sprint 1 - Task 27 - 00:10):** **Task 27 (Unified Evidence API & Persistence - Stage 5.4 | Milestone 5 COMPLETE):** Created `UnifiedEvidenceRecord` SQLAlchemy ORM model with composite index. Implemented `save_evidence` and `get_evidence_by_indicator` service methods. Exposed `POST /api/v1/unified-evidence/process` and `GET /api/v1/unified-evidence/{indicator}` REST endpoints. Registered router in v1. Milestone 5 (Unified Evidence Engine) fully complete.
 
 
 

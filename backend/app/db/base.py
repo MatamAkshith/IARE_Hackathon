@@ -6,3 +6,5 @@ from app.models.campaign import Campaign  # noqa
 from app.models.scan import Scan  # noqa
 from app.models.feature import Feature  # noqa
 from app.models.risk_score import RiskScore  # noqa
+from app.db.models.unified_evidence import UnifiedEvidenceRecord  # noqa
+

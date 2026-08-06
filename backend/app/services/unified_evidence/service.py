@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TYPE_CHECKING
+
+from sqlalchemy.orm import Session
 
 from app.services.unified_evidence.models import (
     UnifiedEvidence,
@@ -129,3 +131,71 @@ class UnifiedEvidenceService:
             metadata=metadata,
             timestamp=now
         )
+
+    def save_evidence(
+        self,
+        db: Session,
+        evidence: UnifiedEvidence
+    ):
+        """
+        Persists a UnifiedEvidence Pydantic object to the database.
+        Returns the saved UnifiedEvidenceRecord ORM instance.
+        """
+        from app.db.models.unified_evidence import UnifiedEvidenceRecord
+
+        # Serialize sources to JSON-safe list of dicts
+        sources_json = [
+            {"name": s.name, "category": s.category.value, "timestamp": s.timestamp.isoformat()}
+            for s in evidence.sources
+        ]
+
+        # Serialize item_confidences to JSON-safe dict
+        item_confidences_json = {k: v.value for k, v in evidence.metadata.item_confidences.items()}
+
+        metadata_json = {
+            "severity": evidence.metadata.severity,
+            "tags": evidence.metadata.tags,
+            "conflict_resolutions": evidence.metadata.conflict_resolutions,
+            "normalization_logs": evidence.metadata.normalization_logs,
+            "item_confidences": item_confidences_json,
+        }
+
+        record = UnifiedEvidenceRecord(
+            indicator=evidence.indicator,
+            indicator_type=evidence.indicator_type,
+            resolved_observations=evidence.resolved_observations,
+            internal_evidence=evidence.internal_evidence,
+            external_evidence=evidence.external_evidence,
+            sources=sources_json,
+            overall_confidence=evidence.overall_confidence.value,
+            metadata_json=metadata_json,
+            timestamp=evidence.timestamp,
+        )
+
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+
+        logger.info(f"Persisted UnifiedEvidenceRecord id={record.id} for indicator: {evidence.indicator}")
+        return record
+
+    def get_evidence_by_indicator(
+        self,
+        db: Session,
+        indicator: str
+    ) -> List:
+        """
+        Retrieves historical unified evidence records for a specific indicator,
+        ordered by timestamp descending (most recent first).
+        """
+        from app.db.models.unified_evidence import UnifiedEvidenceRecord
+
+        records = (
+            db.query(UnifiedEvidenceRecord)
+            .filter(UnifiedEvidenceRecord.indicator == indicator)
+            .order_by(UnifiedEvidenceRecord.timestamp.desc())
+            .all()
+        )
+
+        logger.info(f"Retrieved {len(records)} evidence record(s) for indicator: {indicator}")
+        return records
