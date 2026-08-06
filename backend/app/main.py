@@ -1,20 +1,10 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from app.api.router import api_router
 
 app = FastAPI(
     title="ThreatLens API",
-    description="AI-powered Enterprise Phishing & Brand Impersonation Detection platform backend",
-    version="1.0.0",
+    version="0.1.0",
+    description="Enterprise Phishing & Brand Impersonation Detection Platform"
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/")
-def read_root():
-    return {"name": "ThreatLens API", "version": "1.0.0", "status": "running"}
+app.include_router(api_router)
