@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  database:
+    image: postgres:15-alpine
+    container_name: threatlens_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-threatlens_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-threatlens_password}
+      POSTGRES_DB: ${DB_NAME:-threatlens_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - threatlens_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend.Dockerfile
+    container_name: threatlens_backend
+    restart: always
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-true}
+      - SECRET_KEY=${SECRET_KEY}
+      - DB_HOST=database
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-threatlens_user}
+      - DB_PASSWORD=${DB_PASSWORD:-threatlens_password}
+      - DB_NAME=${DB_NAME:-threatlens_db}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      - database
+    networks:
+      - threatlens_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend.Dockerfile
+    container_name: threatlens_frontend
+    restart: always
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+    depends_on:
+      - backend
+    networks:
+      - threatlens_net
+
+volumes:
+  postgres_data:
+
+networks:
+  threatlens_net:
+    driver: bridge
