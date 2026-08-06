@@ -258,6 +258,8 @@ The data layer and RESTful API layer are decoupled using four core patterns:
 9. **Threat Intelligence Foundation (Stage 4.1)**: Structured modular framework (`app/services/threat_intel/`) containing Pydantic schemas (`models.py`) mapping verdicts and matches, an abstract base provider (`base.py:BaseThreatIntelProvider`) using `abc` with mandatory async methods (`lookup_url`, `lookup_domain`, `lookup_ip`), and a registry-based orchestration service (`service.py:ThreatIntelService`) to register and execute all configured feeds concurrently.
 10. **VirusTotal Integration (Stage 4.2)**: Specific threat provider integration (`app/services/threat_intel/providers/virustotal.py`) implementing v3 API URLs and Domains endpoints. Encodes URLs using URL-safe base64 parameter hashing, parses analysis engine indicators, normalizes responses into standardized schemas, and handles errors (401, 404, 429) gracefully.
 11. **PhishTank & URLHaus Integration (Stage 4.3)**: Specific threat provider integrations (`app/services/threat_intel/providers/phishtank.py` and `app/services/threat_intel/providers/urlhaus.py`) implementing URL reputation checks via their respective POST endpoints. PhishTank parses `in_database` and `valid` flags to assess phishing threats, while URLHaus parses `query_status` malware indicators. Both normalize results to standard verdicts and handle errors gracefully.
+12. **AbuseIPDB & AlienVault OTX Integration (Stage 4.4)**: Specific threat provider integrations (`app/services/threat_intel/providers/abuseipdb.py` and `app/services/threat_intel/providers/alienvault.py`) completing the external feeds. AbuseIPDB maps `abuseConfidenceScore` IP reputation queries, while AlienVault OTX queries domains, URLs, and IPs to check pulse counts. Both normalize results to standard verdicts and register with the service registry.
+
 
 
 
@@ -369,6 +371,8 @@ backend/app/
 - **2026-08-06 (Sprint 1 - Task 17 - 21:30):** **Task 17 (Threat Intelligence Foundation - Stage 4.1):** Set up external threat intelligence placeholder keys in configuration. Created `BaseThreatIntelProvider` abstract interfaces using `abc`, common Pydantic response models (`models.py`), and the service registry orchestration pattern (`service.py:ThreatIntelService`) to execute enabled providers concurrently.
 - **2026-08-06 (Sprint 1 - Task 18 - 21:40):** **Task 18 (VirusTotal Integration - Stage 4.2):** Implemented `VirusTotalProvider` invoking URL (URL-safe base64 parameters) and Domain lookup endpoints. Mapped analysis category statistics results to common verdicts, extracted engine records details to standard matches, and captured HTTP status exceptions. Updated registry constructor mappings.
 - **2026-08-06 (Sprint 1 - Task 19 - 22:00):** **Task 19 (PhishTank & URLHaus Integration - Stage 4.3):** Implemented `PhishTankProvider` and `URLHausProvider` executing POST reputation queries. Mapped database flag rules and query statuses to verdicts, extracted threat names and tags to standardized matches, and handled exceptions.
+- **2026-08-06 (Sprint 1 - Task 20 - 22:15):** **Task 20 (AbuseIPDB & AlienVault OTX Integration - Stage 4.4):** Implemented `AbuseIPDBProvider` (IP check API) and `AlienVaultProvider` (Pulse general IP, domain, and URL indicator queries). Integrated both with settings keys and auto-registered inside `ThreatIntelService`. Documented complete Milestone 4 threat intelligence layer.
+
 
 
 

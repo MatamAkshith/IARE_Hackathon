@@ -10,6 +10,8 @@ from app.core.config import settings
 from app.services.threat_intel.providers.virustotal import VirusTotalProvider
 from app.services.threat_intel.providers.phishtank import PhishTankProvider
 from app.services.threat_intel.providers.urlhaus import URLHausProvider
+from app.services.threat_intel.providers.abuseipdb import AbuseIPDBProvider
+from app.services.threat_intel.providers.alienvault import AlienVaultProvider
 
 logger = logging.getLogger("app.services.threat_intel.service")
 
@@ -31,6 +33,17 @@ class ThreatIntelService:
         uh_provider = URLHausProvider()
         if uh_provider.is_enabled:
             self.register_provider(uh_provider)
+
+        # Instantiate and auto-register AbuseIPDB if enabled
+        ab_provider = AbuseIPDBProvider(api_key=settings.ABUSEIPDB_API_KEY)
+        if ab_provider.is_enabled:
+            self.register_provider(ab_provider)
+
+        # Instantiate and auto-register AlienVault OTX if enabled
+        av_provider = AlienVaultProvider(api_key=settings.ALIENVAULT_OTX_API_KEY)
+        if av_provider.is_enabled:
+            self.register_provider(av_provider)
+
 
 
 
