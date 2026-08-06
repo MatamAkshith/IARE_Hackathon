@@ -8,8 +8,11 @@ from app.services.threat_intel.models import ProviderResponse, ThreatVerdict, Th
 
 logger = logging.getLogger("app.services.threat_intel.providers.urlhaus")
 
+from app.core.config import settings
+
 class URLHausProvider(BaseThreatIntelProvider):
     def __init__(self) -> None:
+        self._api_key = settings.URLHAUS_API_KEY
         self._enabled = True
 
     @property
@@ -23,16 +26,32 @@ class URLHausProvider(BaseThreatIntelProvider):
     async def lookup_url(self, url: str) -> ProviderResponse:
         start_time = time.time()
         
+        # Safe bypass if API key is not present or missing
+        if not self._api_key or not self._api_key.strip():
+            return ProviderResponse(
+                provider_name=self.provider_name,
+                verdict=ThreatVerdict.UNKNOWN,
+                matches=[],
+                raw_response={},
+                error="Bypassed URLHaus lookup: API key is missing or not configured",
+                response_time_ms=0
+            )
+        
         payload = {
             "url": url
         }
         api_url = "https://urlhaus-api.abuse.ch/v1/url/"
+        headers = {
+            "Auth-Key": self._api_key,
+            "Accept": "application/json"
+        }
 
         async with httpx.AsyncClient(timeout=10) as client:
             try:
                 # URLHaus expects application/x-www-form-urlencoded
-                response = await client.post(api_url, data=payload)
+                response = await client.post(api_url, data=payload, headers=headers)
                 response_time_ms = int((time.time() - start_time) * 1000)
+
 
                 if response.status_code == 200:
                     raw_data = response.json()

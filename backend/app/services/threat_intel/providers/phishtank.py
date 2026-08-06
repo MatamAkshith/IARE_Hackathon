@@ -33,11 +33,17 @@ class PhishTankProvider(BaseThreatIntelProvider):
             payload["app_key"] = self._api_key
 
         api_url = "https://checkurl.phishtank.com/checkurl/"
+        headers = {
+            "User-Agent": "phishtank/threatlens",
+            "Accept": "application/json"
+        }
 
         async with httpx.AsyncClient(timeout=10) as client:
             try:
                 # PhishTank checkurl API expects application/x-www-form-urlencoded (data=payload)
-                response = await client.post(api_url, data=payload)
+                response = await client.post(api_url, data=payload, headers=headers)
+
+
                 response_time_ms = int((time.time() - start_time) * 1000)
 
                 if response.status_code == 200:
