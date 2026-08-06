@@ -40,7 +40,7 @@ Corporate brand impersonation and high-fidelity phishing websites have become in
 ## 3. System Architecture & Design Segregation
 
 ### Architectural Design
-The data layer is decoupled using three core patterns:
+The data layer and RESTful API layer are decoupled using four core patterns:
 1. **Model Representation (SQLAlchemy ORM)**: Relational models (`Domain`, `Campaign`, `Scan`, `Feature`, `RiskScore`) inheriting from a shared declarative `Base` with automated table name lowercase formatting and common audit tracking fields (`id`, `created_at`, `updated_at`).
 2. **Data Validation (Pydantic V2 Schemas)**: Segregates request parameters from response serializers to prevent data exposure and enforce strict type contracts:
    - `[Entity]Base`: Shared properties between create/update/response schemas.
@@ -48,15 +48,35 @@ The data layer is decoupled using three core patterns:
    - `[Entity]Update`: Fields allowed for patching existing records (all fields optional).
    - `[Entity]Response`: Final response schema serialized back to the client, adding database-specific fields (`id`, `created_at`, `updated_at`). Employs `model_config = ConfigDict(from_attributes=True)` for seamless SQLAlchemy serialization.
 3. **Data Access (Repository Pattern)**: Implements `CRUDBase` as a generic helper module mapping standard ORM methods (`get`, `get_multi`, `create`, `update`, `remove`) using TypeVars. Specific CRUD repositories subclass `CRUDBase` and expose global singleton instances.
+4. **API Routing (FastAPI REST Endpoints)**: Clean separation of resource route files under `backend/app/api/v1/endpoints/` exposing pluralized routing mounts.
 
-### Directory / Folder Structure Changes
+### Integration Workflow
+```
+Client Request -> FastAPI Router -> Pydantic Schema Validation -> CRUD Repository Singleton -> SQLAlchemy Session (get_db) -> PostgreSQL Database
+```
+
+### Standard HTTP Response Codes
+- **`200 OK`**: Successfully retrieved a resource (GET) or updated a resource (PUT).
+- **`201 Created`**: Successfully created a resource (POST).
+- **`400 Bad Request`**: Malformed request payload or validation errors.
+- **`404 Not Found`**: Target resource identifier does not exist.
+- **`503 Service Unavailable`**: Backing services (e.g. Postgres DB connection query failures) are unreachable.
+
+### Directory / Folder Structure
 ```text
 backend/app/
 ├── api/
-│   ├── endpoints/
-│   │   └── root.py
-│   ├── deps.py             # Injects get_db and repository singletons
-│   └── router.py
+│   ├── v1/
+│   │   ├── endpoints/
+│   │   │   ├── campaigns.py   # Campaigns API
+│   │   │   ├── domains.py     # Domains API
+│   │   │   ├── features.py    # Features API
+│   │   │   ├── health.py      # Health/Ready Checks
+│   │   │   ├── risk_scores.py # Risk Scores API
+│   │   │   └── scans.py       # Scans API
+│   │   └── router.py          # Assembles all v1 routers
+│   ├── deps.py                # Injects get_db and repositories
+│   └── router.py              # Root router mounting v1
 ├── core/
 │   ├── config.py
 │   └── logging.py
@@ -127,3 +147,20 @@ backend/app/
 - **2026-08-06 (Sprint 1 - Task 8 - 13:58):** **Task 8 (Feature Progress Documentation Update):** Populated project notes documentation index to track completed backend configuration milestones and implementation changes.
 - **2026-08-06 (Sprint 1 - Task 9 - 19:30):** **Task 9 (Database Persistence Layer, ORM Models & Health Check):** Deployed core database relational entities (Domain, Campaign, Scan, Feature, RiskScore ORM models) with cascade rules. Integrated automatic table generation `init_models()` within FastAPI lifespan hooks. Upgraded the `/ready` API health check to dynamically query `SELECT 1` on the session dependency, returning a clean 503 status code on operational db connection exceptions.
 - **2026-08-06 (Sprint 1 - Task 10 - 19:42):** **Task 10 (Pydantic Schema Validation & Repository Layer):** Implemented validation layer schemas and data access CRUD repository singletons (inheriting from a generic `CRUDBase` class). Injected repository singletons into the FastAPI dependencies container `deps.py`, ready for endpoints routing. Fully compiled documentation structures and changes.
+- **2026-08-06 (Sprint 1 - Task 11 - 19:50):** **Task 11 (Foundational CRUD RESTful API Layer):** Implemented standard RESTful routers mapping GET (lists & detail), POST (201 status), PUT, and DELETE handlers for domains, scans, campaigns, features, and risk scores. Mounted all routers under versioned api tags. Verified the entire compilation and endpoints layout in Swagger Docs.
+
+---
+
+## 7. Verification Checklist for Manual Testing
+
+Ensure the local PostgreSQL database is running, then run the following checks:
+1. **Server Startup**: Run `uvicorn app.main:app --reload` and check that database tables initialization triggers successfully.
+2. **Readiness Check**: Hit `GET /api/v1/health/ready` and confirm `{"status":"ready","checks":{"app":"ok","database":"ok"}}` is returned with `200 OK`.
+3. **Interactive OpenAPI Docs**: Navigate to `http://127.0.0.1:8000/docs` and confirm the 5 core resource groups (`Domains`, `Scans`, `Campaigns`, `Features`, `Risk Scores`) show the CRUD endpoint actions:
+   - `POST /api/v1/domains`
+   - `GET /api/v1/domains`
+   - `GET /api/v1/domains/{id}`
+   - `PUT /api/v1/domains/{id}`
+   - `DELETE /api/v1/domains/{id}`
+4. **Validation Test**: Try sending a `POST /api/v1/domains` request with a missing required parameter (e.g. omitting `url`) and verify that FastAPI throws a `422 Unprocessable Entity` validation error response.
+5. **Operational Verification**: Try a `GET /api/v1/domains/999` and verify that the system correctly catches the null response and raises a `404 Not Found` response code.

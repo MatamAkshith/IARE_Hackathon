@@ -1,5 +1,16 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints.health import router as health_router
+from app.api.v1.endpoints.domains import router as domains_router
+from app.api.v1.endpoints.scans import router as scans_router
+from app.api.v1.endpoints.campaigns import router as campaigns_router
+from app.api.v1.endpoints.features import router as features_router
+from app.api.v1.endpoints.risk_scores import router as risk_scores_router
 
 v1_router = APIRouter()
 v1_router.include_router(health_router, prefix="/health", tags=["Health"])
+v1_router.include_router(domains_router, prefix="/domains", tags=["Domains"])
+v1_router.include_router(scans_router, prefix="/scans", tags=["Scans"])
+v1_router.include_router(campaigns_router, prefix="/campaigns", tags=["Campaigns"])
+v1_router.include_router(features_router, prefix="/features", tags=["Features"])
+v1_router.include_router(risk_scores_router, prefix="/risk-scores", tags=["Risk Scores"])
+
