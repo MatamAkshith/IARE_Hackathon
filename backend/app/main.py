@@ -8,6 +8,8 @@ from app.api.router import api_router
 from app.middleware.request_id import RequestIDMiddleware
 from app.middleware.logging_middleware import LoggingMiddleware
 
+from app.db.init_db import init_models
+
 # Initialize logging before FastAPI app instantiation
 setup_logging()
 logger = logging.getLogger("app.main")
@@ -15,8 +17,13 @@ logger = logging.getLogger("app.main")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting ThreatLens API framework...")
+    try:
+        init_models()
+    except Exception as e:
+        logger.error(f"Error initializing database models: {e}")
     yield
     logger.info("Shutting down ThreatLens API framework...")
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
