@@ -17,6 +17,8 @@ class NetworkExtractionRequest(BaseModel):
     url: str
     scan_id: int
 
+from app.services.feature_aggregator import FeatureAggregationService
+
 @router.post("/domain", response_model=Any, status_code=status.HTTP_201_CREATED)
 def extract_domain_intelligence(
     *,
@@ -31,13 +33,13 @@ def extract_domain_intelligence(
             detail=f"Scan with ID {payload.scan_id} not found."
         )
 
-    service = DomainIntelService()
+    service = FeatureAggregationService()
     try:
-        extracted_data = service.extract_intelligence(payload.url)
+        extracted_data = service.aggregate_features(payload.url)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Domain intelligence extraction failed: {str(e)}"
+            detail=f"Feature aggregation pipeline failed: {str(e)}"
         )
 
     # Save to features database registry

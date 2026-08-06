@@ -8,3 +8,4 @@ python-whois==0.9.4
 dnspython==2.6.1
 requests==2.31.0
 cryptography==42.0.5
+beautifulsoup4==4.12.3
