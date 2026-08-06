@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 import logging
-from typing import Dict, Any, List, Optional, TYPE_CHECKING
+from typing import Dict, Any, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -10,12 +10,15 @@ from app.services.unified_evidence.models import (
     EvidenceCategory,
     EvidenceConfidence,
     EvidenceSource,
-    EvidenceMetadata
+    EvidenceMetadata,
+    AuditTrail,
 )
 from app.services.unified_evidence.normalizer import EvidenceNormalizer
 from app.services.unified_evidence.confidence import EvidenceConfidenceEngine
+from app.services.unified_evidence.timeline import EvidenceTimelineBuilder
 
 logger = logging.getLogger("app.services.unified_evidence.service")
+
 
 class BaseMergeStrategy(ABC):
     @abstractmethod
@@ -30,6 +33,7 @@ class BaseMergeStrategy(ABC):
         """
         pass
 
+
 class UnifiedEvidenceService:
     def __init__(self) -> None:
         # Import inside __init__ to avoid circular dependency with strategy.py
@@ -37,6 +41,7 @@ class UnifiedEvidenceService:
         self._strategy = DefaultMergeStrategy()
         self._normalizer = EvidenceNormalizer()
         self._confidence_engine = EvidenceConfidenceEngine()
+        self._timeline_builder = EvidenceTimelineBuilder()
 
     def process_evidence(
         self,
@@ -45,8 +50,9 @@ class UnifiedEvidenceService:
         external_data: Dict[str, Any]
     ) -> UnifiedEvidence:
         """
-        Processes, maps, normalizes, and scores raw internal feature extraction data and external threat
-        intelligence data into a single unified evidence representation.
+        Processes, maps, normalizes, scores, and traces raw internal feature extraction
+        data and external threat intelligence data into a single unified evidence object
+        with a full audit trail.
         """
         now = datetime.now(timezone.utc)
         logger.info(f"Starting evidence processing and normalization for indicator: {indicator}")
@@ -79,6 +85,15 @@ class UnifiedEvidenceService:
 
         # Step 4: Calculate overall confidence
         overall_confidence = self._confidence_engine.calculate_overall_confidence(item_confidences)
+
+        # Step 5: Build the audit trail timeline
+        audit_trail: AuditTrail = self._timeline_builder.generate_audit_trail(
+            internal_data=internal_data,
+            external_data=external_data,
+            conflict_resolutions=conflict_resolutions,
+            normalization_logs=normalization_logs,
+            investigation_start=now,
+        )
 
         # Map sources attribution
         sources = [
@@ -129,6 +144,7 @@ class UnifiedEvidenceService:
             sources=sources,
             overall_confidence=overall_confidence,
             metadata=metadata,
+            audit_trail=audit_trail,
             timestamp=now
         )
 
@@ -140,6 +156,7 @@ class UnifiedEvidenceService:
         """
         Persists a UnifiedEvidence Pydantic object to the database.
         Returns the saved UnifiedEvidenceRecord ORM instance.
+        The audit_trail is serialized into metadata_json for storage.
         """
         from app.db.models.unified_evidence import UnifiedEvidenceRecord
 
@@ -152,12 +169,30 @@ class UnifiedEvidenceService:
         # Serialize item_confidences to JSON-safe dict
         item_confidences_json = {k: v.value for k, v in evidence.metadata.item_confidences.items()}
 
+        # Serialize audit_trail to JSON-safe structure
+        audit_trail_json = None
+        if evidence.audit_trail:
+            audit_trail_json = {
+                "investigation_start": evidence.audit_trail.investigation_start.isoformat(),
+                "events": [
+                    {
+                        "timestamp": e.timestamp.isoformat(),
+                        "source": e.source,
+                        "event_type": e.event_type,
+                        "description": e.description,
+                        "key_affected": e.key_affected,
+                    }
+                    for e in evidence.audit_trail.events
+                ]
+            }
+
         metadata_json = {
             "severity": evidence.metadata.severity,
             "tags": evidence.metadata.tags,
             "conflict_resolutions": evidence.metadata.conflict_resolutions,
             "normalization_logs": evidence.metadata.normalization_logs,
             "item_confidences": item_confidences_json,
+            "audit_trail": audit_trail_json,
         }
 
         record = UnifiedEvidenceRecord(

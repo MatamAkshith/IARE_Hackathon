@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.services.unified_evidence.service import UnifiedEvidenceService
-from app.services.unified_evidence.models import UnifiedEvidence
+from app.services.unified_evidence.models import UnifiedEvidence, AuditTrail, EvidenceEvent
 
 router = APIRouter()
 
@@ -34,6 +34,9 @@ class EvidenceRecordResponse(BaseModel):
         from_attributes = True
 
 
+# --------------------------------------------------------------------------- #
+# POST /process                                                                #
+# --------------------------------------------------------------------------- #
 @router.post(
     "/process",
     response_model=UnifiedEvidence,
@@ -41,7 +44,7 @@ class EvidenceRecordResponse(BaseModel):
     summary="Process & Merge Evidence",
     description=(
         "Accepts raw internal feature extraction data and external threat intelligence data for an indicator. "
-        "Merges, normalizes, and scores confidence, then optionally saves the result to the database."
+        "Merges, normalizes, scores confidence, builds audit trail, and optionally saves the result to the database."
     )
 )
 def process_evidence(
@@ -70,6 +73,89 @@ def process_evidence(
         )
 
 
+# --------------------------------------------------------------------------- #
+# GET /{indicator}/timeline                                                    #
+# NOTE: This specific sub-path route MUST be declared before the catch-all    #
+# /{indicator:path} route below, otherwise FastAPI will consume it first.     #
+# We use a query-param approach to avoid path routing conflicts.               #
+# --------------------------------------------------------------------------- #
+@router.get(
+    "/timeline",
+    response_model=AuditTrail,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve Evidence Timeline",
+    description=(
+        "Retrieves the stored audit trail (chronological list of evidence collection, "
+        "conflict resolution, normalization, and scoring events) for the most recent "
+        "evidence record of a given indicator. Pass the indicator as a query parameter."
+    )
+)
+def get_evidence_timeline(
+    indicator: str,
+    db: Session = Depends(get_db)
+) -> Any:
+    """
+    GET /api/v1/unified-evidence/timeline?indicator=<url_or_domain_or_ip>
+
+    Returns the AuditTrail from the most recent persisted evidence record for
+    the given indicator. The audit trail is stored inside metadata_json.
+    """
+    if not indicator.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Indicator query parameter cannot be empty."
+        )
+    try:
+        records = _unified_evidence_service.get_evidence_by_indicator(db=db, indicator=indicator)
+        if not records:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No evidence records found for indicator: '{indicator}'"
+            )
+
+        # Most recent record is first (ordered by timestamp DESC in service)
+        latest = records[0]
+        metadata = latest.metadata_json or {}
+        audit_trail_raw = metadata.get("audit_trail")
+
+        if not audit_trail_raw:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=(
+                    f"No audit trail found in the latest evidence record for indicator: '{indicator}'. "
+                    "This record may have been created before Stage 5.5 was deployed."
+                )
+            )
+
+        # Reconstruct Pydantic AuditTrail from stored JSON
+        audit_trail = AuditTrail(
+            investigation_start=audit_trail_raw["investigation_start"],
+            events=[
+                EvidenceEvent(
+                    timestamp=e["timestamp"],
+                    source=e["source"],
+                    event_type=e["event_type"],
+                    description=e["description"],
+                    key_affected=e.get("key_affected"),
+                )
+                for e in audit_trail_raw.get("events", [])
+            ]
+        )
+
+        return audit_trail
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Timeline retrieval error: {str(e)}"
+        )
+
+
+# --------------------------------------------------------------------------- #
+# GET /{indicator} — catch-all (must remain LAST)                              #
+# --------------------------------------------------------------------------- #
 @router.get(
     "/{indicator:path}",
     response_model=List[EvidenceRecordResponse],
