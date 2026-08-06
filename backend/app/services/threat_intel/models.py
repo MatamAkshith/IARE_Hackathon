@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
+from datetime import datetime
 
 class ThreatVerdict(str, Enum):
     CLEAN = "clean"
@@ -26,3 +27,16 @@ class ThreatEvidence(BaseModel):
     responses: Dict[str, ProviderResponse]
     execution_status: str
     timestamp: str
+
+class AggregatedThreatEvidence(BaseModel):
+    indicator: str
+    indicator_type: str
+    overall_verdict: ThreatVerdict
+    total_providers: int
+    successful_providers: int
+    failed_providers: int
+    malicious_count: int
+    suspicious_count: int
+    clean_count: int
+    provider_responses: Dict[str, ProviderResponse]
+    timestamp: datetime

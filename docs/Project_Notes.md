@@ -37,7 +37,8 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Network & TLS Intel | IP PTR reverse DNS, non-verifying TLS cert parse (CN, SANs, Issuer, Expiry). |
 | **Completed** | Webpage HTML Intel | BeautifulSoup metadata, forms count, password detection, resource counters. |
 | **Completed** | Aggregation Pipeline | Unified feature extraction scheduler, failing gracefully, storing JSON. |
-| **Current** | Threat Intelligence Integration | Preparing integrations with threat intel feeds. |
+| **Completed** | Threat Intelligence Integration | Integrations with VirusTotal, PhishTank, URLHaus, AbuseIPDB, and AlienVault OTX feeds with concurrent aggregation engine and lookups REST APIs. |
+
 | **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
 | **Remaining** | Risk Scoring Engine | Explainable rules-based risk assessment engine. |
 | **Remaining** | Campaign Correlation | Attacker attribution and clustering based on shared footprints. |
@@ -259,6 +260,7 @@ The data layer and RESTful API layer are decoupled using four core patterns:
 10. **VirusTotal Integration (Stage 4.2)**: Specific threat provider integration (`app/services/threat_intel/providers/virustotal.py`) implementing v3 API URLs and Domains endpoints. Encodes URLs using URL-safe base64 parameter hashing, parses analysis engine indicators, normalizes responses into standardized schemas, and handles errors (401, 404, 429) gracefully.
 11. **PhishTank & URLHaus Integration (Stage 4.3 & Fixes)**: Specific threat provider integrations (`app/services/threat_intel/providers/phishtank.py` and `app/services/threat_intel/providers/urlhaus.py`) implementing URL reputation checks via their respective POST endpoints. PhishTank requires a descriptive User-Agent (`phishtank/threatlens`) to avoid Cloudflare blocks, and URLHaus utilizes the `Auth-Key` API header or bypasses the query gracefully if missing. Both normalize results to standard verdicts.
 12. **AbuseIPDB & AlienVault OTX Integration (Stage 4.4)**: Specific threat provider integrations (`app/services/threat_intel/providers/abuseipdb.py` and `app/services/threat_intel/providers/alienvault.py`) completing the external feeds. AbuseIPDB maps `abuseConfidenceScore` IP reputation queries, while AlienVault OTX queries domains, URLs, and IPs to check pulse counts. Both normalize results to standard verdicts and register with the service registry.
+13. **Threat Evidence Aggregation Engine (Stage 4.5)**: Orchestration layer (`app/services/threat_intel/aggregator.py`) and API router (`app/api/v1/endpoints/threat_intel.py`) that executes concurrent indicators checking, enforces request timeout thresholds per provider (5s max), and synthesizes verdicts based on a strict priority scale (malicious > suspicious > clean > unknown).
 
 ### Integration Workflow
 ```
@@ -369,6 +371,7 @@ backend/app/
 - **2026-08-06 (Sprint 1 - Task 19 - 22:00):** **Task 19 (PhishTank & URLHaus Integration - Stage 4.3):** Implemented `PhishTankProvider` and `URLHausProvider` executing POST reputation queries. Mapped database flag rules and query statuses to verdicts, extracted threat names and tags to standardized matches, and handled exceptions.
 - **2026-08-06 (Sprint 1 - Task 20 - 22:15):** **Task 20 (AbuseIPDB & AlienVault OTX Integration - Stage 4.4):** Implemented `AbuseIPDBProvider` (IP check API) and `AlienVaultProvider` (Pulse general IP, domain, and URL indicator queries). Integrated both with settings keys and auto-registered inside `ThreatIntelService`. Documented complete Milestone 4 threat intelligence layer.
 - **2026-08-06 (Sprint 1 - Task 21 - 22:20):** **Task 21 (PhishTank & URLHaus Header Fixes):** Added descriptive User-Agent string to PhishTank POST requests, and integrated `Auth-Key` parameter for URLHaus. Added safe key checks bypassing queries gracefully when keys are missing.
+- **2026-08-06 (Sprint 1 - Task 22 - 22:30):** **Task 22 (Aggregated Threat Evidence Engine & Endpoints - Stage 4.5):** Developed the concurrent multi-threaded lookups aggregator class (`ThreatIntelAggregator`), mapped type auto-detection algorithms, configured overall verdicts consensus rules, exposed lookup REST endpoints (GET/POST mount paths), and integrated the router prefix within FastAPI v1 routes.
 
 ---
 

@@ -4,7 +4,9 @@ from typing import Dict, List, Any
 import asyncio
 
 from app.services.threat_intel.base import BaseThreatIntelProvider
-from app.services.threat_intel.models import ThreatEvidence, ProviderResponse, ThreatVerdict
+from app.services.threat_intel.models import ThreatEvidence, ProviderResponse, ThreatVerdict, AggregatedThreatEvidence
+
+
 
 from app.core.config import settings
 from app.services.threat_intel.providers.virustotal import VirusTotalProvider
@@ -196,3 +198,14 @@ class ThreatIntelService:
             execution_status=status,
             timestamp=datetime.now(timezone.utc).isoformat()
         )
+
+    async def aggregate_lookup(
+        self, indicator: str, indicator_type: Optional[str] = None, timeout: float = 5.0
+    ) -> AggregatedThreatEvidence:
+        """
+        Synthesize concurrent lookups across all enabled/registered threat feeds.
+        """
+        from app.services.threat_intel.aggregator import ThreatIntelAggregator
+        aggregator = ThreatIntelAggregator(self)
+        return await aggregator.aggregate_lookup(indicator, indicator_type, timeout)
+
