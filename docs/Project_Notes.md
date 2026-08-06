@@ -39,7 +39,9 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Aggregation Pipeline | Unified feature extraction scheduler, failing gracefully, storing JSON. |
 | **Completed** | Threat Intelligence Integration | Integrations with VirusTotal, PhishTank, URLHaus, AbuseIPDB, and AlienVault OTX feeds with concurrent aggregation engine and lookups REST APIs. |
 
+| **Current** | Unified Evidence Engine | Structuring models, schemas, and service classes to merge internal scans and threat intel indicators (Stage 5.1). |
 | **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
+
 | **Remaining** | Risk Scoring Engine | Explainable rules-based risk assessment engine. |
 | **Remaining** | Campaign Correlation | Attacker attribution and clustering based on shared footprints. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
@@ -261,6 +263,7 @@ The data layer and RESTful API layer are decoupled using four core patterns:
 11. **PhishTank & URLHaus Integration (Stage 4.3 & Refactored)**: Threat provider integrations (`app/services/threat_intel/providers/phishtank.py` and `app/services/threat_intel/providers/urlhaus.py`) implementing URL reputation checks. PhishTank utilizes the custom `User-Agent` to prevent Cloudflare/403 blocks, while URLHaus passes authenticated `Auth-Key` queries or bypasses lookups gracefully.
 12. **AbuseIPDB & AlienVault OTX Integration (Stage 4.4 & Refactored)**: Threat provider integrations (`app/services/threat_intel/providers/abuseipdb.py` and `app/services/threat_intel/providers/alienvault.py`) completing external feeds. AbuseIPDB maps confidence scores for IP checks, and AlienVault OTX queries domains, URLs, and IPs to count active pulse alerts.
 13. **Threat Evidence Aggregation Engine (Stage 4.5)**: Orchestration layer (`app/services/threat_intel/aggregator.py`) and API router (`app/api/v1/endpoints/threat_intel.py`) executing concurrent indicators checks, enforcing timeout limits (5s max), and synthesizing verdicts on a priority scale (`malicious` > `suspicious` > `clean` > `unknown`).
+14. **Unified Evidence Engine (Stage 5.1)**: Structured modular framework (`app/services/unified_evidence/`) mapping standardized evidence schemas (`models.py`) and interfaces (`service.py:UnifiedEvidenceService`) to combine internal extraction scans evidence (WHOIS, DNS, TLS, HTML BeautifulSoup) and external threat intelligence reputation lookups (VirusTotal, PhishTank, URLHaus, AbuseIPDB, AlienVault OTX) into a single normal model containing overall category and confidence levels.
 
 ### Threat Intelligence Normalization Matrix
 
@@ -384,6 +387,7 @@ backend/app/
 - **2026-08-06 (Sprint 1 - Task 21 - 22:20):** **Task 21 (PhishTank & URLHaus Header Fixes):** Added descriptive User-Agent string to PhishTank POST requests, and integrated `Auth-Key` parameter for URLHaus. Added safe key checks bypassing queries gracefully when keys are missing.
 - **2026-08-06 (Sprint 1 - Task 22 - 22:30):** **Task 22 (Aggregated Threat Evidence Engine & Endpoints - Stage 4.5):** Developed the concurrent multi-threaded lookups aggregator class (`ThreatIntelAggregator`), mapped type auto-detection algorithms, configured overall verdicts consensus rules, exposed lookup REST endpoints (GET/POST mount paths), and integrated the router prefix within FastAPI v1 routes.
 - **2026-08-06 (Sprint 1 - Task 23 - 22:45):** **Task 23 (Provider Logic Refactoring - Stage 4.6):** Refactored duplicated lookups scaffolding into standard helper wrappers on `BaseThreatIntelProvider` (safely handling timing, logger scopes, configurations checks, and timing durations logs). Updated all 5 subclasses to leverage base hooks, cleaned registry imports, and added architecture roadmap for Milestone 5.
+- **2026-08-06 (Sprint 1 - Task 24 - 23:30):** **Task 24 (Unified Evidence Models & Foundation - Stage 5.1):** Created foundational packages, schemas (`EvidenceCategory`, `EvidenceConfidence`, `EvidenceSource`, `EvidenceMetadata`, `UnifiedEvidence` structures) and interfaces for Unified Evidence module. Configured metadata indicators parameters and placeholder orchestrator service.
 
 ---
 
