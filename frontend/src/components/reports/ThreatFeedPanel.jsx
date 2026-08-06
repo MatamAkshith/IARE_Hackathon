@@ -14,7 +14,7 @@ export default function ThreatFeedPanel({ feeds = {} }) {
     <div className="space-y-6 w-full min-w-0">
       <div className="flex items-center gap-2 border-b border-[#1a2336]/60 pb-3 min-w-0">
         <svg className="w-5 h-5 text-brand-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172 a 4 4 0 0 0 -5.656 0 l -4 4 a 4 4 0 1 0 5.656 5.656 l 1.102 -1.101 m -0.758 -4.899 a 4 4 0 0 0 5.656 0 l 4 -4 a 4 4 0 0 0 -5.656 -5.656 l -1.1 1.1" />
         </svg>
         <h3 className="font-semibold text-slate-200 text-sm tracking-wide font-sans truncate">External Intelligence Feeds</h3>
       </div>

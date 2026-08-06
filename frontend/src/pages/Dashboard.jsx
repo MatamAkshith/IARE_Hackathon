@@ -32,7 +32,7 @@ export default function Dashboard() {
     ),
     'active-campaigns': (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636l-3.536 3.536m0 0A4 4 0 1011.293 14.7a4.007 4.007 0 003.535-3.535m-3.535 3.535L7.757 18.364m0 0A4 4 0 103.5 14.12a4.007 4.007 0 004.257 4.243z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636l-3.536 3.536m0 0 A 4 4 0 1 0 11.293 14.7 a 4.007 4.007 0 0 0 3.535 -3.535 m -3.535 3.535 L 7.757 18.364 m 0 0 A 4 4 0 1 0 3.5 14.12 a 4.007 4.007 0 0 0 4.257 4.243 z" />
       </svg>
     ),
     'avg-risk': (
@@ -42,7 +42,7 @@ export default function Dashboard() {
     ),
     'threat-sources': (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172 a 4 4 0 0 0 -5.656 0 l -4 4 a 4 4 0 1 0 5.656 5.656 l 1.102 -1.101 m -0.758 -4.899 a 4 4 0 0 0 5.656 0 l 4 -4 a 4 4 0 0 0 -5.656 -5.656 l -1.1 1.1" />
       </svg>
     ),
     'recent-activity': (
