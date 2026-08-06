@@ -40,3 +40,23 @@ Corporate brand impersonation and high-fidelity phishing websites have become in
 | :--- | :--- | :--- | :--- | :--- |
 | R-001 | Scanning engines get blocked by Cloudflare/Cloudfront on targets | High | High | Rotate scrape proxies and user-agent strings. Fallback to headless browser capture engines. |
 | R-002 | AI models take too long to run synchronously | Medium | High | Decouple scanning from response via FastAPI background tasks or a task queue. |
+
+## Completed Implementation Progress & Feature Tracking
+
+### Stage 1: Core Framework Initialization
+- **FastAPI Lifespan Setup**: Configured app setup using `asynccontextmanager` context lifespan blocks, outputting clean lifecycle startup and shutdown events logs.
+- **API Routing Framework**: Implemented top-level and versioned API router mounts (`/api/v1`).
+- **Health Verification Services**: Deployed route structures for `/api/v1/health` (metadata info), `/api/v1/health/ready` (system readiness checks placeholder), and `/api/v1/health/live` (lightweight liveness checks).
+
+### Stage 2: Configuration & Request-Processing Pipeline
+- **Centralized Environment Module**: Implemented Pydantic-Settings environment manager (`BaseSettings`) loading validated variables from `.env` dynamically with fallback settings default values.
+- **Request Traceability (Request ID Middleware)**: Deployed custom middleware generating a unique tracing `uuid` and injecting it as `X-Request-ID` in HTTP headers.
+- **Timing and Monitoring Logs (Logging Middleware)**: Deployed processing duration logger tracing HTTP method, path, response code, and corresponding Request ID.
+- **CORS Config**: CORS configuration enabled via settings integration.
+
+### Stage 3: Database & ORM Infrastructure
+- **SQLAlchemy Engine**: Configured database connection engine with robust pooling parameters (`pool_pre_ping=True`, `pool_size`, `max_overflow`), using the modern `psycopg` (v3) PostgreSQL adapter.
+- **Declarative Base**: Formulated central base declarative class mapping automated table lowercase schemas (`__tablename__`) and including audit columns (`id`, `created_at`, `updated_at`).
+- **Session Factory**: Created `SessionLocal` database thread-safe session generator.
+- **Dependency Injectors**: Designed request-scoped context generator function `get_db()` resolving database connection sessions lifecycle management.
+
