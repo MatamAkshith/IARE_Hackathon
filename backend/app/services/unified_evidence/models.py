@@ -22,13 +22,16 @@ class EvidenceMetadata(BaseModel):
     severity: str = "unknown"
     tags: List[str] = Field(default_factory=list)
     raw_data: Dict[str, Any] = Field(default_factory=dict)
+    conflict_resolutions: List[str] = Field(default_factory=list)
 
 class UnifiedEvidence(BaseModel):
     indicator: str
     indicator_type: str
     internal_evidence: Optional[Dict[str, Any]] = None
     external_evidence: Optional[Dict[str, Any]] = None
+    resolved_observations: Dict[str, Any] = Field(default_factory=dict)
     sources: List[EvidenceSource] = Field(default_factory=list)
     overall_confidence: EvidenceConfidence = EvidenceConfidence.UNKNOWN
     metadata: EvidenceMetadata
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
