@@ -7,6 +7,8 @@ from app.services.unified_evidence.models import (
 )
 from app.services.unified_evidence.service import UnifiedEvidenceService, BaseMergeStrategy
 from app.services.unified_evidence.strategy import DefaultMergeStrategy
+from app.services.unified_evidence.normalizer import EvidenceNormalizer
+from app.services.unified_evidence.confidence import EvidenceConfidenceEngine
 
 __all__ = [
     "EvidenceCategory",
@@ -17,4 +19,6 @@ __all__ = [
     "UnifiedEvidenceService",
     "BaseMergeStrategy",
     "DefaultMergeStrategy",
+    "EvidenceNormalizer",
+    "EvidenceConfidenceEngine",
 ]

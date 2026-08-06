@@ -183,7 +183,7 @@ The ThreatLens Risk Engine calculates a transparent score from `0` (clean) to `1
 - **Threat Intelligence**: Scoring modifiers based on VT detections or blacklist matches.
 - **Brand Similarity**: Flags visual logo or textual matches referencing protected enterprise assets.
 - **HTML structure**: Matches form input elements (password inputs) hosted on untrusted domains.
-- **Infrastructure Similarity**: Flags shared malicious IPs or nameservers.
+- **Infrastructure Similarity**: Flags shared malicious IPs or dislocation nameservers.
 - **Campaign Confidence**: Scoring adjustments if linked to an active Campaign group.
 
 The risk report will detail the exact weights that contributed to the score, allowing analysts to justify domain takedown requests.
@@ -265,6 +265,8 @@ The data layer and RESTful API layer are decoupled using four core patterns:
 13. **Threat Evidence Aggregation Engine (Stage 4.5)**: Orchestration layer (`app/services/threat_intel/aggregator.py`) and API router (`app/api/v1/endpoints/threat_intel.py`) executing concurrent indicators checks, enforcing timeout limits (5s max), and synthesizing verdicts on a priority scale (`malicious` > `suspicious` > `clean` > `unknown`).
 14. **Unified Evidence Engine (Stage 5.1 & 5.2)**: Structured modular framework (`app/services/unified_evidence/`) mapping standardized evidence schemas (`models.py`) and interfaces (`service.py:UnifiedEvidenceService`) to combine internal extraction scans evidence (WHOIS, DNS, TLS, HTML BeautifulSoup) and external threat intelligence reputation lookups (VirusTotal, PhishTank, URLHaus, AbuseIPDB, AlienVault OTX) into a single normal model containing overall category and confidence levels.
 15. **Evidence Merging Strategy (Stage 5.2)**: Implements `DefaultMergeStrategy` (`strategy.py`) inheriting from `BaseMergeStrategy` to handle conflict resolution and deduplication. Overlapping keys (such as `domain_age` or `ip_address`) are reconciled by prioritizing external threat intelligence over internal scans, recording overrides in `conflict_resolutions` for full traceability.
+16. **Evidence Normalization Pipeline (Stage 5.3)**: Standardizes type representations via `EvidenceNormalizer` (`normalizer.py`), casting form flags to booleans, extracting digits from age spans to integers, strip-cleaning schemes/netloc values from URL indicators, and standardizing empty fields to `None`, writing detailed normalization log summaries.
+17. **Confidence Scoring Engine (Stage 5.3)**: Computes reliability levels via `EvidenceConfidenceEngine` (`confidence.py`). Evaluates individual fields mapping indicators (`virustotal_verdict`, `provider_responses`, etc.) to `HIGH` confidence, heuristics inputs (`has_login_form`, `ssl_valid`, etc.) to `MEDIUM` confidence, and missing/corrupted tags to `UNKNOWN`/`LOW`. Overall consensus registers as `HIGH` if any critical indicator matches `HIGH` or averages score values.
 
 ### Threat Intelligence Normalization Matrix
 
@@ -390,6 +392,7 @@ backend/app/
 - **2026-08-06 (Sprint 1 - Task 23 - 22:45):** **Task 23 (Provider Logic Refactoring - Stage 4.6):** Refactored duplicated lookups scaffolding into standard helper wrappers on `BaseThreatIntelProvider` (safely handling timing, logger scopes, configurations checks, and timing durations logs). Updated all 5 subclasses to leverage base hooks, cleaned registry imports, and added architecture roadmap for Milestone 5.
 - **2026-08-06 (Sprint 1 - Task 24 - 23:30):** **Task 24 (Unified Evidence Models & Foundation - Stage 5.1):** Created foundational packages, schemas (`EvidenceCategory`, `EvidenceConfidence`, `EvidenceSource`, `EvidenceMetadata`, `UnifiedEvidence` structures) and interfaces for Unified Evidence module. Configured metadata indicators parameters and placeholder orchestrator service.
 - **2026-08-06 (Sprint 1 - Task 25 - 23:45):** **Task 25 (Internal & External Evidence Merge - Stage 5.2):** Implemented `DefaultMergeStrategy` resolving conflicts by prioritizing external threat intel over internal extraction, and deduplicating identical fields. Updated service class to map sources and provider logs dynamically and populate conflict overrides.
+- **2026-08-06 (Sprint 1 - Task 26 - 23:55):** **Task 26 (Evidence Normalization & Confidence Engine - Stage 5.3):** Built standard data type standardizer class (`EvidenceNormalizer`) casting boolean states and parsing integers age spans. Developed confidence scoring rules selector (`EvidenceConfidenceEngine`) assigning items confidence levels and overall investigation consensus values.
 
 ---
 

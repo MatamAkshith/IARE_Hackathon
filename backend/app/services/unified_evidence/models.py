@@ -23,6 +23,9 @@ class EvidenceMetadata(BaseModel):
     tags: List[str] = Field(default_factory=list)
     raw_data: Dict[str, Any] = Field(default_factory=dict)
     conflict_resolutions: List[str] = Field(default_factory=list)
+    item_confidences: Dict[str, EvidenceConfidence] = Field(default_factory=dict)
+    normalization_logs: List[str] = Field(default_factory=list)
+
 
 class UnifiedEvidence(BaseModel):
     indicator: str
