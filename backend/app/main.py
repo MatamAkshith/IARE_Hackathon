@@ -1,9 +1,10 @@
 from fastapi import FastAPI
+from app.core.config import settings
 from app.api.router import api_router
 
 app = FastAPI(
-    title="ThreatLens API",
-    version="0.1.0",
+    title=settings.PROJECT_NAME,
+    version=settings.PROJECT_VERSION,
     description="Enterprise Phishing & Brand Impersonation Detection Platform"
 )
 
