@@ -4,6 +4,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str
     PROJECT_VERSION: str
     ENVIRONMENT: str = "development"
+    CORS_ORIGINS: list[str] = ["*"]
 
     model_config = SettingsConfigDict(
         env_file=".env",
