@@ -23,20 +23,19 @@ export default function ScanStatus({ status }) {
   const currentIdx = getStepIndex(status)
 
   return (
-    <div className="border border-[#1a2336] bg-[#090d16] p-5 rounded-xl shadow-md space-y-4">
-      <div className="flex justify-between items-center">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Scan Pipeline Status</h4>
-        <span className="text-[10px] font-mono font-bold uppercase text-brand-400 bg-brand-950/20 px-2 py-0.5 border border-brand-850/30 rounded">
+    <div className="border border-[#1a2336] bg-[#090d16] p-5 rounded-xl shadow-md space-y-4 w-full min-w-0 overflow-hidden">
+      <div className="flex items-center justify-between min-w-0">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 truncate">Scan Pipeline Status</h4>
+        <span className="text-[10px] font-mono font-bold uppercase text-brand-400 bg-brand-950/20 px-2 py-0.5 border border-brand-850/30 rounded flex-shrink-0">
           {status}
         </span>
       </div>
 
-      {/* Stepper container */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-2">
+      {/* Stepper container: Vertical layout prevents overflow in narrow sidebar columns */}
+      <div className="flex flex-col gap-4 pt-2 w-full min-w-0">
         {steps.map((step, idx) => {
           const isDone = currentIdx > idx
           const isCurrent = currentIdx === idx
-          const isPending = currentIdx < idx
 
           let circleColor = 'border-slate-800 text-slate-500 bg-slate-900'
           if (isDone) {
@@ -46,9 +45,9 @@ export default function ScanStatus({ status }) {
           }
 
           return (
-            <div key={step.key} className="flex-1 flex items-start md:items-center gap-3">
+            <div key={step.key} className="flex items-start gap-3 w-full min-w-0">
               {/* Checkmark or number indicator */}
-              <span className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold ${circleColor} transition-all duration-300`}>
+              <span className={`w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold flex-shrink-0 ${circleColor} transition-all duration-300 mt-0.5`}>
                 {isDone ? (
                   <svg className="w-3.5 h-3.5 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -58,18 +57,14 @@ export default function ScanStatus({ status }) {
                 )}
               </span>
               
-              <div className="space-y-0.5 min-w-0">
+              <div className="space-y-0.5 min-w-0 flex-1">
                 <span className={`block text-xs font-bold uppercase tracking-wide ${isCurrent ? 'text-brand-300' : isDone ? 'text-slate-300' : 'text-slate-500'}`}>
                   {step.label}
                 </span>
-                <span className="block text-[10px] text-slate-500 truncate leading-none">
+                <span className="block text-[10px] text-slate-500 break-words leading-tight">
                   {step.desc}
                 </span>
               </div>
-
-              {idx < steps.length - 1 && (
-                <div className="hidden md:block flex-1 h-0.5 bg-slate-850 mx-2" />
-              )}
             </div>
           )
         })}
