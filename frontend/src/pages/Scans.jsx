@@ -207,10 +207,15 @@ export default function Scans() {
                             <StatusPill status={scan.status} />
                           </td>
                           <td className="py-3.5 px-5">
-                            {scan.campaign_id ? (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-brand-900/35 text-brand-300 border border-brand-800/40">
-                                Campaign Linked
-                              </span>
+                            {scan.campaign_name ? (
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/campaigns?id=${scan.campaign_uid || scan.campaign_id}`)}
+                                className="px-2 py-0.5 rounded text-[10px] font-semibold bg-brand-900/35 text-brand-300 border border-brand-800/40 hover:border-brand-500 hover:text-brand-200 transition-all cursor-pointer text-left truncate max-w-[150px]"
+                                title={`View Campaign: ${scan.campaign_name}`}
+                              >
+                                {scan.campaign_name}
+                              </button>
                             ) : (
                               <span className="text-slate-500 font-mono text-[10px] italic">Unattributed</span>
                             )}

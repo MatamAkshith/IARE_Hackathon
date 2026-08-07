@@ -167,6 +167,28 @@ def evaluate_risk(
                 score=score,
                 indicator_type=request.indicator_type or "url",
             )
+            
+            # Dynamic Campaign Correlation Step
+            try:
+                from app.models.domain import Domain
+                from app.models.scan import Scan
+                from app.services.campaign_service import attribute_scan_to_campaign
+
+                domain = db.query(Domain).filter(Domain.url == request.indicator).first()
+                if domain:
+                    scan = db.query(Scan).filter(Scan.domain_id == domain.id).order_by(Scan.id.desc()).first()
+                    if scan:
+                        attribute_scan_to_campaign(
+                            db=db,
+                            scan_id=scan.id,
+                            telemetry_data=evidence,
+                            overall_score=score.overall_score
+                        )
+            except Exception as correlation_exc:
+                logger.warning(
+                    f"Failed to dynamically correlate scan to campaign for '{request.indicator}': {correlation_exc}",
+                    exc_info=True
+                )
 
         logger.info(f"POST /api/v1/risk/evaluate completed successfully for indicator: '{request.indicator}'")
         return score

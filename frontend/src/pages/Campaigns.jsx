@@ -41,7 +41,7 @@ export default function Campaigns() {
         setCampaignList(sorted)
 
         // Determine initial selection from URL params or first campaign
-        const paramId = searchParams.get('campaignId')
+        const paramId = searchParams.get('campaignId') || searchParams.get('id')
         const initialId = paramId || (sorted.length > 0 ? sorted[0].campaign_id : null)
         if (initialId) setSelectedCampaignId(initialId)
       } catch (err) {

@@ -1782,3 +1782,23 @@ This section provides a full cross-referenced audit of every commit in the repos
 * Adjusted `DashboardService.get_stats` (`backend/app/services/dashboard_service.py`) to check `settings.ENVIRONMENT`.
 * If in `"development"` mode, the threat feed status counts automatically default to `5/5` operational status (instead of dropping to `4/5` due to missing environment API keys), ensuring smooth testing and consistent presentation indicators.
 * All changes staged, tested, committed, and pushed to the repository.
+
+---
+
+## 42. Dynamic Campaign Correlation Pipeline & Interactive Scans UI (2026-08-07)
+
+### 42.1 Dynamic Clustering & Attribution (Backend)
+* Created `campaign_service.py` (`backend/app/services/campaign_service.py`) to manage correlation clustering logic:
+  * Leaves scans with a risk score $< 71$ unattributed.
+  * Clusters scans with a risk score $\ge 71$ by searching active campaigns for brand overlaps or hosting indicators (IP/ASN).
+  * Automatically updates both the legacy database tables (`Scan.campaign_id`) and the new cluster structures (`CampaignRecord`/`CampaignMemberRecord`).
+  * Generates a new named campaign (e.g. `Auto-Generated [Brand] Campaign`) if no existing matches are found.
+* Integrated the correlation check as a dynamic step inside the `evaluate_risk` endpoint (`backend/app/api/v1/endpoints/risk.py`).
+* Modified the scans retrieval API (`backend/app/api/v1/endpoints/scans.py`) to populate `campaign_name` and `campaign_uid` using a unified helper.
+
+### 42.2 Interactive Scans Column Mapping (Frontend)
+* Updated the `getInvestigationHistory()` client service mapper (`frontend/src/api/investigationService.js`) to parse `campaign_name` and `campaign_uid`.
+* Refactored `Scans.jsx` (`frontend/src/pages/Scans.jsx`) to display the actual dynamic campaign name inside the attribution log column (instead of a static text badge).
+* Made the campaign name badge a clickable button routing the analyst to `/campaigns?id={campaign_uid}`, facilitating seamless drill-down.
+* Updated `Campaigns.jsx` (`frontend/src/pages/Campaigns.jsx`) search parameter mapping to parse both `campaignId` and `id` keys.
+* Verified that backend test suites and frontend production builds pass cleanly.

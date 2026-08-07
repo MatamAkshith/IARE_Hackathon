@@ -173,7 +173,9 @@ export async function getInvestigationHistory() {
     domain: domainMap[s.domain_id] || `Scan #${s.id}`,
     status: s.status || 'unknown',
     scanTime: new Date(s.created_at).toISOString().replace('T', ' ').substring(0, 16),
-    campaign_id: s.campaign_id
+    campaign_id: s.campaign_id,
+    campaign_name: s.campaign_name,
+    campaign_uid: s.campaign_uid
   }))
 }
 

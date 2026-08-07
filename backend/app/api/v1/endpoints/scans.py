@@ -6,6 +6,41 @@ from app.schemas.scan import ScanCreate, ScanUpdate, ScanResponse
 
 router = APIRouter()
 
+def _populate_scan_campaign(db: Session, scan: Any) -> Any:
+    if not scan:
+        return scan
+    from app.models.domain import Domain
+    from app.models.campaign import Campaign as LegacyCampaign
+    from app.db.models.campaign import CampaignRecord, CampaignMemberRecord
+
+    domain = db.query(Domain).filter(Domain.id == scan.domain_id).first()
+    target_domain = domain.url if domain else ""
+
+    scan.campaign_name = None
+    scan.campaign_uid = None
+
+    if scan.campaign_id:
+        leg_camp = db.query(LegacyCampaign).filter(LegacyCampaign.id == scan.campaign_id).first()
+        if leg_camp:
+            scan.campaign_name = leg_camp.name
+            camp_rec = db.query(CampaignRecord).filter(CampaignRecord.name == leg_camp.name).first()
+            if camp_rec:
+                scan.campaign_uid = camp_rec.campaign_id
+    else:
+        member = db.query(CampaignMemberRecord).filter(
+            CampaignMemberRecord.indicator == target_domain
+        ).first()
+        if member:
+            camp_rec = db.query(CampaignRecord).filter(
+                CampaignRecord.campaign_id == member.campaign_id
+            ).first()
+            if camp_rec:
+                scan.campaign_name = camp_rec.name
+                scan.campaign_uid = camp_rec.campaign_id
+
+    return scan
+
+
 @router.get("", response_model=List[ScanResponse])
 def read_scans(
     db: Session = Depends(get_db),
@@ -13,7 +48,10 @@ def read_scans(
     limit: int = 100
 ) -> Any:
     scans = scan_repo.get_multi(db, skip=skip, limit=limit)
+    for scan in scans:
+        _populate_scan_campaign(db, scan)
     return scans
+
 
 @router.post("", response_model=ScanResponse, status_code=status.HTTP_201_CREATED)
 def create_scan(
@@ -22,7 +60,8 @@ def create_scan(
     scan_in: ScanCreate
 ) -> Any:
     db_obj = scan_repo.create(db, obj_in=scan_in)
-    return db_obj
+    return _populate_scan_campaign(db, db_obj)
+
 
 @router.get("/{id}", response_model=ScanResponse)
 def read_scan(
@@ -35,7 +74,8 @@ def read_scan(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Scan not found"
         )
-    return scan
+    return _populate_scan_campaign(db, scan)
+
 
 @router.put("/{id}", response_model=ScanResponse)
 def update_scan(
@@ -51,7 +91,7 @@ def update_scan(
             detail="Scan not found"
         )
     scan = scan_repo.update(db, db_obj=scan, obj_in=scan_in)
-    return scan
+    return _populate_scan_campaign(db, scan)
 
 @router.delete("/{id}", response_model=ScanResponse)
 def delete_scan(

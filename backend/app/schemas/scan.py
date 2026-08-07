@@ -17,6 +17,8 @@ class ScanUpdate(BaseModel):
 
 class ScanResponse(ScanBase):
     id: int
+    campaign_name: Optional[str] = None
+    campaign_uid: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
