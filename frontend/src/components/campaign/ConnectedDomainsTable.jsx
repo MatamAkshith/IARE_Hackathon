@@ -1,13 +1,16 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import RiskScoreBadge from '../RiskScoreBadge'
 
 /**
- * Connected lookalike domains list table.
- * 
+ * Connected lookalike domains list table with drill-down to individual reports.
+ *
  * @param {Object} props
  * @param {Array} props.domains Connected domains logs list from dataset
  */
 export default function ConnectedDomainsTable({ domains = [] }) {
+  const navigate = useNavigate()
+
   return (
     <div className="border border-[#1a2336] bg-[#090d16] rounded-xl overflow-hidden shadow-md">
       {/* Header title */}
@@ -28,16 +31,17 @@ export default function ConnectedDomainsTable({ domains = [] }) {
               <th className="py-3 px-5">First Logged</th>
               <th className="py-3 px-5">Latest Logged</th>
               <th className="py-3 px-5">Geo IP Country</th>
-              <th className="py-3 px-5 text-right">Hosting Provider</th>
+              <th className="py-3 px-5">Hosting Provider</th>
+              <th className="py-3 px-5 text-center">Report</th>
             </tr>
           </thead>
           <tbody>
-            {domains.map((dom) => (
+            {domains.length > 0 ? domains.map((dom) => (
               <tr
                 key={dom.id}
                 className="border-b border-[#151d2c] last:border-b-0 hover:bg-[#101726]/40 transition-colors"
               >
-                <td className="py-3.5 px-5 font-mono text-[11px] font-semibold text-slate-300 select-all truncate max-w-[200px]" title={dom.domain}>
+                <td className="py-3.5 px-5 font-mono text-[11px] font-semibold text-slate-300 select-all truncate max-w-[180px]" title={dom.domain}>
                   {dom.domain}
                 </td>
                 <td className="py-3.5 px-5">
@@ -58,11 +62,31 @@ export default function ConnectedDomainsTable({ domains = [] }) {
                 <td className="py-3.5 px-5 text-slate-400 font-medium font-sans">
                   {dom.country}
                 </td>
-                <td className="py-3.5 px-5 text-right font-mono text-slate-400 text-[11px] font-semibold">
+                <td className="py-3.5 px-5 font-mono text-slate-400 text-[11px] font-semibold">
                   {dom.hostingProvider}
                 </td>
+                <td className="py-3.5 px-5 text-center">
+                  {dom.scanId ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/reports?scanId=${dom.scanId}`)}
+                      title="View Intelligence Report"
+                      className="px-2.5 py-1 rounded bg-[#0e1422] border border-[#1a2336] hover:border-rose-600 text-rose-400 hover:text-rose-300 font-bold transition-all text-[10px] uppercase"
+                    >
+                      Report
+                    </button>
+                  ) : (
+                    <span className="text-slate-600 text-[10px] font-semibold select-none">—</span>
+                  )}
+                </td>
               </tr>
-            ))}
+            )) : (
+              <tr>
+                <td colSpan="8" className="py-8 text-center text-slate-500 font-medium">
+                  No correlated domains found for this campaign.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

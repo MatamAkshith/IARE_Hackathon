@@ -1504,3 +1504,29 @@ This section provides a full cross-referenced audit of every commit in the repos
 | **Working Tree Status** | ✅ Clean — nothing to commit |
 | **PROJECT_NOTES Coverage** | ✅ Sections 1–27 mapped to all major commits |
 | **Open Issues** | None — platform is Demo-Ready |
+
+---
+
+## 29. Multi-Brand Campaign Selector, Deep-Linking & Report Drill-Down (2026-08-07)
+
+### 29.1 Rich Multi-Brand Campaign Seeding (seed_demo_data.py)
+* **4 Distinct Campaign Clusters**: Expanded seed script from 2 to **4 named campaign records**, each with 2-3 correlated member domains:
+  * `CAMP-2026-004` — **CozyBear Impersonation Wave** (Critical): 3 Microsoft lookalike domains. Shared ASN `AS41235`, registrar `NameCheap`, and identical fake SSL serial `03A1B2C3D4E5F67890`.
+  * `CAMP-2026-008` — **Fintech Harvester Syndicate** (High): 2 PayPal phishing domains. Shared IP `185.230.125.44` and nameserver delegation.
+  * `CAMP-2026-011` — **Amazon Billing Smash & Grab** (High): 3 Amazon checkout lookalikes. Hosted on Linode VPS `45.33.32.156`, identical self-signed cert.
+  * `CAMP-2026-015` — **Indian Banking Fraud Ring** (Critical): 3 SBI/HDFC impersonation domains. Shared C2 IP `193.109.112.5`, offshore registrar `PublicDomainRegistry`.
+* **scan_id in resolved_observations**: Each `CampaignMemberRecord` now stores the seeded `scan_id` inside `resolved_observations_json` so the frontend can construct `/reports?scanId={id}` drill-down links.
+* **Total scenarios**: Increased from 15 to **20 investigation records** (11 campaign-attributed + 4 unattributed threats + 5 safe baselines).
+
+### 29.2 Campaign Selector Dropdown & URL State (Campaigns.jsx)
+* **Self-Contained Page**: Refactored `Campaigns.jsx` to manage its own local state entirely, dropping the `useCampaigns()` Context hook dependency for full dynamic loading.
+* **Campaign Selector Dropdown**: Added a styled `<select>` in the header listing all active campaigns as `{campaign_id} — {name}`. Severity badge and member count shown beneath the dropdown.
+* **`useSearchParams` Deep-Linking**: Reads `?campaignId=X` from URL on mount. Updates the URL param on every dropdown change, making every selected campaign view bookmarkable and shareable.
+* **On-Demand Loading**: Calls `getCampaignDetails(campaignId)` when the dropdown changes, re-rendering the topology graph, shared infrastructure, evidence table, and timeline for the selected campaign.
+* **Loading & Error UX**: Shows a spinner overlay while loading and an error banner with Retry button on fetch failure.
+
+### 29.3 Drill-Down to Individual Domain Reports (ConnectedDomainsTable.jsx)
+* **"Report" Action Column**: Added an 8th column to the Correlated Campaign Domains table with a styled rose-colored "Report" button for each row.
+* **`useNavigate` Integration**: Clicking the button navigates to `/reports?scanId={domain.scanId}`, allowing analysts to seamlessly pivot from the campaign macro-view to the individual domain's full threat intelligence report.
+* **Graceful Fallback**: Rows where `scanId` is `null` (e.g. live-correlated domains not seeded) show a `—` placeholder instead.
+* **`scanId` Propagation**: Updated `campaignService.js` to extract `resolved_observations.scan_id` from each campaign member's observations and expose it as `scanId` in the `connectedDomains` array.

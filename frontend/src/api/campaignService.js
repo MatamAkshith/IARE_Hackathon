@@ -83,7 +83,7 @@ export async function getCampaignDetails(id) {
     iocs: (campaign.members || []).map(m => m.indicator)
   }
 
-  // Connected domains list
+  // Connected domains list — include scan_id from resolved_observations for drill-down
   const connectedDomains = (campaign.members || []).map((m, index) => ({
     id: index + 1,
     domain: m.indicator,
@@ -92,8 +92,10 @@ export async function getCampaignDetails(id) {
     firstSeen: new Date(campaign.created_at).toISOString().replace('T', ' ').substring(0, 16),
     lastSeen: new Date(campaign.updated_at).toISOString().replace('T', ' ').substring(0, 16),
     country: m.resolved_observations?.country || 'United States',
-    hostingProvider: m.resolved_observations?.hosting_provider || m.resolved_observations?.isp || 'GlobalHost Corp'
+    hostingProvider: m.resolved_observations?.hosting_provider || m.resolved_observations?.isp || 'GlobalHost Corp',
+    scanId: m.resolved_observations?.scan_id || null
   }))
+
 
   return adaptCampaignData({
     summary,
