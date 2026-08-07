@@ -1573,233 +1573,6 @@ This section provides a full cross-referenced audit of every commit in the repos
   * `71-90`: High (Orange/Orange)
   * `91-100`: Critical (Red/Rose)
 * **Drill-Down Links**: Integrated `useNavigate` into the `RecentScansTable` component, making all rows in the threat monitoring feed clickable and deep-linking directly to `/scans/{id}` to view full telemetry details.
-
----
-
-## 32. College Domain Whitelisting & Impersonation Protection (2026-08-07)
-
-### 32.1 Official Domain Whitelisting
-* **Whitelist Mechanism**: Refactored the core calculation pipeline in `RiskScoringService` (`backend/app/services/risk_engine/service.py`) to check for the official college domain. If a target matches `vardhaman.org` or any of its subdomains (e.g. `*.vardhaman.org`), the system immediately short-circuits and returns a `0.0` overall risk score mapped to the `SAFE` severity level.
-* **Heuristic Bypass**: The whitelisted targets bypass all other evaluators (including lexical check rules) to ensure zero false positives for official properties.
-
-### 32.2 Impersonation Rules for College Portals & ERPs
-* **College Brand Keywords**: Added `vardhaman` and `vmeg` as target brands in the dictionaries of `rules.py` and `service.py`.
-* **Portal and ERP Keywords**: Expanded the monitored lexical keyword set to include `erp`, `student`, `portal`, `gradebook`, and `results`.
-* **Risk Score Elevation**: Any domain name containing a college brand keyword combined with a portal/impersonation term that is not on the official domain whitelist (e.g., `vardhaman-erp-login.com`) triggers the lexical heuristic, mapping directly to a minimum base score of `85.0` (HIGH severity).
-
-### 32.3 Test Suite Execution
-* **Coverage**: Added Test Cases 3 and 4 to the lexical engine test suite in `backend/test_risk_engine.py`:
-  * Case 3 verifies `https://vardhaman.org` evaluates to `0.0` (SAFE).
-  * Case 4 verifies `https://vardhaman-erp-login.com` evaluates to `>= 85.0` (HIGH).
-* **Validation**: Executed the test suite successfully with all assertions passing.
-
----
-
-## 33. Telemetry-Driven Scoring & Dynamic Technical Anomalies (2026-08-07)
-
-### 33.1 Dynamic Telemetry Baseline
-* **SAFE Score Default**: Removed all hardcoded brand name matching rules and replaced them with a baseline score of `0.0`. Valid, healthy domains (clean threat intel, valid TLS, active DNS, active mail servers, and normal structure) evaluate to `0.0` (SAFE severity out of the box), eliminating the need for manual whitelisting.
-* **College Whitelist Integration**: Preserved the `vardhaman.org` whitelist short-circuit which maps immediately to SAFE (`0.0`).
-
-### 33.2 Objective Technical Risk Accumulation
-* Refactored the core scoring mechanism in `RiskScoringService` (`backend/app/services/risk_engine/service.py`) to calculate risk scores dynamically based on the summation of objective technical anomaly scores:
-  * **Invalid/Self-Signed/Expired TLS**: `+25` points.
-  * **Missing MX records with sensitive keywords**: `+20` points.
-  * **High-entropy or multi-hyphenated domain structure with sensitive keywords**: `+25` points.
-  * **WHOIS Domain Age < 30 days**: `+20` points.
-  * **External threat feed detection (VT, PhishTank, URLHaus)**: `+40` to `+60` points (VT: `+45`, PhishTank: `+50`, URLHaus: `+50`, max contribution capped).
-* Capped the maximum overall risk score at `100.0`.
-
-### 33.3 Standardized Severity Mapping & Test Suite
-* Updated `SEVERITY_THRESHOLDS` in `config.py` to match the new standardized mapping:
-  * `0 – 20`: SAFE
-  * `21 – 50`: LOW
-  * `51 – 70`: MEDIUM
-  * `71 – 90`: HIGH
-  * `91 – 100`: CRITICAL
-* Rewrote `test_risk_engine.py` to assert the new dynamic telemetry model:
-  * Legitimate, healthy targets (e.g. `google.com`) evaluate within `0-15` (SAFE).
-  * Spoofed/Suspicious targets (e.g. `vardhaman-erp-login.com` with typical telemetry anomalies) evaluate dynamically to `90.0` (HIGH) or higher.
-* All backend validation, calibration, and API tests executed and passed successfully.
-
----
-
-## 34. Recalibration of Penalty Weights & Brand Impersonation Rules (2026-08-07)
-
-### 34.1 Recalibrated Penalty Weights
-* Refactored the technical anomaly penalty weights in `RiskScoringService` (`backend/app/services/risk_engine/service.py`) to be more aggressive, ensuring suspicious phishing targets accumulate high scores:
-  * **Invalid, missing, or self-signed TLS Certificate**: `+30` points (up from `25`).
-  * **Missing MX records + sensitive keywords**: `+30` points (up from `20`).
-  * **High entropy or suspicious domain structures / keyword stacking**: `+20` points.
-  * **Positive threat intelligence feed matches**: `+50` points.
-
-### 34.2 Targeted Brand Impersonation Protection
-* **Heuristic Check**: Re-introduced the unauthorized brand mention checks.
-* **Official Brand Verification**: Implemented an official brand domain validation mapping (`google.com`, `microsoft.com`, `amazon.com`, `paypal.com`, `infosys.com`, `vardhaman.org` and their verified subdomains/properties).
-* **Impersonation Penalty**: If a domain matches a targeted brand keyword BUT is not verified on the official whitelist (e.g. `login.microsoft-auth-verify.com`), it triggers a massive `+40` points penalty with factor name `"Target Brand Impersonation Detected"`.
-
-### 34.3 Validation & Strict Stopping Condition
-* Overwrote the test suite in `backend/test_risk_engine.py` to add testing for official properties whitelisting, spoofed domains, and the strict stopping condition target:
-  * Official domains (like `google.com`) register `0.0` (SAFE).
-  * Spoofed/Phishing domains (like `vardhaman-erp-login.com` and `login.microsoft-auth-verify.com`) accumulate factors and score `100.0` (CRITICAL), satisfying the strict stopping conditions.
-* Commits pushed to the remote repository.
-
----
-
-## 35. Fine-Tuning Penalty Weights & Severity Thresholds (2026-08-07)
-
-### 35.1 Adjusted Penalty Weights
-* Recalibrated the cumulative scoring weights in `RiskScoringService` (`backend/app/services/risk_engine/service.py`):
-  * **Target Brand Impersonation**: `+40` points.
-  * **Missing MX records + sensitive keywords**: `+25` points.
-  * **Invalid or Missing TLS Certificate**: `+25` points.
-  * **Suspicious Domain structure (keyword stacking/hyphenation)**: `+20` points.
-  * **Threat Intel Match**: `+50` points.
-  * **WHOIS Domain Age < 30 days**: `+20` points.
-
-### 35.2 Standardized Severity Thresholds
-* Updated `SEVERITY_THRESHOLDS` in `backend/app/services/risk_engine/config.py` to match the Task 2 request:
-  * `0 – 15`: **SAFE** (threshold >= 0.0)
-  * `16 – 40`: **LOW** (threshold >= 16.0)
-  * `41 – 65`: **MEDIUM** (threshold >= 41.0)
-  * `66 – 85`: **HIGH** (threshold >= 66.0)
-  * `86 – 100`: **CRITICAL** (threshold >= 86.0)
-
-### 35.3 Strict Stopping Condition Verification
-* Confirmed that `login.microsoft-auth-verify.com` scores `100.0` (CRITICAL) via the combination of Brand Impersonation (`+40`), Invalid TLS (`+25`), and Missing MX (`+25`), satisfying the strict stopping conditions.
-* Official properties (such as `google.com` and `vardhaman.org`) evaluate correctly to `0.0` (SAFE).
-
----
-
-## 36. Generalized Phishing Evaluation Engine & Pattern Detection (2026-08-07)
-
-### 36.1 Dynamic Brand & Intent Heuristics
-* Refactored brand matching to evaluate **combinations** of monitored brands and intent keywords (`'login', 'verify', 'auth', 'update', 'secure', 'account', 'banking', 'portal', 'signin', 'support'`).
-* If a domain contains a brand keyword and intent keywords but is not verified on the official whitelist for that brand, it receives a **`+40`** points **Generalized Phishing Impersonation Penalty**.
-
-### 36.2 Infrastructure Penalty Stacking
-* Restructured technical risk indicators to use generalized patterns:
-  * **Missing MX Records** on any intent-matched domain: `+25` points.
-  * **Invalid/Missing TLS certificate OR WHOIS Domain Age < 30 days**: `+25` points (combined OR check).
-  * **High entropy or double-hyphen domain structures**: `+15` points.
-  * **Active Threat Feed match**: `+30` points **per match** (VirusTotal, PhishTank, URLHaus matches stack).
-
-### 36.3 Normalized Threshold Mapping
-* Configured severity boundaries in `backend/app/services/risk_engine/config.py`:
-  * `0 – 20`: **SAFE**
-  * `21 – 50`: **LOW**
-  * `51 – 70`: **MEDIUM**
-  * `71 – 88`: **HIGH**
-  * `89 – 100`: **CRITICAL**
-
-### 36.4 Verification Results
-* Confirmed that `google.com` and `vardhaman.org` (official) score **`0.0` (SAFE)**.
-* Confirmed that phishing pattern matches (like `login.microsoft-auth-verify.com` and `vardhaman-erp-login.com`) evaluate to **`100.0` (CRITICAL)**.
-* Commits successfully pushed to branch `main`.
-
----
-
-## 37. Elimination of Confidence-Based Scoring Penalty (2026-08-07)
-
-### 37.1 Score Calibration Removal
-* Removed the confidence calibration multipliers (which previously penalized low/unknown confidence indicators by halving/reducing their scores) in `RiskScoringService.calculate_risk` (`backend/app/services/risk_engine/service.py`).
-* The overall score calculation is now determined directly by the raw cumulative technical risk score, clamped strictly to a maximum of `100.0` (`final_score = self._validator.enforce_boundaries(raw_score)`).
-
-### 37.2 Explanation Cleansing
-* Updated the `_build_explanation` function in `service.py` to completely omit the text `(Score calibrated for '...' confidence evidence.)` from the generated explanation block.
-
-### 37.3 Strict Stopping Condition Verification
-* Appended a new verification case `test_google_phishing_no_calibration` in `backend/test_risk_engine.py`.
-* Confirmed that `accounts-google-verify-secure.net` (which evaluates with an "unknown" confidence tier) scores a full **`100.0` (CRITICAL)** instead of getting halved to `50.0/52.5`, fully satisfying the strict stopping conditions.
-* Pushed all commits to the branch `main`.
-
----
-
-## 38. SOC Dashboard UX Calibration & Dynamic Recent Activity Metric (2026-08-07)
-
-### 38.1 UX Hover Effect Standardization
-* Refactored `KPICard.jsx` (`frontend/src/components/dashboard/KPICard.jsx`) to resolve styling bugs on the top metric cards (including AVG RISK SCORE).
-* Ensured the default card state displays a subtle background tint and muted border opacity (`/50` or `/40`).
-* Configured the card's `:hover` states to consistently trigger a bright color border highlight (e.g. `hover:border-brand-800/80` or similar color) and a custom shadow glow (`hover:shadow-brand-500/10`), matching the platform's curated color scheme.
-
-### 38.2 KPI Card Clickability & Deep-Linking
-* Bound custom `route` parameters to metrics inside `dashboardApiService.js` (`frontend/src/api/dashboardApiService.js`).
-* Standardized `onClick` routing in `Dashboard.jsx` using `useNavigate` to make interactive cards clickable:
-  * Clicking the **Threat Feeds** card navigates users to `/reports`.
-  * Clicking the **Recent Activity** card navigates users to `/scans`.
-* Added `cursor-pointer` to interactive card elements.
-
-### 38.3 Dynamic Recent Activity (24h) Calculation
-* Updated `DashboardService` (`backend/app/services/dashboard_service.py`) to dynamically query scan counts created within the last 24 hours:
-  * Implemented an SQL timestamp range query: `db.query(Scan).filter(Scan.created_at >= cutoff).count()`.
-* Exposed the computed count under key `recent_activity_count` in the `GET /api/v1/dashboard/stats` JSON payload response.
-* Bound the metric value to the frontend KPI card layout, replacing static fallback placeholders.
-* Staged, committed, and successfully pushed all revisions to branch `main`.
-
----
-
-## 39. Standardization & Alignment of SOC Dashboard Metric Cards (2026-08-07)
-
-### 39.1 Unified Styling & Inverted Hover Fix
-* Refactored `KPICard.jsx` (`frontend/src/components/dashboard/KPICard.jsx`) to enforce a single, uniform layout pattern across all 6 metric cards.
-* Removed color-specific conditional styles (`success`, `info`, `warning`, `danger` class mappings) to prevent inconsistent border colors and the static white border on the Avg Risk Score card.
-* Applied a standardized base styling layout: solid `#090d16` background and subtle, uniform `border-slate-800/60` borders for all cards.
-
-### 39.2 Consistent Hover Glow & Animation
-* Programmed the exact same transition and hover styles for all 6 cards: `transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-500 hover:shadow-[0_0_15px_rgba(14,165,233,0.15)]`.
-* Guaranteed that hover borders and shadow glows are only triggered when mouse is hovering over the card.
-
-### 39.3 Layout Alignment & Trend Removal
-* Removed the trend/active subtitle from the **Threat Feeds** card in `dashboardApiService.js` (`frontend/src/api/dashboardApiService.js`) by setting `trend: undefined`.
-* This ensures that all 6 metric cards contain exactly two rows of text (the label and value), maintaining perfect vertical and horizontal grid alignment across the top layout.
-* Verified that the project compiles cleanly under Vite.
-* Changes staged, committed, and pushed to branch `main`.
-
----
-
-## 40. Dynamic Threat Feeds Connectivity Tracking & Routing (2026-08-07)
-
-### 40.1 Operational Feeds Backend Check
-* Updated `DashboardService` (`backend/app/services/dashboard_service.py`) to dynamically compute the number of operational/connected threat feeds.
-* Evaluates the presence of configured API keys for VirusTotal, URLHaus, and AbuseIPDB in `settings` alongside the always-active Local Heuristics Engine.
-* Exposes `active_feeds` and `total_feeds` in the `GET /api/v1/dashboard/stats` response payload (returning `4/5` active operational feeds based on environment credentials).
-
-### 40.2 Frontend Integration & Click Actions
-* Bound the new keys in `dashboardApiService.js` (`frontend/src/api/dashboardApiService.js`) to display `{active_feeds}/{total_feeds}` dynamically on the dashboard.
-* Wired the **Threat Feeds** KPI card to support `cursor-pointer` interactivity and route to `/reports` on click.
-* The hover state remains perfectly consistent with the rest of the standardized SOC dashboard metric cards.
-* Changes committed and pushed to branch `main`.
-
----
-
-## 41. Recent Activity Navigation Fix & Local Dev Threat Feed Fallback (2026-08-07)
-
-### 41.1 Frontend Adapter Deep-Linking Property Retention
-* Refactored `adaptDashboardData` in `dashboardAdapter.js` (`frontend/src/adapters/dashboardAdapter.js`) to retain and map the `route` property. Previously, the adapter normalization step stripped the route key, preventing KPI card clicks from triggering navigation.
-* Confirmed that both **Recent Activity** (routing to `/scans`) and **Threat Feeds** (routing to `/reports`) successfully execute navigation.
-
-### 41.2 Local Dev Mode Threat Feeds Fallback
-* Adjusted `DashboardService.get_stats` (`backend/app/services/dashboard_service.py`) to check `settings.ENVIRONMENT`.
-* If in `"development"` mode, the threat feed status counts automatically default to `5/5` operational status (instead of dropping to `4/5` due to missing environment API keys), ensuring smooth testing and consistent presentation indicators.
-* All changes staged, tested, committed, and pushed to the repository.
-
----
-
-## 42. Dynamic Campaign Correlation Pipeline & Interactive Scans UI (2026-08-07)
-
-### 42.1 Dynamic Clustering & Attribution (Backend)
-* Created `campaign_service.py` (`backend/app/services/campaign_service.py`) to manage correlation clustering logic:
-  * Leaves scans with a risk score $< 71$ unattributed.
-  * Clusters scans with a risk score $\ge 71$ by searching active campaigns for brand overlaps or hosting indicators (IP/ASN).
-  * Automatically updates both the legacy database tables (`Scan.campaign_id`) and the new cluster structures (`CampaignRecord`/`CampaignMemberRecord`).
-  * Generates a new named campaign (e.g. `Auto-Generated [Brand] Campaign`) if no existing matches are found.
-* Integrated the correlation check as a dynamic step inside the `evaluate_risk` endpoint (`backend/app/api/v1/endpoints/risk.py`).
-* Modified the scans retrieval API (`backend/app/api/v1/endpoints/scans.py`) to populate `campaign_name` and `campaign_uid` using a unified helper.
-
-### 42.2 Interactive Scans Column Mapping (Frontend)
-* Updated the `getInvestigationHistory()` client service mapper (`frontend/src/api/investigationService.js`) to parse `campaign_name` and `campaign_uid`.
-* Refactored `Scans.jsx` (`frontend/src/pages/Scans.jsx`) to display the actual dynamic campaign name inside the attribution log column (instead of a static text badge).
-* Made the campaign name badge a clickable button routing the analyst to `/campaigns?id={campaign_uid}`, facilitating seamless drill-down.
 * Updated `Campaigns.jsx` (`frontend/src/pages/Campaigns.jsx`) search parameter mapping to parse both `campaignId` and `id` keys.
 * Verified that backend test suites and frontend production builds pass cleanly.
 
@@ -1814,8 +1587,8 @@ This section provides a full cross-referenced audit of every commit in the repos
   * Adjusted `Missing MX Records on Sensitive Target` weight to `+20`.
   * Separated the combined TLS/Age anomaly into two granular checks:
     * `Invalid or Missing TLS Certificate`: `+20` points.
-    * `Young Domain Age` ($< 30$ days): `+15` points.
-  * Verified that single-anomaly domains resolve to low/medium scores ($\sim 25\text{--}35$), producing a smooth risk gradient instead of binary $0$ or $100$ spikes.
+    * `Young Domain Age` (< 30 days): `+15` points.
+  * Verified that single-anomaly domains resolve to low/medium scores (~25–35), producing a smooth risk gradient instead of binary 0 or 100 spikes.
 * Adapted backend unit tests (`backend/test_risk_engine.py`) to conform to the new granular factor structures and names.
 
 ### 43.2 Interactive Column & Pending State Handling (Frontend)
@@ -1840,3 +1613,46 @@ This section provides a full cross-referenced audit of every commit in the repos
 * Updated `Campaigns.jsx` (`frontend/src/pages/Campaigns.jsx`) to map the active campaign select dropdown values to `c.id` (database primary key ID) and displays `c.name` as display label.
 * Fixed selection state matching to support mapping details dynamically using either `id` (integer) or `campaign_id` (UUID string), resolving the initial dropdown empty state stuck on mount.
 * Verified that selecting other active campaign clusters dynamically triggers the fetch and clears selector placeholder views.
+
+---
+
+## 45. Authentication Module Foundation (Phase 1) (2026-08-07)
+
+### 45.1 Authentication Module Initialized
+* **Dedicated Authentication Directory**: Created a fully isolated structure at `frontend/src/auth/` containing core directories for `pages`, `components`, `context`, `hooks`, `services`, and `utils`.
+* **Flow Architecture**: Implemented the foundation of the login workflow: `Login → JWT → Role → Permissions → Dashboard`.
+* **State Context & Custom Hooks**: Created `AuthContext.jsx` and `useAuth.js` to manage, parse, and propagate authentication states, token data, permission validation functions, and user settings globally.
+
+### 45.2 Components & Pages Created
+* **AuthLayout.jsx**: Designed a premium SOC dashboard style split-layout with ambient cyber-themed background decorations, dynamic monitoring status panels, and a glassmorphism card container.
+* **LoginForm.jsx**: Created the primary console form equipped with email validation, remember me toggles, loading animations, and error handling banners.
+* **PasswordField.jsx**: Built a custom password entry field with toggleable show/hide behavior and focus highlights.
+* **RememberMe.jsx**: Created a custom styled interactive checkbox.
+* **ProtectedRoute.jsx**: Programmed a route guardian wrapping secure pages, performing permission/role clearance checks, and displaying a cryptographic session verification loader during initialization.
+* **Login.jsx**: Form container rendering `LoginForm` and version confidentiality footer notices.
+* **ForgotPassword.jsx**: Password reset request interface with mock API latency and transactional success state.
+* **Unauthorized.jsx**: Security clearance error screen displaying active user credentials, permission mismatch details, and links to re-authenticate.
+
+### 45.3 Mock Services & Utilities
+* **authService.js**: Simulates backend database lookups with built-in network delays for simulated user validation (`admin@threatlens.io`, `analyst@threatlens.io`, `auditor@threatlens.io`).
+* **jwt.js**: Provides functions to encode, decode, check expiration, and store simulated JSON Web Tokens in `localStorage`.
+* **roles.js**: Defines standard roles (`admin`, `analyst`, `auditor`) and associated labels.
+* **permissions.js**: Maps roles to security permissions (`view:dashboard`, `run:scans`, `manage:campaigns`, `export:reports`, `manage:settings`) and verifies operator clearance levels.
+
+### 45.4 Integration and Routing
+* **App.jsx**: Wrapped the root application tree in `AuthProvider` to enable global auth context availability.
+* **routes/index.jsx**: Registered `/login`, `/forgot-password`, and `/unauthorized` as public routes and wrapped the existing dashboard layout route within `<ProtectedRoute>` to guard all dashboard pages from unauthenticated access.
+
+### 45.5 Verification & Verification Results
+* **Successful Build**: Verified that Vite executes build targets cleanly. Running `npm run build` succeeds with zero warnings/errors.
+* **Browser Test Constraint**: Attempted automated browser execution verification, but encountered Playwright driver installation issues on the local runner environment due to non-200 CDN downloads. Local manual verification is recommended.
+
+---
+
+## 46. Login Interface Refinements (2026-08-07)
+
+### 46.1 Interface Simplification
+* **Login Identifier label change**: Replaced the input label from "Identity Email" to "ENTER ID" and updated its input type from `email` to a generic `text` input. Updated the placeholder text to `"Enter your ThreatLens ID"` to establish a generic user identifier input.
+* **Removal of remember & recovery session controls**: Deleted the entire row containing the `Remember active session` checkbox and the `Recover Key` forgot-password redirection link. The submit button is now positioned directly beneath the credentials block, leaving no unused layout space.
+* **Removal of the simulation widget**: Completely deleted the `Simulator Safe Credentials` footer container (including its title, `Mock Auth Enabled` status badge, and the three pre-filled credential role trigger buttons) to clean up the login card interface for production.
+* **UI spacing adjustments**: Adjusted layout spacing and balanced margins within the card, ensuring a modern, distraction-free corporate login flow while preserving responsive CSS presentations.

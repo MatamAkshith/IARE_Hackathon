@@ -8,10 +8,26 @@ import Campaigns from '../pages/Campaigns'
 import Reports from '../pages/Reports'
 import Settings from '../pages/Settings'
 
+// Authentication Components & Pages
+import Login from '../auth/pages/Login'
+import ForgotPassword from '../auth/pages/ForgotPassword'
+import Unauthorized from '../auth/pages/Unauthorized'
+import ProtectedRoute from '../auth/components/ProtectedRoute'
+
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route element={<DashboardLayout />}>
+      {/* Public Authentication Routes */}
+      <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/unauthorized" element={<Unauthorized />} />
+
+      {/* Protected Enterprise Security Dashboard routes */}
+      <Route element={
+        <ProtectedRoute>
+          <DashboardLayout />
+        </ProtectedRoute>
+      }>
         {/* Redirect empty paths to the primary Dashboard panel */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
@@ -20,10 +36,12 @@ export default function AppRoutes() {
         <Route path="/campaigns" element={<Campaigns />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
-        {/* Wildcard redirect back to home */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
+
+      {/* Wildcard redirect back to secure dashboard or login */}
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }
+
 
