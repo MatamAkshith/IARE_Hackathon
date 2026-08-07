@@ -42,9 +42,10 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Risk Scoring Engine | Explainable rules, recommendations, validation & calibration, DB persistence, REST API & final refactor — Milestone 6 100% Complete (Stage 6.6). |
 | **Completed** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints — Milestone 7 100% Complete (Stage 7.6). |
 | **Completed** | AI Investigation Assistant | OpenRouter provider-agnostic HTTP gateway integration, model configurations (default vs fallback), REST API endpoints (ask, report), and local engine fallback — Milestone 8 (Stages 8.1 - 8.6) 100% COMPLETE. |
-| **Completed** | Dashboard UI | React SPA with all five pages (Dashboard, Investigation, Campaigns, Reports, Settings) fully built and rendering with mock data. |
-| **Completed** | Reporting | Exportable Markdown/PDF reports detailing threats evidence. |
-| **🔴 IN FOCUS** | Frontend API Integration | Replace all mock data services with real backend REST calls. Connect Investigation, Campaign, Reports, and Dashboard pages to the live API. |
+| **Completed** | Dashboard UI | React SPA with all five pages (Dashboard, Investigation, Campaigns, Reports, Settings) fully built and rendering with live backend integration. |
+| **Completed** | Reporting | Exportable Markdown/PDF reports detailing threat evidence. |
+| **Completed** | Scans UI & Workflows | Submission form, progress polling indicator, and detailed Investigation Details views wired to live API endpoints. |
+| **🔴 IN FOCUS** | Frontend API Integration | Replace all remaining mock data services (Campaigns, Reports, Settings) with real backend REST calls. |
 | **🔴 IN FOCUS** | E2E Validation | Verify complete end-to-end flows in a local running environment. |
 | **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
 | **Remaining** | Deployment | Final packaging and cloud/docker deployment patterns. |
@@ -709,6 +710,8 @@ frontend/
 | 2026-08-07 | Merge Frontend Branch (Task 0) | Establishes a unified monorepo structure to streamline local development, backend/frontend coordination, and end-to-end integration. | Separate repositories with submodule links | Approved |
 | 2026-08-07 | Use Axios as the frontend HTTP client (Stage A.1) | Axios was already present as a project dependency (`^1.4.0`). It provides interceptors for global request/response transformation, structured error objects, timeout support, and automatic JSON serialization — all required for the ThreatLens integration layer. The response interceptor unwraps `response.data` directly, so service files receive plain objects. All HTTP errors are normalized via `normalizeError()` into a canonical `ApiError` shape before reaching any React component. | fetch() with manual wrapper, SWR, React Query | Approved |
 | 2026-08-07 | Dashboard uses `Promise.allSettled()` for parallel fetching (Stage A.2) | The dashboard requires data from three endpoints (scans, campaigns, risk-scores). Using `Promise.allSettled()` instead of `Promise.all()` ensures the dashboard remains partially functional if one endpoint returns an error (e.g., risk-scores table empty). Individual fetch failures return empty arrays; only a total backend outage surfaces a full ErrorFallback. The adapter layer (`adaptDashboardData`) is unchanged — only the data source changed. | Promise.all() with total failure, sequential fetching | Approved |
+| 2026-08-07 | Orchestrated client-driven background analysis for scans (Stage A.3) | Since the backend FastAPI API handles all steps (extraction, merging, risk evaluation) synchronously and does not use a background worker queue, we kick off the orchestration pipeline sequentially from the client background using Axios, and update the scan record status (`pending` -> `scanning` -> `completed`/`failed`) in the database. This allows the frontend to poll `GET /scans/{id}` to track analysis progress without blocking. | Synchronous blocking client requests | Approved |
+| 2026-08-07 | Pre-generate AI reports on completed scan loads (Stage A.4) | On loading the completed investigation details view, the page queries `/ai/report/analyst` and `/ai/report/executive` in parallel with the latest evidence and risk state. This ensures that pre-computed LLM verdicts are ready immediately when the analyst toggles between the Analyst and Executive views. | Generate AI report only on demand/button click | Approved |
 
 
 ---
@@ -784,6 +787,8 @@ frontend/
 - **2026-08-07 (Sprint 1 - Task 57 - 09:15):** **Task 57 (Development Rules & Focus Pivot - Tasks 5, 6, 7):** Authored the "Strict Development Rules" section (Section 17) in `PROJECT_NOTES.md` covering 12 binding rules across Architecture, Frontend Integration, and Documentation categories. Updated the "Current Development Status" table to mark Backend Architecture as LOCKED (all 8 milestones complete) and Frontend API Integration + E2E Validation as the active development focus. Tasks 5, 6, and 7 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 58 - 09:25):** **Task 58 (Frontend API Foundation - Stage A.1):** Established the centralized Axios HTTP client layer under `frontend/src/api/`. Created `frontend/.env` with `VITE_API_BASE_URL=http://localhost:8000/api/v1`. Created `api/client.js` — singleton Axios instance with `baseURL`, 30s timeout, JSON headers, dev-mode request logger, and response interceptor that unwraps `response.data` on success. Created `api/errorHandler.js` with `normalizeError()` converting raw AxiosErrors into structured `ApiError` objects (handles FastAPI 422 validation arrays, network errors, and all 4xx/5xx codes). Created `api/types.js` with JSDoc type contracts (`ApiError`, `FastApiValidationError`, `PaginationParams`, `PaginatedResponse<T>`). Created `api/index.js` barrel file. Verified `npm run build` compiles with zero errors. Documented API networking layer in tech stack and architecture sections. Stage A.1 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 59 - 09:35):** **Task 59 (Dashboard API Integration - Stage A.2):** Replaced all mock data in the Dashboard with live FastAPI backend calls. Created `api/dashboardApiService.js` — fetches `GET /api/v1/scans/`, `GET /api/v1/campaigns/`, `GET /api/v1/risk-scores/`, and `GET /api/v1/health/ready` in parallel using `Promise.allSettled()` (individual failures return empty arrays, not crashes). Assembles KPIs, scans table rows, risk distribution bands, campaign overview buckets, event timeline, threat summary highlights, and service status dots from raw backend responses. Updated `services/dashboardService.js` to call `getDashboardData()` instead of mock JSON. Updated `providers/DataProvider.jsx` to import `isApiError()` and extract structured `ApiError` messages. Adapter contract (`adaptDashboardData`) preserved intact. Verified `npm run build` passes cleanly (147 modules, 0 errors). Stage A.2 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 60 - 09:45):** **Task 60 (Scan Submission & Progress Polling - Stage A.3):** Built submission and history logs workspace. Mapped `/scans` route to the new `Scans.jsx` page. Implemented URL validation and client-side background scan task scheduling inside `api/investigationService.js`. When a URL is submitted, we create database entries, invoke `submitInvestigation(url)` (POST), and execute the sequential backend extraction + merging + scoring pipeline in the background. The component polls `getInvestigationStatus(id)` every 1 second, updating the steps tracker (`ScanStatus`), and routes the analyst to the details page `/scans/:id` on completion. Stage A.3 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 61 - 10:00):** **Task 61 (Detailed Investigation View & Evidence - Stage A.4):** Created `InvestigationDetails.jsx` details page. Fetches full scan payload via `getInvestigationDetails(id)` on mount. Maps backend `resolved_observations` into individual section tables (Domain, DNS, WHOIS, SSL, HTML, Metadata) rendered in the `EvidenceAccordion`. Populates risk dial scores, findings tags, campaign overlaps, and parallel pre-generated AI summaries (Analyst technical reports + Executive summaries). Handled loading skeletons, try-catch connection blocks, and clean fallback arrays. Verified `npm run build` passes cleanly with 0 errors. Stage A.4 100% COMPLETE.
 
 
 
@@ -1077,6 +1082,39 @@ GET /api/v1/campaigns/{campaign_id}/timeline
 10. **Update Immediately** — After every completed task, the Progress Tracker and Revision History in `PROJECT_NOTES.md` must be updated before moving to the next task.
 11. **Decision Log First** — Any deviation from the architecture or a new design decision must be logged in the Decision Log before implementation begins.
 12. **No Orphan Code** — If a file is created, its purpose must be documented. If a file is deleted, the deletion must be recorded in the Revision History.
+
+---
+
+## 18. Investigation Workflow & Details Architecture
+
+### 18.1 API Interaction Flows (Stage A.3)
+When a user submits a suspicious indicator (URL or domain) on the `Scans.jsx` submission view:
+1. **URL Validation**: Basic validation ensures a valid domain format.
+2. **Registration**:
+   - `POST /api/v1/domains/` with `{ url }` registers the domain.
+   - `POST /api/v1/scans/` with `{ domain_id }` registers the scan (default status: `pending`).
+3. **Async Pipeline Triggering**: The client triggers a background task execution flow:
+   - `PUT /api/v1/scans/{id}` updates status to `scanning`.
+   - `POST /api/v1/extract/` executes DNS, WHOIS, TLS, and BeautifulSoup counter collections.
+   - `POST /api/v1/unified-evidence/process` merges features and scores confidence.
+   - `POST /api/v1/risk/evaluate` calculates the transparent 0-100 risk score.
+   - `POST /api/v1/campaigns/correlate` matches shared infrastructure traits.
+   - `PUT /api/v1/scans/{id}` updates status to `completed` (or `failed` if an error occurs).
+4. **Polling & Redirect**: The submission panel polls `GET /api/v1/scans/{id}` once per second. Upon finding status `completed`, the router redirects to `/scans/{id}`.
+
+### 18.2 Investigation Details Architecture (Stage A.4)
+On loading `/scans/:id` (`InvestigationDetails.jsx`):
+1. **API Telemetry Merging**:
+   - `GET /api/v1/scans/{id}` retrieves base scan metadata.
+   - `GET /api/v1/unified-evidence/{url}` loads merged observations.
+   - `GET /api/v1/risk/{url}` retrieves score details and triggered heuristics.
+   - `POST /api/v1/ai/report/analyst` and `POST /api/v1/ai/report/executive` fetch pre-generated LLM summaries.
+   - `GET /api/v1/campaigns/` fetches campaign registry to find infrastructure overlap.
+2. **UI Component Mappings**:
+   - **EvidenceAccordion**: Maps observations from `resolved_observations` to Domain, DNS, WHOIS, SSL, HTML, and Metadata tables.
+   - **RiskSummary**: Displays overall score, severity rating, confidence percentage, and Analyst Action recommendation.
+   - **BadgeGroup**: Iterates over triggered heuristics indicators (e.g. "Impersonation", "New Domain").
+   - **AI Reports Panel**: A tabbed card showing the Analyst technical report (conclusions, recommendations checklist) and the Executive leadership summary (impact summary, exposure rating).
 
 ---
 

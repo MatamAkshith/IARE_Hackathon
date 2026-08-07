@@ -9,3 +9,5 @@
  */
 export { default as apiClient } from './client.js'
 export { normalizeError, isApiError } from './errorHandler.js'
+export * from './investigationService.js'
+

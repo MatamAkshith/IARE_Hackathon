@@ -2,7 +2,8 @@ import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import DashboardLayout from '../layouts/DashboardLayout'
 import Dashboard from '../pages/Dashboard'
-import Investigation from '../pages/Investigation'
+import Scans from '../pages/Scans'
+import InvestigationDetails from '../pages/InvestigationDetails'
 import Campaigns from '../pages/Campaigns'
 import Reports from '../pages/Reports'
 import Settings from '../pages/Settings'
@@ -14,7 +15,8 @@ export default function AppRoutes() {
         {/* Redirect empty paths to the primary Dashboard panel */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/scans" element={<Investigation />} />
+        <Route path="/scans" element={<Scans />} />
+        <Route path="/scans/:id" element={<InvestigationDetails />} />
         <Route path="/campaigns" element={<Campaigns />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
@@ -24,3 +26,4 @@ export default function AppRoutes() {
     </Routes>
   )
 }
+
