@@ -39,8 +39,7 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Aggregation Pipeline | Unified feature extraction scheduler, failing gracefully, storing JSON. |
 | **Completed** | Threat Intelligence Integration | Integrations with VirusTotal, PhishTank, URLHaus, AbuseIPDB, and AlienVault OTX feeds with concurrent aggregation engine and lookups REST APIs. |
 | **Completed** | Unified Evidence Engine | Merge, normalization, confidence scoring, DB persistence, REST API, audit trail, traceability & final refactor — Milestone 5 100% Complete (Stage 5.6). |
-
-| **Current** | Risk Scoring Engine | Explainable rules-based risk assessment engine (Milestone 6 - Next). |
+| **Current** | Risk Scoring Engine | Explainable weighted rule-based risk assessment engine — Foundation & Core Logic (Stages 6.1 & 6.2) COMPLETE. |
 | **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
 | **Remaining** | Campaign Correlation | Attacker attribution and clustering based on shared footprints. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
@@ -275,6 +274,51 @@ The data layer and RESTful API layer are decoupled using four core patterns:
     - **`timeline.py`**: Fixed `datetime | None` union syntax to `Optional[datetime]` for Python <3.10 compatibility; extracted `_extract_key_from_message()` helper to eliminate duplicated key-parsing logic in Phase 2 and Phase 3; removed unused `payload` variable from provider loop; replaced `set` with ordered `list` for provider iteration.
     - **`service.py`**: Removed unused `TYPE_CHECKING` import; added outer `try/except` around the 5-step pipeline raising `RuntimeError` with full context; extracted `_detect_indicator_type()` and `_build_sources()` as module/static helpers; standardized all log messages with `[process_evidence]` prefix.
 
+21. **Risk Engine Foundation (Stage 6.1)**: Created `app/services/risk_engine/` package with clean public `__init__.py` exports. Defined four Pydantic models in `models.py`:
+    - `RiskSeverity` enum: SAFE / LOW / MEDIUM / HIGH / CRITICAL.
+    - `RiskFactor`: individual explainable contributor with `name`, `score_contribution`, `description`, `weight`, `evidence_key`.
+    - `RiskBreakdown`: five category lists with `all_factors()` and `total_contribution()` helpers.
+    - `RiskScore`: complete result with `indicator`, `overall_score`, `severity`, `breakdown`, `factor_count`, `timestamp`, `explanation`.
+    - `BaseRiskEvaluator` ABC in `base.py` with `evaluate()` abstract method and `safe_evaluate()` defensive wrapper that never propagates exceptions.
+
+22. **Risk Engine Weighted Scoring Rules (Stage 6.2)**: Implemented five concrete evaluators in `rules.py`:
+
+    | Evaluator | Max Score | Key Rules |
+    |---|---|---|
+    | `DomainIntelEvaluator` | 25 pts | Very young domain (<30d: 12pts), Young domain (<180d: 8pts), Suspicious TLD (7pts), IP-based URL (6pts) |
+    | `DnsWhoisEvaluator` | 15 pts | No MX records (6pts), No NS records (5pts), WHOIS privacy (4pts) |
+    | `TlsCertificateEvaluator` | 15 pts | Invalid/expired TLS (10pts), Free CA certificate (3pts), Near-expiry cert (2pts) |
+    | `HtmlContentEvaluator` | 20 pts | Login form (10pts), Password inputs (5pts), High form count (3pts), Suspicious title (2pts) |
+    | `ThreatIntelEvaluator` | 25 pts | VT Malicious (15pts), PhishTank confirmed (10pts), URLHaus active (10pts), AbuseIPDB high (8pts), OTX pulses (5pts) |
+
+23. **Risk Scoring Normalization & Severity Mapping (Stage 6.2)**:
+    - **Dynamic denominator**: If an entire evidence category has no relevant keys, its max_contribution is excluded from the denominator so the score remains correctly scaled to 0-100.
+    - **Severity tiers**: SAFE (0-20) → LOW (21-40) → MEDIUM (41-70) → HIGH (71-89) → CRITICAL (90-100).
+    - **Explainability**: Top-3 contributing factor names appear in the human-readable `explanation` field of every `RiskScore`.
+    - **Input flexibility**: `RiskScoringService.calculate_risk()` accepts both a `UnifiedEvidence` Pydantic model and a plain dict.
+
+24. **Risk Engine Data Flow (Stage 6.2)**:
+    ```
+    UnifiedEvidence / dict
+           │
+           ▼
+    _extract_evidence()          ← flatten to resolved_observations + indicator
+           │
+           ▼
+    [5 × safe_evaluate()]        ← DomainIntel, DNS/WHOIS, TLS, HTML, ThreatIntel
+           │
+           ▼
+    RiskBreakdown.total_contribution()
+           │
+    ÷ dynamic_denominator × 100  ← excludes absent categories
+           │
+           ▼
+    _map_severity()              ← SAFE / LOW / MEDIUM / HIGH / CRITICAL
+           │
+           ▼
+    RiskScore(indicator, score, severity, breakdown, explanation)
+    ```
+
 
 
 
@@ -411,6 +455,7 @@ backend/app/
 - **2026-08-06 (Sprint 1 - Task 27 - 00:10):** **Task 27 (Unified Evidence API & Persistence - Stage 5.4 | Milestone 5 COMPLETE):** Created `UnifiedEvidenceRecord` SQLAlchemy ORM model with composite index. Implemented `save_evidence` and `get_evidence_by_indicator` service methods. Exposed `POST /api/v1/unified-evidence/process` and `GET /api/v1/unified-evidence/{indicator}` REST endpoints. Registered router in v1. Milestone 5 (Unified Evidence Engine) fully complete.
 - **2026-08-07 (Sprint 1 - Task 28 - 00:25):** **Task 28 (Evidence Timeline & Traceability - Stage 5.5):** Created `EvidenceTimelineBuilder` (`timeline.py`) generating four-phase audit trails (collection → conflict resolution → normalization → confidence scoring). Added `EvidenceEvent` and `AuditTrail` Pydantic models. Integrated timeline builder into `UnifiedEvidenceService.process_evidence` as Step 5; serialized `audit_trail` into `metadata_json` on DB persist. Exposed `GET /api/v1/unified-evidence/timeline?indicator=<…>` endpoint for audit trail retrieval. Stage 5.5 100% complete.
 - **2026-08-07 (Sprint 1 - Task 29 - 00:35):** **Task 29 (Unified Evidence Engine Finalization & Refactoring - Stage 5.6 | Milestone 5 FINAL):** Performed end-to-end refactoring of all 5 module files. Standardized logging (INFO for lifecycle events, DEBUG for granular detail) across `strategy.py`, `normalizer.py`, `confidence.py`, `timeline.py`, and `service.py`. Added outer try/except pipeline guard in `service.py`. Fixed Python <3.10 type union syntax in `timeline.py`. Extracted private helpers to eliminate code duplication. Replaced list-based key lookups with frozensets. Stage 5.6 and Milestone 5 (Unified Evidence Engine) 100% FINAL.
+- **2026-08-07 (Sprint 1 - Task 30 - 05:30):** **Task 30 (Risk Scoring Engine Foundation + Core Logic - Stages 6.1 & 6.2):** Created `app/services/risk_engine/` package. Defined `RiskSeverity`, `RiskFactor`, `RiskBreakdown`, `RiskScore` Pydantic models. Built `BaseRiskEvaluator` ABC with `safe_evaluate()` wrapper. Implemented 5 weighted evaluators (`DomainIntelEvaluator`, `DnsWhoisEvaluator`, `TlsCertificateEvaluator`, `HtmlContentEvaluator`, `ThreatIntelEvaluator`) with total 100-pt weight budget. Built `RiskScoringService` with dynamic denominator, 0-100 normalization, severity mapping, and explainability. Verified 3 test scenarios: HIGH (75/100), SAFE (0/100), MEDIUM (45/100). Stages 6.1 & 6.2 100% COMPLETE.
 
 
 
