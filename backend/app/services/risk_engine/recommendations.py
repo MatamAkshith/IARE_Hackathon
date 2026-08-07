@@ -212,8 +212,8 @@ class RecommendationEngine:
         recommendations.sort(key=lambda r: _PRIORITY_ORDER.get(r.priority, 99))
 
         logger.info(
-            f"RecommendationEngine generated {len(recommendations)} recommendation(s) "
-            f"for severity={severity.value}, factors={len(factors)}."
+            f"[generate] Generated {len(recommendations)} recommendation(s) "
+            f"for severity='{severity.value}', factors_count={len(factors)}."
         )
 
         return recommendations

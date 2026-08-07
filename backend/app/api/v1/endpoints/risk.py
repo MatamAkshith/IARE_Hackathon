@@ -1,5 +1,5 @@
 """
-Risk Assessment REST API Endpoints — Stage 6.4
+Risk Assessment REST API Endpoints — Stage 6.4 & 6.6
 
 Endpoints:
   POST /api/v1/risk/evaluate
@@ -11,6 +11,7 @@ Endpoints:
     ordered by most recent timestamp first.
 """
 
+import logging
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
@@ -22,6 +23,7 @@ from app.api.deps import get_db
 from app.services.risk_engine.service import RiskScoringService
 from app.services.risk_engine.models import RiskScore
 
+logger = logging.getLogger("app.api.v1.endpoints.risk")
 router = APIRouter()
 
 # Service singleton
@@ -74,25 +76,40 @@ def _save_risk_score(
     score: RiskScore,
     indicator_type: str,
 ) -> None:
-    """Serializes and persists a RiskScore to the database."""
+    """
+    Serializes and persists a RiskScore to the database.
+    Wraps db operations in a try/except block to handle errors gracefully.
+    """
     from app.db.models.risk_assessment import RiskAssessmentRecord
 
-    breakdown_json = score.breakdown.model_dump()
-    recommendations_json = [r.model_dump() for r in score.recommendations]
+    try:
+        breakdown_json = score.breakdown.model_dump()
+        recommendations_json = [r.model_dump() for r in score.recommendations]
 
-    record = RiskAssessmentRecord(
-        indicator=score.indicator,
-        indicator_type=indicator_type,
-        overall_score=score.overall_score,
-        severity=score.severity.value,
-        breakdown=breakdown_json,
-        recommendations=recommendations_json,
-        explanation=score.explanation,
-        unified_evidence_indicator=score.indicator,
-        timestamp=score.timestamp,
-    )
-    db.add(record)
-    db.commit()
+        record = RiskAssessmentRecord(
+            indicator=score.indicator,
+            indicator_type=indicator_type,
+            overall_score=score.overall_score,
+            severity=score.severity.value,
+            breakdown=breakdown_json,
+            recommendations=recommendations_json,
+            explanation=score.explanation,
+            unified_evidence_indicator=score.indicator,
+            timestamp=score.timestamp,
+        )
+        db.add(record)
+        db.commit()
+        logger.info(f"Successfully saved RiskAssessmentRecord for indicator: '{score.indicator}'")
+    except Exception as exc:
+        db.rollback()
+        logger.error(
+            f"Failed to persist RiskAssessmentRecord to DB for indicator '{score.indicator}': {exc}",
+            exc_info=True
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database persistence failed: {str(exc)}",
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────── #
@@ -119,6 +136,9 @@ def evaluate_risk(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Indicator cannot be empty.",
         )
+
+    logger.info(f"POST /api/v1/risk/evaluate called for indicator: '{request.indicator}'")
+
     try:
         # Build a flat evidence dict from the request fields
         evidence: Dict[str, Any] = {"indicator": request.indicator}
@@ -148,9 +168,14 @@ def evaluate_risk(
                 indicator_type=request.indicator_type or "url",
             )
 
+        logger.info(f"POST /api/v1/risk/evaluate completed successfully for indicator: '{request.indicator}'")
         return score
 
+    except HTTPException:
+        # Re-raise HTTPExceptions raised from DB helper directly
+        raise
     except Exception as exc:
+        logger.error(f"Error during risk evaluation for indicator '{request.indicator}': {exc}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Risk evaluation error: {str(exc)}",
@@ -180,6 +205,9 @@ def get_risk_history(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Indicator path parameter cannot be empty.",
         )
+
+    logger.info(f"GET /api/v1/risk history called for indicator: '{indicator}'")
+
     try:
         from app.db.models.risk_assessment import RiskAssessmentRecord
 
@@ -191,11 +219,13 @@ def get_risk_history(
         )
 
         if not records:
+            logger.info(f"No risk history records found in DB for indicator: '{indicator}'")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"No risk assessments found for indicator: '{indicator}'",
             )
 
+        logger.info(f"Successfully retrieved {len(records)} risk history record(s) for indicator: '{indicator}'")
         return [
             RiskAssessmentResponse(
                 id=r.id,
@@ -214,6 +244,7 @@ def get_risk_history(
     except HTTPException:
         raise
     except Exception as exc:
+        logger.error(f"Error retrieving risk history for indicator '{indicator}': {exc}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Risk history retrieval error: {str(exc)}",

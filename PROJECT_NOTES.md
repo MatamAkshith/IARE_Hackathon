@@ -39,7 +39,7 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Aggregation Pipeline | Unified feature extraction scheduler, failing gracefully, storing JSON. |
 | **Completed** | Threat Intelligence Integration | Integrations with VirusTotal, PhishTank, URLHaus, AbuseIPDB, and AlienVault OTX feeds with concurrent aggregation engine and lookups REST APIs. |
 | **Completed** | Unified Evidence Engine | Merge, normalization, confidence scoring, DB persistence, REST API, audit trail, traceability & final refactor — Milestone 5 100% Complete (Stage 5.6). |
-| **Completed** | Risk Scoring Engine | Explainable rules, recommendations, validation & calibration, DB persistence & REST API — Milestone 6 100% Complete (Stages 6.1–6.5). |
+| **Completed** | Risk Scoring Engine | Explainable rules, recommendations, validation & calibration, DB persistence, REST API & final refactor — Milestone 6 100% Complete (Stage 6.6). |
 | **Current** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints (Milestone 7 - Next). |
 | **Remaining** | Campaign Correlation | Attacker attribution and clustering based on shared footprints. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
@@ -356,6 +356,32 @@ The data layer and RESTful API layer are decoupled using four core patterns:
     | UNKNOWN | 0.50× | −50% | No confidence signal — aggressive dampening |
     | (fallback) | 0.75× | −25% | Unrecognized confidence string |
 
+30. **Risk Engine Architecture Flow**:
+    ```
+    ┌─────────────────┐      ┌───────────────┐      ┌─────────────────┐
+    │ UnifiedEvidence │ ───> │  Validation   │ ───> │ Rule Evaluation │
+    └─────────────────┘      └───────────────┘      └─────────────────┘
+                                                             │
+                                                             ▼
+    ┌─────────────────┐      ┌───────────────┐      ┌─────────────────┐
+    │ DB Persistence  │ <─── │Explainability │ <─── │   Confidence    │
+    │  & REST APIs    │      │Recommendations│      │   Calibration   │
+    └─────────────────┘      └───────────────┘      └─────────────────┘
+    ```
+    - **Step 0: Validation** (`validator.py`): Short-circuits empty/malformed evidence to SAFE/0.0 immediately.
+    - **Step 1: Rule Evaluation** (`rules.py`): Fires category-level evaluators concurrently.
+    - **Step 2: Normalization**: Computes 0–100 score relative to active categories (dynamic denominator).
+    - **Step 3: Confidence Calibration**: Applies penalty multiplier matching the evidence's trust rating.
+    - **Step 4: Boundary Clamping**: Clamps final score to `[0.0, 100.0]`, guards against NaN/infinity.
+    - **Step 5: Recommendations & Explainability** (`recommendations.py`): Generates priority-sorted actions.
+    - **Step 6: DB Persistence & API** (`endpoints/risk.py`): Saves score with full JSON breakdown, returns payload.
+
+31. **Risk Engine Refactoring & Finalization (Stage 6.6)**:
+    - **Dead Code Cleanup**: Removed unused `_SEVERITY_MAP` definition from `service.py`. Deleted unused `_CATEGORY_CAP` attribute from `ThreatIntelEvaluator` class in `rules.py`. Removed unused `Recommendation` class import in `service.py`.
+    - **Standardized Logging**: Enforced uniform `logger.info()` lifecycle logs for start/completion of calculations in `service.py`, start/completion of endpoint requests in `risk.py`, and database persistence confirmations. Enforced `logger.debug()` for granular rule matching checks in `rules.py` and recommendations building in `recommendations.py`.
+    - **Robust DB Commit Wrapper**: Enhanced the DB helper `_save_risk_score` in the API router to handle commit execution within a try/except block. On commit errors, it rolls back the transaction, logs the exception stack trace at ERROR level, and raises an explicit `HTTPException(status_code=500)` ensuring clean client responses.
+
+
 | Provider | URL Lookup | Domain Lookup | IP Lookup | Normalization Logic |
 | :--- | :--- | :--- | :--- | :--- |
 | **VirusTotal** | Supported | Supported | Unsupported | `malicious` > 0 -> Malicious; `suspicious` > 0 -> Suspicious; `harmless`/`undetected` -> Clean |
@@ -490,6 +516,8 @@ backend/app/
 - **2026-08-07 (Sprint 1 - Task 30 - 05:30):** **Task 30 (Risk Scoring Engine Foundation + Core Logic - Stages 6.1 & 6.2):** Created `app/services/risk_engine/` package. Defined `RiskSeverity`, `RiskFactor`, `RiskBreakdown`, `RiskScore` Pydantic models. Built `BaseRiskEvaluator` ABC with `safe_evaluate()` wrapper. Implemented 5 weighted evaluators (`DomainIntelEvaluator`, `DnsWhoisEvaluator`, `TlsCertificateEvaluator`, `HtmlContentEvaluator`, `ThreatIntelEvaluator`) with total 100-pt weight budget. Built `RiskScoringService` with dynamic denominator, 0-100 normalization, severity mapping, and explainability. Verified 3 test scenarios: HIGH (75/100), SAFE (0/100), MEDIUM (45/100). Stages 6.1 & 6.2 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 31 - 05:40):** **Task 31 (Risk Engine Recommendations, Persistence & API - Stages 6.3 & 6.4 | Milestone 6 FINAL):** Added `Recommendation` Pydantic model to `models.py`; extended `RiskScore.recommendations` field. Created `RecommendationEngine` (`recommendations.py`) with 20 factor-level rules + severity catch-alls, deduplication, and priority sorting. Integrated as Step 6 in `RiskScoringService.calculate_risk()`. Created `RiskAssessmentRecord` SQLAlchemy ORM model with JSON breakdown/recommendations columns and composite index. Registered in `db/base.py`. Exposed `POST /api/v1/risk/evaluate` and `GET /api/v1/risk/{indicator:path}` endpoints; registered router in v1. Verified pipeline end-to-end: 4 factors fired, 5 recommendations generated (1×immediate, 3×high, 1×medium). Stages 6.3 & 6.4 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 32 - 05:45):** **Task 32 (Risk Engine Validation & Calibration - Stage 6.5):** Created `config.py` extracting all weights, confidence multipliers, severity thresholds, and category key maps into centralized config. Created `RiskValidator` (`validator.py`) with `validate_evidence()` (empty/null guard), `calibrate_score()` (confidence multiplier), and `enforce_boundaries()` (NaN/clamp). Updated `rules.py` to import weights from `config.RISK_WEIGHTS`. Updated `service.py` with 10-step pipeline (Steps 0/4/5 = validation/calibration/boundaries). Verified 5 edge-case scenarios: HIGH→63.5, LOW→38.1 (calibrated), empty→0.0, all-null→0.0, MEDIUM→51.0 (calibrated). Stage 6.5 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 33 - 05:55):** **Task 33 (Risk Engine Refactoring, Logging & Finalization - Stage 6.6 | Milestone 6 FINAL):** Refactored codebase for Milestone 6 completion. Removed unused variables and dead parameters (`_SEVERITY_MAP` in `service.py`, `_CATEGORY_CAP` in `rules.py`). Standardized lifecycle logs at `INFO` and engine rule evaluations at `DEBUG`. Wrapped the database transaction logic in `risk.py` with explicit try/except/rollback controls raising standard `HTTPException(500)`. Stages 6.1–6.6 and Milestone 6 (Risk Scoring Engine) 100% FINAL.
+
 
 
 ---

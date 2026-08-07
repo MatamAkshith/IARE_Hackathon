@@ -386,9 +386,6 @@ class ThreatIntelEvaluator(BaseRiskEvaluator):
     _W_ABUSEIPDB_HIGH    =  8.0
     _W_ALIENVAULT_PULSES =  5.0
 
-    # Accumulated per category, not summed beyond max_contribution
-    _CATEGORY_CAP = 25.0
-
     def evaluate(self, evidence: Dict[str, Any]) -> List[RiskFactor]:
         factors: List[RiskFactor] = []
 

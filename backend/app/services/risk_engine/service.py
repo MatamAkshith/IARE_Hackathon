@@ -29,7 +29,6 @@ from app.services.risk_engine.models import (
     RiskFactor,
     RiskScore,
     RiskSeverity,
-    Recommendation,
 )
 from app.services.risk_engine.recommendations import RecommendationEngine
 from app.services.risk_engine.rules import (
@@ -49,9 +48,6 @@ logger = logging.getLogger("app.services.risk_engine.service")
 # ─────────────────────────────────────────────────────────────────────────── #
 # Severity mapping (driven by config.py thresholds)                            #
 # ─────────────────────────────────────────────────────────────────────────── #
-
-_SEVERITY_MAP = {s: RiskSeverity(s) for _, s in SEVERITY_THRESHOLDS}
-
 
 def _map_severity(score: float) -> RiskSeverity:
     """Maps a 0-100 score to a RiskSeverity tier using config thresholds."""
