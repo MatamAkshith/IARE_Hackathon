@@ -9,7 +9,7 @@ wrapping the similarity engine.
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.services.campaign_engine.models import (
     Campaign,
@@ -21,6 +21,7 @@ from app.services.campaign_engine.models import (
     CorrelationResult,
 )
 from app.services.campaign_engine.similarity import SimilarityEngine
+from app.services.campaign_engine.clustering import CampaignClusterer
 
 logger = logging.getLogger("app.services.campaign_engine.service")
 
@@ -33,7 +34,10 @@ class CampaignCorrelationService:
 
     def __init__(self) -> None:
         self._similarity_engine = SimilarityEngine()
-        logger.info("[CampaignCorrelationService] Initializing Campaign Correlation Service with SimilarityEngine.")
+        self._clusterer = CampaignClusterer(similarity_threshold=self._similarity_engine.threshold)
+        logger.info(
+            "[CampaignCorrelationService] Initializing Campaign Correlation Service with SimilarityEngine & CampaignClusterer."
+        )
 
     def evaluate_link(
         self,
@@ -200,3 +204,33 @@ class CampaignCorrelationService:
 
         logger.info(f"[add_to_campaign] Successfully added member '{indicator}' to campaign: '{campaign_id}'.")
         return dummy_campaign
+
+    def process_investigation(
+        self,
+        new_evidence: Dict[str, Any],
+        active_campaigns: List[Campaign],
+    ) -> Tuple[Campaign, str]:
+        """
+        Processes a newly generated investigation evidence block, grouping it
+        into a campaign (created, joined, or merged) using the CampaignClusterer.
+        """
+        logger.info(
+            f"[process_investigation] Processing clustering for indicator: "
+            f"'{new_evidence.get('indicator', 'unknown')}'"
+        )
+        campaign, action = self._clusterer.cluster_indicator(new_evidence, active_campaigns)
+        logger.info(
+            f"[process_investigation] Finished processing. "
+            f"Campaign ID: '{campaign.campaign_id}' | Action: '{action}'."
+        )
+        return campaign, action
+
+    def check_campaign_drift(
+        self,
+        campaign: Campaign,
+    ) -> List[Campaign]:
+        """
+        Checks a campaign for similarity drift among its members and splits it
+        if required.
+        """
+        return self._clusterer.check_for_split(campaign)
