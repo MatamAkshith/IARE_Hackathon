@@ -1,5 +1,6 @@
 from typing import Any, List, Dict
 import logging
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -64,11 +65,18 @@ class DashboardService:
                 return 0.0
             return round((count / total_scans) * 100, 1)
 
+        # 7. Calculate recent_activity_count: scans created in last 24 hours
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+        recent_activity_count = db.query(Scan).filter(
+            Scan.created_at >= cutoff
+        ).count()
+
         return {
             "total_scans": total_scans,
             "high_risk_domains": high_risk_domains,
             "active_campaigns": active_campaigns,
             "avg_risk_score": avg_risk_score,
+            "recent_activity_count": recent_activity_count,
             "risk_distribution": [
                 {
                     "label": "Safe (0-20)",
@@ -96,6 +104,7 @@ class DashboardService:
                 }
             ]
         }
+
 
     def get_recent_feed(self, db: Session, limit: int = 10) -> List[Dict[str, Any]]:
         # Fetch scans ordered by created_at desc

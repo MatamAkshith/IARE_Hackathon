@@ -1712,3 +1712,26 @@ This section provides a full cross-referenced audit of every commit in the repos
 * Appended a new verification case `test_google_phishing_no_calibration` in `backend/test_risk_engine.py`.
 * Confirmed that `accounts-google-verify-secure.net` (which evaluates with an "unknown" confidence tier) scores a full **`100.0` (CRITICAL)** instead of getting halved to `50.0/52.5`, fully satisfying the strict stopping conditions.
 * Pushed all commits to the branch `main`.
+
+---
+
+## 38. SOC Dashboard UX Calibration & Dynamic Recent Activity Metric (2026-08-07)
+
+### 38.1 UX Hover Effect Standardization
+* Refactored `KPICard.jsx` (`frontend/src/components/dashboard/KPICard.jsx`) to resolve styling bugs on the top metric cards (including AVG RISK SCORE).
+* Ensured the default card state displays a subtle background tint and muted border opacity (`/50` or `/40`).
+* Configured the card's `:hover` states to consistently trigger a bright color border highlight (e.g. `hover:border-brand-800/80` or similar color) and a custom shadow glow (`hover:shadow-brand-500/10`), matching the platform's curated color scheme.
+
+### 38.2 KPI Card Clickability & Deep-Linking
+* Bound custom `route` parameters to metrics inside `dashboardApiService.js` (`frontend/src/api/dashboardApiService.js`).
+* Standardized `onClick` routing in `Dashboard.jsx` using `useNavigate` to make interactive cards clickable:
+  * Clicking the **Threat Feeds** card navigates users to `/reports`.
+  * Clicking the **Recent Activity** card navigates users to `/scans`.
+* Added `cursor-pointer` to interactive card elements.
+
+### 38.3 Dynamic Recent Activity (24h) Calculation
+* Updated `DashboardService` (`backend/app/services/dashboard_service.py`) to dynamically query scan counts created within the last 24 hours:
+  * Implemented an SQL timestamp range query: `db.query(Scan).filter(Scan.created_at >= cutoff).count()`.
+* Exposed the computed count under key `recent_activity_count` in the `GET /api/v1/dashboard/stats` JSON payload response.
+* Bound the metric value to the frontend KPI card layout, replacing static fallback placeholders.
+* Staged, committed, and successfully pushed all revisions to branch `main`.

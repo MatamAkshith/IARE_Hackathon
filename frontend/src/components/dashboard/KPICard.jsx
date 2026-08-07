@@ -9,21 +9,30 @@ import React from 'react'
  * @param {Object} [props.trend] Optional trend data { value, positive }
  * @param {React.ReactNode} props.icon SVG markup icon
  * @param {string} [props.type] Color coding style (neutral, warning, danger, success, info)
+ * @param {Function} [props.onClick] Optional click handler for navigation
  */
-export default function KPICard({ title, value, trend, icon, type = 'neutral' }) {
-  // Determine text/border coloring depending on threat level type
+export default function KPICard({ title, value, trend, icon, type = 'neutral', onClick }) {
+  // Default state: subtle muted border and bg tint. Hover: full-brightness border + glow.
+  // All cards follow the same pattern: default is dim, hover is bright.
   const typeClasses = {
-    neutral: 'border-slate-800/60 focus:border-slate-700 hover:border-slate-700 text-slate-300',
-    success: 'border-emerald-950 bg-emerald-950/10 text-emerald-400 hover:border-emerald-800/80 shadow-emerald-500/5',
-    info: 'border-brand-950 bg-brand-950/10 text-brand-400 hover:border-brand-800/80 shadow-brand-500/5',
-    warning: 'border-amber-950 bg-amber-950/10 text-amber-400 hover:border-amber-800/80 shadow-amber-500/5',
-    danger: 'border-rose-950 bg-rose-950/10 text-rose-400 hover:border-rose-800/80 shadow-rose-500/5'
+    neutral: 'border-slate-800/50 hover:border-slate-600 hover:shadow-slate-700/20 text-slate-300',
+    success: 'border-emerald-950 bg-emerald-950/10 text-emerald-400 hover:border-emerald-800/80 hover:shadow-emerald-500/10',
+    info:    'border-brand-950 bg-brand-950/10 text-brand-400 hover:border-brand-800/80 hover:shadow-brand-500/10',
+    warning: 'border-amber-950 bg-amber-950/10 text-amber-400 hover:border-amber-800/80 hover:shadow-amber-500/10',
+    danger:  'border-rose-950 bg-rose-950/10 text-rose-400 hover:border-rose-800/80 hover:shadow-rose-500/10',
   }
 
   const borderClass = typeClasses[type] || typeClasses.neutral
+  const interactiveClass = onClick ? 'cursor-pointer select-none' : ''
 
   return (
-    <div className={`p-5 rounded-xl border bg-[#090d16] flex items-center justify-between transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${borderClass} group`}>
+    <div
+      className={`p-5 rounded-xl border bg-[#090d16] flex items-center justify-between transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${borderClass} ${interactiveClass} group`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
+    >
       <div className="space-y-1.5 min-w-0">
         <span className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest truncate group-hover:text-slate-400 transition-colors">
           {title}
@@ -41,7 +50,7 @@ export default function KPICard({ title, value, trend, icon, type = 'neutral' })
         )}
       </div>
 
-      <div className={`p-3 rounded-lg bg-[#0e1422] border border-[#1a2336] text-slate-400 group-hover:text-brand-400 group-hover:border-brand-500/35 transition-all duration-300`}>
+      <div className="p-3 rounded-lg bg-[#0e1422] border border-[#1a2336] text-slate-400 group-hover:text-brand-400 group-hover:border-brand-500/35 transition-all duration-300">
         {icon}
       </div>
     </div>

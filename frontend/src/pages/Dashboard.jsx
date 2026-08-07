@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import useDashboard from '../hooks/useDashboard'
 import SkeletonLoader from '../components/SkeletonLoader'
 import ErrorFallback from '../components/ErrorFallback'
@@ -10,6 +11,7 @@ import ThreatSummary from '../components/dashboard/ThreatSummary'
 import StatusPanel from '../components/dashboard/StatusPanel'
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const { dashboard, loading, error, refetch } = useDashboard()
 
   if (loading) return <SkeletonLoader />
@@ -72,6 +74,7 @@ export default function Dashboard() {
             trend={kpi.trend}
             icon={kpiIcons[kpi.id] || kpiIcons['total-scans']}
             type={kpi.type}
+            onClick={kpi.route ? () => navigate(kpi.route) : undefined}
           />
         ))}
       </div>

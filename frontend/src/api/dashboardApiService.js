@@ -121,6 +121,7 @@ export async function getDashboardData() {
   const activeCampaigns = stats.active_campaigns
   const highRiskCount = stats.high_risk_domains
   const avgRisk = stats.avg_risk_score
+  const recentActivityCount = stats.recent_activity_count ?? recentFeed.length
 
   const kpis = [
     {
@@ -156,14 +157,16 @@ export async function getDashboardData() {
       title: 'Threat Feeds',
       value: '5/5',
       trend: { value: 'Active', positive: true },
-      type: 'success'
+      type: 'success',
+      route: '/reports'
     },
     {
       id: 'recent-activity',
       title: 'Recent Activity (24h)',
-      value: String(recentFeed.length),
+      value: String(recentActivityCount),
       trend: undefined,
-      type: 'neutral'
+      type: 'neutral',
+      route: '/scans'
     }
   ]
 
