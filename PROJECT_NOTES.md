@@ -42,11 +42,13 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Risk Scoring Engine | Explainable rules, recommendations, validation & calibration, DB persistence, REST API & final refactor — Milestone 6 100% Complete (Stage 6.6). |
 | **Completed** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints — Milestone 7 100% Complete (Stage 7.6). |
 | **Completed** | AI Investigation Assistant | OpenRouter provider-agnostic HTTP gateway integration, model configurations (default vs fallback), REST API endpoints (ask, report), and local engine fallback — Milestone 8 (Stages 8.1 - 8.6) 100% COMPLETE. |
-| **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
-| **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
-| **Completed** | Dashboard UI | Analyst control panel and queue dashboard. |
+| **Completed** | Dashboard UI | React SPA with all five pages (Dashboard, Investigation, Campaigns, Reports, Settings) fully built and rendering with mock data. |
 | **Completed** | Reporting | Exportable Markdown/PDF reports detailing threats evidence. |
+| **🔴 IN FOCUS** | Frontend API Integration | Replace all mock data services with real backend REST calls. Connect Investigation, Campaign, Reports, and Dashboard pages to the live API. |
+| **🔴 IN FOCUS** | E2E Validation | Verify complete end-to-end flows in a local running environment. |
+| **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
 | **Remaining** | Deployment | Final packaging and cloud/docker deployment patterns. |
+| ✅ **LOCKED** | Backend Architecture | All 8 milestones complete. NO new backend endpoints or architectural changes will be introduced. |
 
 
 ---
@@ -759,6 +761,8 @@ frontend/
 - **2026-08-07 (Sprint 1 - Task 53 - 08:45):** **Task 53 (SVG Document Icon Fix - Task 27):** Completely eliminated the persistent browser console warning `Error: <path> attribute d: Expected number` in document-style icons. Traced the root cause to two malformed paths: (1) a missing `h` command in the standard document icon inside `RecentScansTable.jsx`, `IOCTable.jsx`, and `RecommendationsPanel.jsx`; and (2) unspaced arc parameters inside `Sidebar.jsx`, `RecommendationsPanel.jsx`, and `ExplanationPanel.jsx`. Corrected all paths to fully space all arguments and restore the missing `h` character. Verified compilation succeeds cleanly and the console has zero remaining warnings.
 - **2026-08-07 (Sprint 1 - Task 54 - 08:50):** **Task 54 (Monorepo Integration - Task 0):** Merged remote branch `origin/frontend` into `main`, resolving documentation and progress tracker conflicts. Validated backend startup and verified frontend dependencies installation. Established a unified monorepo structure. Task 0 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 55 - 09:00):** **Task 55 (Familiarization & Validation - Tasks 1, 2, 3):** Completed system architecture and monorepo codebase validation. Documented model persistence structure splits and compiled the frontend mock data endpoints mapping inside `PROJECT_NOTES.md`. Tasks 1, 2, and 3 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 56 - 09:10):** **Task 56 (Backend-Frontend API Mapping - Task 4):** Authored the comprehensive "Backend-Frontend API Mapping" section (Section 16) in `PROJECT_NOTES.md`. Defined endpoint contracts, request/response models, and all required UI states (loading, error, empty, highlight) for all 7 frontend surfaces: Dashboard, Investigation, Campaigns, AI Assistant, Reports, Risk Details Panel, and Evidence Viewer. Task 4 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 57 - 09:15):** **Task 57 (Development Rules & Focus Pivot - Tasks 5, 6, 7):** Authored the "Strict Development Rules" section (Section 17) in `PROJECT_NOTES.md` covering 12 binding rules across Architecture, Frontend Integration, and Documentation categories. Updated the "Current Development Status" table to mark Backend Architecture as LOCKED (all 8 milestones complete) and Frontend API Integration + E2E Validation as the active development focus. Tasks 5, 6, and 7 100% COMPLETE.
 
 
 
@@ -804,4 +808,254 @@ Ensure the local PostgreSQL database is running, then run the following checks:
 6. **Feature Extraction Verification**: Submit a `POST /api/v1/extract/` with payload `{"url": "https://google.com", "scan_id": 1}` and verify it triggers the full aggregation pipeline (returning domain_intelligence, network_intelligence, webpage_intelligence, and metadata schemas) and returns a HTTP 201 status code with the complete JSON dataset.
 7. **Evidence Retrival Verification**: Query `GET /api/v1/extract/{feature_id}` (e.g., ID 1) and confirm it returns the saved `FeatureResponse` details.
 8. **Extraction History Verification**: Query `GET /api/v1/extract/history/{scan_id}` (e.g., Scan ID 1) and confirm it returns the list of all extraction records associated with that scan.
+
+
+---
+
+## 16. Backend-Frontend API Mapping
+
+> **Single Source of Truth**: This section is the canonical mapping reference. Every frontend service file must implement exactly these contracts.
+
+---
+
+### 16.1 Dashboard Page (`frontend/src/pages/Dashboard.jsx`)
+
+**Purpose**: Aggregated SOC analytics — KPI stats, recent scans table, risk distribution chart, campaign overview, and threat timeline.
+
+| # | Endpoint | Method | Purpose |
+| :- | :--- | :--- | :--- |
+| 1 | `/api/v1/scans/` | `GET` | Paginated list of recent scan records |
+| 2 | `/api/v1/campaigns/` | `GET` | Active campaign list for the campaign overview panel |
+| 3 | `/api/v1/risk/` | `GET` | Recent risk assessments for risk distribution chart |
+
+**Request Payloads**:
+```
+GET /api/v1/scans/         ?skip=0&limit=10
+GET /api/v1/campaigns/     ?skip=0&limit=5
+GET /api/v1/risk/          ?skip=0&limit=50
+```
+
+**Response Models**:
+- `GET /scans/` → `List[ScanResponse]` — fields: `id`, `url`, `status`, `created_at`, `campaign_id`
+- `GET /campaigns/` → `List[CampaignOut]` — fields: `id`, `campaign_id`, `name`, `status`, `severity`, `member_count`
+- `GET /risk/` → `List[RiskAssessmentOut]` — fields: `id`, `indicator`, `risk_score`, `severity`, `created_at`
+
+**UI States to Handle**:
+- **Loading**: Skeleton loader pulsing cards while all three fetches are in-flight.
+- **Error**: `<ErrorFallback />` retry component if any fetch fails.
+- **Empty**: Zero-state copy ("No scans yet — submit a URL to begin.") for the recent scans table.
+
+---
+
+### 16.2 Investigation Workspace (`frontend/src/pages/Investigation.jsx`)
+
+**Purpose**: URL submission, full pipeline telemetry (WHOIS, DNS, TLS, HTML), AI analyst Q&A, and risk explanation.
+
+| # | Endpoint | Method | Purpose |
+| :- | :--- | :--- | :--- |
+| 1 | `/api/v1/unified-evidence/process` | `POST` | Submit a URL to trigger the full extraction pipeline |
+| 2 | `/api/v1/unified-evidence/{indicator}` | `GET` | Retrieve categorized evidence blocks |
+| 3 | `/api/v1/risk/{indicator}` | `GET` | Retrieve risk score, severity, heuristics, and recommendations |
+| 4 | `/api/v1/ai/ask` | `POST` | Send analyst question; receive AI-generated answer |
+
+**Request Payloads**:
+```json
+// POST /api/v1/unified-evidence/process
+{ "indicator": "https://evil-domain.com", "scan_id": 1 }
+
+// POST /api/v1/ai/ask
+{ "indicator": "https://evil-domain.com", "question": "Why is this URL risky?" }
+```
+
+**Response Models**:
+- `POST /process` → `{ "status": "ok", "evidence_id": "...", "indicator": "..." }`
+- `GET /unified-evidence/{indicator}` → `UnifiedEvidenceResponse` — contains categorized evidence blocks (domain, network, tls, webpage, threat_intel)
+- `GET /risk/{indicator}` → `RiskAssessmentOut` — `risk_score`, `severity`, `explanation` (list of heuristic strings), `recommendations`
+- `POST /ai/ask` → `AssistantResponse` — `message`, `suggested_actions`, `confidence`
+
+**UI States to Handle**:
+- **Idle**: URL input card rendered with submit button.
+- **Loading**: `<ScanStatus />` progress indicator displayed while POST /process and subsequent GETs complete.
+- **Success**: Evidence accordion, risk summary, and explanation panel populated.
+- **Error**: Inline alert with retry option if pipeline fails.
+- **Empty Evidence**: "No evidence gathered yet" placeholder inside each accordion section.
+
+---
+
+### 16.3 Campaigns Workspace (`frontend/src/pages/Campaigns.jsx`)
+
+**Purpose**: Campaign attribution cluster view — summary card, connected domains table, infrastructure card, shared evidence, confidence card, graph topology, and timeline.
+
+| # | Endpoint | Method | Purpose |
+| :- | :--- | :--- | :--- |
+| 1 | `/api/v1/campaigns/` | `GET` | List all active campaigns (to populate selector/list) |
+| 2 | `/api/v1/campaigns/{campaign_id}` | `GET` | Single campaign detail — summary, domains, infrastructure, evidence |
+| 3 | `/api/v1/campaigns/{campaign_id}/graph` | `GET` | Graph node/edge data for the SVG relationship topology |
+| 4 | `/api/v1/campaigns/{campaign_id}/timeline` | `GET` | Chronological timeline events for `<CampaignTimeline />` |
+
+**Request Payloads**:
+```
+GET /api/v1/campaigns/                     ?skip=0&limit=20
+GET /api/v1/campaigns/{campaign_id}
+GET /api/v1/campaigns/{campaign_id}/graph
+GET /api/v1/campaigns/{campaign_id}/timeline
+```
+
+**Response Models**:
+- `GET /campaigns/` → `List[CampaignOut]`
+- `GET /campaigns/{id}` → `CampaignOut` with nested `members: List[CampaignMemberOut]`
+- `GET /campaigns/{id}/graph` → `CampaignGraph` — `{ nodes: [GraphNode], edges: [GraphEdge] }` where `GraphNode = { id, label, type }` and `GraphEdge = { source, target, weight }`
+- `GET /campaigns/{id}/timeline` → `CampaignTimeline` — `{ events: [{ time, title, desc }] }`
+
+**UI States to Handle**:
+- **Loading**: Skeleton on `CampaignSummaryCard`, `RelationshipGraph`, and `ConnectedDomainsTable`.
+- **Error**: Full-page `<ErrorFallback />` with retry if campaign fetch fails.
+- **Empty**: Zero-state copy ("No active campaigns correlated yet.") when campaigns list is empty.
+- **No Graph**: Static "Insufficient data for topology graph" message when `nodes` array is empty.
+
+---
+
+### 16.4 AI Assistant Chat Interface (`frontend/src/pages/Investigation.jsx` — embedded)
+
+**Purpose**: In-context AI analyst Q&A panel for a scanned indicator.
+
+| # | Endpoint | Method | Purpose |
+| :- | :--- | :--- | :--- |
+| 1 | `/api/v1/ai/ask` | `POST` | Submit an analyst question for a given indicator |
+| 2 | `/api/v1/ai/report/analyst` | `POST` | Generate a full analyst markdown report |
+| 3 | `/api/v1/ai/report/executive` | `POST` | Generate a concise executive summary |
+
+**Request Payloads**:
+```json
+// POST /api/v1/ai/ask
+{ "indicator": "https://evil-domain.com", "question": "What infrastructure is shared?" }
+
+// POST /api/v1/ai/report/analyst
+{ "indicator": "https://evil-domain.com" }
+
+// POST /api/v1/ai/report/executive
+{ "indicator": "https://evil-domain.com" }
+```
+
+**Response Models**:
+- `POST /ai/ask` → `AssistantResponse` — `{ message: str, suggested_actions: [SuggestedAction], confidence: str }`
+- `POST /ai/report/analyst` → `AnalystReport` — `{ indicator, risk_score, severity, timeline_summary, ioc_list, conclusion, recommended_actions }`
+- `POST /ai/report/executive` → `ExecutiveSummary` — `{ indicator, verdict, executive_summary, key_findings: [str], priority_actions: [str] }`
+
+**UI States to Handle**:
+- **Loading**: Spinner inside the ask button; disable repeat submission.
+- **Streaming illusion**: Simulate typewriter-style rendering of AI answer.
+- **Error**: Inline error copy ("AI service temporarily unavailable. Try again.").
+- **Fallback Notice**: If OpenRouter fails and local engine answers, label response as "⚡ Local Reasoning Engine".
+
+---
+
+### 16.5 Reports Workspace (`frontend/src/pages/Reports.jsx`)
+
+**Purpose**: External threat intelligence feeds, IOC table, reputation score, SIEM recommendations, and exportable incident report preview.
+
+| # | Endpoint | Method | Purpose |
+| :- | :--- | :--- | :--- |
+| 1 | `/api/v1/ai/report/analyst` | `POST` | Analyst-level full Markdown incident report |
+| 2 | `/api/v1/ai/report/executive` | `POST` | Executive-level summary |
+| 3 | `/api/v1/unified-evidence/{indicator}` | `GET` | Threat feed data: VirusTotal, PhishTank, URLHaus, AbuseIPDB from evidence blocks |
+| 4 | `/api/v1/risk/{indicator}` | `GET` | Reputation score, verdict, and recommendations |
+
+**Request Payloads**: Same as Sections 16.2 and 16.4 above.
+
+**Response Models**: `AnalystReport`, `ExecutiveSummary`, `UnifiedEvidenceResponse`, `RiskAssessmentOut` — all defined in Sections 16.2 and 16.4.
+
+**UI States to Handle**:
+- **Loading**: Skeleton on `ThreatFeedPanel`, `IOCTable`, and `ReputationCard`.
+- **Error**: Feed-level error badges ("VirusTotal feed unavailable") rather than full-page failures.
+- **Export**: On "Export" click — serialize `AnalystReport` or `ExecutiveSummary` response to a `.md` or `.json` file download.
+- **Empty IOC List**: Show "No indicators of compromise identified." placeholder row.
+
+---
+
+### 16.6 Risk Details Panel (`frontend/src/components/investigation/RiskSummary.jsx`)
+
+**Purpose**: Granular risk breakdown — score, severity badge, heuristics list, and recommendation.
+
+| # | Endpoint | Method | Purpose |
+| :- | :--- | :--- | :--- |
+| 1 | `/api/v1/risk/{indicator}` | `GET` | Full risk assessment for a given URL/indicator |
+
+**Request Payload**: `GET /api/v1/risk/{indicator}` (URL-encoded indicator)
+
+**Response Model**: `RiskAssessmentOut`
+```json
+{
+  "indicator": "https://evil-domain.com",
+  "risk_score": 87.5,
+  "max_score": 100,
+  "severity": "critical",
+  "confidence": "high",
+  "explanation": ["Suspicious TLD registered 3 days ago", "No WHOIS privacy — known-bad registrar"],
+  "recommendation": "Block immediately and escalate to Tier 2.",
+  "created_at": "2026-08-07T03:15:00Z"
+}
+```
+
+**UI States to Handle**:
+- **Loading**: Pulsing skeleton ring around the risk score badge.
+- **Error**: Grayed-out badge with "Risk data unavailable" message.
+- **Low Score (< 30)**: Render green badge with "Low Risk" copy.
+- **Critical Score (>= 80)**: Render red pulsing badge with "CRITICAL" label.
+
+---
+
+### 16.7 Evidence Viewer (`frontend/src/components/investigation/EvidenceAccordion.jsx`)
+
+**Purpose**: Collapsed accordion sections for WHOIS, DNS, TLS, DOM/HTML, and threat intelligence evidence blocks.
+
+| # | Endpoint | Method | Purpose |
+| :- | :--- | :--- | :--- |
+| 1 | `/api/v1/unified-evidence/{indicator}` | `GET` | All categorized evidence blocks for the indicator |
+
+**Request Payload**: `GET /api/v1/unified-evidence/{indicator}` (URL-encoded indicator)
+
+**Response Model**: `UnifiedEvidenceResponse` (nested categories)
+```json
+{
+  "indicator": "https://evil-domain.com",
+  "domain_intelligence": { "registrar": "...", "creation_date": "...", "expiry_date": "...", "name_servers": [...] },
+  "network_intelligence": { "ip_address": "...", "asn": "...", "hosting_provider": "...", "dns_records": { "A": [...], "MX": [...], "NS": [...] } },
+  "tls_intelligence": { "common_name": "...", "issuer": "...", "valid_from": "...", "valid_to": "...", "san_list": [...] },
+  "webpage_intelligence": { "page_title": "...", "form_count": 2, "has_password_field": true, "external_links": 14 },
+  "threat_intel": { "virustotal": {...}, "phishtank": {...}, "urlhaus": {...}, "abuseipdb": {...} }
+}
+```
+
+**UI States to Handle**:
+- **Loading**: Skeleton rows inside each accordion section.
+- **Error**: Per-section error badge ("DNS data unavailable") rather than collapsing the section entirely.
+- **Empty Category**: Render "No data gathered for this category" within the section body.
+- **Highlight Anomalies**: Rows where `highlight: true` must render with an amber background tint.
+
+---
+
+## 17. Strict Development Rules
+
+> `PROJECT_NOTES.md` is the **single source of truth** for this project. Every implementation decision must be consistent with this document. Every completed task must immediately update this document.
+
+### 17.1 Architecture Rules
+1. **Never Redesign Completed Architecture** — All 8 backend milestones are finalized. No new backend services, database tables, or architectural patterns will be introduced without explicit approval.
+2. **Reuse Existing Services** — Before writing new logic, check `backend/app/services/` for an existing service. Frontend fetches must call live backend endpoints; no new mock responses may be introduced.
+3. **Repository Pattern is Mandatory** — All database access in the backend must go through the repository layer (`app/db/repositories/`). Direct SQLAlchemy session queries in endpoint handlers are forbidden.
+4. **API Versioning** — All backend routes must stay under `/api/v1/`. No routes outside this prefix will be accepted.
+5. **No Duplicate Logic** — Similarity scoring, risk calculations, evidence normalization, and campaign clustering already exist in their respective engines. Never re-implement these in a new file.
+
+### 17.2 Frontend Integration Rules
+6. **Replace Mock Data Surgically** — Each frontend service file (`dashboardService.js`, `scanService.js`, etc.) must be updated to call the backend API instead of the local mock. The adapter files (`dashboardAdapter.js`, etc.) must continue to be used to normalize responses.
+7. **Error Boundaries Are Mandatory** — Every page-level data fetch must be wrapped in a try/catch. All errors must render the existing `<ErrorFallback />` component.
+8. **Loading States Are Non-Negotiable** — Every async operation must display `<SkeletonLoader />` until data resolves. No spinner-less blank states.
+9. **Adapter Contract Must Be Preserved** — The existing adapter functions (`adaptDashboardData`, `adaptScanData`, `adaptCampaignData`, `adaptReportData`) define the normalized data shape consumed by React components. These shapes must not change during API integration; only the data *source* changes (from mock JSON to live API response).
+
+### 17.3 Documentation Rules
+10. **Update Immediately** — After every completed task, the Progress Tracker and Revision History in `PROJECT_NOTES.md` must be updated before moving to the next task.
+11. **Decision Log First** — Any deviation from the architecture or a new design decision must be logged in the Decision Log before implementation begins.
+12. **No Orphan Code** — If a file is created, its purpose must be documented. If a file is deleted, the deletion must be recorded in the Revision History.
+
+---
 
