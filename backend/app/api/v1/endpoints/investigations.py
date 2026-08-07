@@ -1,11 +1,12 @@
 from datetime import datetime, timezone
 import logging
 from typing import Any, Dict, Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from app.api.deps import get_db, scan_repo
+from app.api.deps import get_db, scan_repo, get_current_user, log_activity
+from app.db.models.employee import EmployeeRecord
 from app.db.models.risk_assessment import RiskAssessmentRecord
 from app.models.domain import Domain
 
@@ -34,7 +35,9 @@ class InvestigationResponse(BaseModel):
 @router.get("/{id}", response_model=InvestigationResponse)
 def read_investigation(
     id: int,
-    db: Session = Depends(get_db)
+    req_obj: Request,
+    db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(get_current_user)
 ) -> Any:
     """
     Retrieves the unified investigation status and deterministic risk assessment fields
@@ -55,6 +58,8 @@ def read_investigation(
         RiskAssessmentRecord.indicator == indicator
     ).order_by(RiskAssessmentRecord.timestamp.desc()).first()
     
+    log_activity(db, current_user.user_id, "scan_view", req_obj, indicator)
+
     return InvestigationResponse(
         id=scan.id,
         indicator=indicator,

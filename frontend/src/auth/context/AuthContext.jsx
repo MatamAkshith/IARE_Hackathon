@@ -46,6 +46,21 @@ export const AuthProvider = ({ children }) => {
     };
 
     initializeAuth();
+
+    // Stage E.5: Inactivity / expiration checker loop (runs every 10s)
+    const checkInterval = setInterval(() => {
+      const savedToken = getToken();
+      if (savedToken && isTokenExpired(savedToken)) {
+        console.warn('[AuthContext] Session expired via background timer.');
+        removeToken();
+        setTokenState(null);
+        setUser(null);
+        setError(null);
+        window.location.href = '/login?session=expired';
+      }
+    }, 10000);
+
+    return () => clearInterval(checkInterval);
   }, []);
 
   // ── Login ──────────────────────────────────────────────────────────────

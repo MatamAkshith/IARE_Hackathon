@@ -1,7 +1,7 @@
 from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
-from app.api.deps import get_db, scan_repo, get_current_user
+from app.api.deps import get_db, scan_repo, get_current_user, log_activity
 from app.schemas.scan import ScanCreate, ScanUpdate, ScanResponse
 from app.db.models.employee import EmployeeRecord
 
@@ -65,18 +65,24 @@ def read_scans(
 @router.post("", response_model=ScanResponse, status_code=status.HTTP_201_CREATED)
 def create_scan(
     *,
+    req_obj: Request,
     db: Session = Depends(get_db),
     current_user: EmployeeRecord = Depends(get_current_user),
     scan_in: ScanCreate
 ) -> Any:
     scan_in.initiated_by = current_user.user_id
     db_obj = scan_repo.create(db, obj_in=scan_in)
+    
+    # E.5: Log activity
+    log_activity(db, current_user.user_id, "scan_create", req_obj, str(db_obj.domain_id))
+    
     return _populate_scan_campaign(db, db_obj)
 
 
 @router.get("/{id}", response_model=ScanResponse)
 def read_scan(
     id: int,
+    req_obj: Request,
     db: Session = Depends(get_db),
     current_user: EmployeeRecord = Depends(get_current_user)
 ) -> Any:
@@ -86,6 +92,8 @@ def read_scan(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Scan not found"
         )
+        
+    log_activity(db, current_user.user_id, "scan_view", req_obj, str(id))
     return _populate_scan_campaign(db, scan)
 
 

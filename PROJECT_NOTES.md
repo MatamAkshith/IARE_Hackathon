@@ -55,6 +55,7 @@ Every implementation must remain consistent with these sections. Every completed
 | ✅ **LOCKED** | Demo Dataset & Validation | Phase B (Stages B.1 - B.4) fully seeded, validated, and demo-playbook compiled. Platform is 100% complete and demo-ready. |
 | ✅ **LOCKED** | Auth & Audit Integration | Authentication login system, protected routing, and post-merge regression validation 100% completed. |
 | ✅ **LOCKED** | Role-Based Access Control | Organziational RBAC controls, brute-force locking, account security, and token lifecycles fully implemented. |
+| ✅ **LOCKED** | Session Mgmt & Activity Audit | Session management, automatic timeout redirections, and analyst activity database logging fully completed. |
 
 
 ---
@@ -1704,4 +1705,21 @@ This section provides a full cross-referenced audit of every commit in the repos
 * **Temporary Lockout**: Automatically locks user accounts temporarily for 15 minutes after 5 consecutive failed login attempts, recording `account_locked` in the authentication audit log.
 * **Session Lifecycle Redirects**: Handled 401 Unauthorized API failures (due to expired or modified tokens) in the Axios `apiClient` interceptor by wiping the token from `localStorage` and redirecting users to `/login?session=expired`.
 * **Session Info UI**: Updated the header and sidebar components to output the active user ID and their role designation.
+
+---
+
+## 50. Stage E.5 & E.6 Session Management & Final Security Audit (2026-08-07)
+
+### 50.1 Session Management & Activity Monitoring (E.5)
+* **ActivityLogRecord ORM**: Created the `analyst_activity_logs` table to store detailed analyst actions (`dashboard_view`, `scan_create`, `scan_view`, `campaign_view`, `ai_assistant_query`, `report_export`) along with User ID, IP address, and User Agent.
+* **Auto-Logout Expiry Check**: Added a periodic check loop inside `AuthContext.jsx` running every 10 seconds. It automatically flags token expiration, clears local session credentials, and redirects users to `/login?session=expired`.
+* **Traceable API Access**: Injected `log_activity` calls in dashboard endpoints, scan creation/details, campaigns list/details, and AI Assistant conversational `/ask` and `/report` exports.
+
+### 50.2 Authentication Validation & Final Security Audit (E.6)
+* **Pre-defined Account Login**: Verified authenticating with predefined SOC Analyst accounts. Success writes `login_success` in audit logs and redirects to Dashboard.
+* **Access Checks**: Verified that accessing `/stats` or `/recent-feed` without a valid token yields a 401 response and records `invalid_token` in the logs.
+* **Scan Attribution**: Confirmed that manually running scans logs the `scan_create` action and maps `initiated_by` to the authenticated operator's user ID.
+* **RBAC Enforcement**: Confirmed that when an account with the role `analyst` attempts to trigger correlation at `/correlate` or accessSettings, the backend returns a 403 Forbidden, and the frontend dynamically hides these links.
+* **E2E Workflow Validation**: Successfully ran the complete SOC workflow from logging in, viewing stats, submitting indicators, obtaining AI breakdowns, exporting analyst reports, and logging out. All actions verified inside database activity tables.
+
 

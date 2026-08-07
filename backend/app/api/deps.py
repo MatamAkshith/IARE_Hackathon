@@ -95,3 +95,26 @@ def get_current_user(
         )
 
     return employee
+
+
+def log_activity(
+    db: Session,
+    user_id: str,
+    activity_type: str,
+    request: Request,
+    target_identifier: Optional[str] = None
+) -> None:
+    """Helper to log an analyst activity event in the database."""
+    try:
+        from app.db.models.activity_log import ActivityLogRecord
+        entry = ActivityLogRecord(
+            user_id=user_id,
+            activity_type=activity_type,
+            target_identifier=target_identifier,
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get("user-agent"),
+        )
+        db.add(entry)
+        db.commit()
+    except Exception as exc:
+        logger.warning(f"[log_activity] Failed to write analyst activity log ({activity_type}): {exc}")

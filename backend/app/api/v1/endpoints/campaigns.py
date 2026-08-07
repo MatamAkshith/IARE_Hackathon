@@ -7,11 +7,11 @@ campaign details, relationship graphs, and event timelines.
 
 from typing import Any, Dict, List
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_db, get_current_user, log_activity
 from app.services.campaign_engine.service import CampaignCorrelationService
 from app.services.campaign_engine.repository import CampaignRepository
 from app.services.campaign_engine.schemas import CampaignResponse
@@ -80,6 +80,7 @@ def correlate_indicator(
 
 @router.get("", response_model=List[CampaignResponse])
 def list_campaigns(
+    req_obj: Request,
     db: Session = Depends(get_db),
     current_user: EmployeeRecord = Depends(get_current_user),
     skip: int = 0,
@@ -89,6 +90,7 @@ def list_campaigns(
     Retrieves all campaigns, paginated, sorted by latest updates first.
     """
     logger.info(f"[list_campaigns] Listing campaigns with skip={skip}, limit={limit}")
+    log_activity(db, current_user.user_id, "campaign_view", req_obj)
     try:
         campaigns = campaign_repo.list_campaigns(db, skip=skip, limit=limit)
         return campaigns
@@ -103,6 +105,7 @@ def list_campaigns(
 @router.get("/{campaign_id}", response_model=CampaignResponse)
 def get_campaign(
     campaign_id: str,
+    req_obj: Request,
     db: Session = Depends(get_db),
     current_user: EmployeeRecord = Depends(get_current_user)
 ) -> Any:
@@ -110,6 +113,7 @@ def get_campaign(
     Retrieves a specific campaign configuration by its unique Campaign ID (e.g. CAMP-YYYYMMDD-XXXX).
     """
     logger.info(f"[get_campaign] Fetching campaign_id='{campaign_id}'")
+    log_activity(db, current_user.user_id, "campaign_view", req_obj, campaign_id)
     campaign = campaign_repo.get_campaign_by_id(campaign_id=campaign_id, db=db)
     if not campaign:
         raise HTTPException(

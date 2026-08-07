@@ -1,9 +1,9 @@
 from typing import Any, List, Dict
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db, get_current_user
+from app.api.deps import get_db, get_current_user, log_activity
 from app.services.dashboard_service import DashboardService
 from app.db.models.employee import EmployeeRecord
 
@@ -14,6 +14,7 @@ dashboard_service = DashboardService()
 
 @router.get("/stats", response_model=Dict[str, Any])
 def get_dashboard_stats(
+    req_obj: Request,
     db: Session = Depends(get_db),
     current_user: EmployeeRecord = Depends(get_current_user)
 ) -> Any:
@@ -21,6 +22,7 @@ def get_dashboard_stats(
     Retrieves live SQL aggregation statistics for the SOC Dashboard KPIs and Risk Distribution.
     """
     logger.info("[get_dashboard_stats] Fetching live dashboard stats")
+    log_activity(db, current_user.user_id, "dashboard_view", req_obj)
     try:
         stats = dashboard_service.get_stats(db)
         return stats
