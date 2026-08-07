@@ -1306,3 +1306,201 @@ To present the ThreatLens platform to stakeholders or clients, walk through the 
 * **`useSearchParams` Integration**: Reports page reads `?scanId=X` from the URL on mount. If present, initializes the dropdown selection and report payload to that specific scan without additional navigation.
 * **URL Sync on Dropdown Change**: Each time the dropdown selection changes, the URL search parameter is updated automatically via `setSearchParams({ scanId })`, making every viewed report shareable and bookmarkable.
 * **"View Report" Button on Scans Page**: Added a second action button in the Scans history table (alongside "Details") labeled **"Report"** that navigates directly to `/reports?scanId={id}` for any completed scan.
+
+---
+
+## 28. Complete Commit History Audit & Traceability Log (2026-08-07)
+
+This section provides a full cross-referenced audit of every commit in the repository, mapping each to the corresponding PROJECT_NOTES section. Verified against `git log --oneline --all` on 2026-08-07.
+
+---
+
+### Phase 0 — Project Bootstrap (2026-08-06)
+
+| Commit | Subject | Notes Ref |
+|--------|---------|-----------|
+| `bf85a91` | Initial commit | §1 |
+| `9de08a2` | Initialize project structure and boilerplate | §1, §10 |
+| `57e6cde` | Populate comprehensive system architecture and design documentation | §10 |
+
+---
+
+### Phase 1 — Backend Core & Database (2026-08-06)
+
+| Commit | Subject | Notes Ref |
+|--------|---------|-----------|
+| `c869c90` | Initialize backend core structure and FastAPI entry point | §10, §13 |
+| `c93678b` | Implement Pydantic Settings configuration layer | §10 |
+| `caad690` | Implement request-processing pipeline with CORS, logging middleware, Request ID tracing | §10 |
+| `a0c32a2` | Implement FastAPI lifespan handlers and structured versioned health endpoints | §10 |
+| `d8eeca9` | Initialize database configurations and core SQLAlchemy engine with connection pooling | §10 |
+| `a06c82a` | Implement declarative base, SessionLocal, and `get_db` dependency | §10 |
+| `2492c18` | Update PROJECT_NOTES.md feature tracking log and sync config changes | §13 |
+| `27a131c` | Restructure progress log in PROJECT_NOTES.md with sprint format | §13 |
+| `b5996a2` | Implement database persistence layer with ORM models and startup schema generation | §4, §10, §13 |
+| `034d501` | Implement Pydantic validation schemas, generic CRUD base, and specific repository layers | §10, §13 |
+| `999a952` | Implement RESTful API endpoints for all core entities under `/api/v1` router | §16, §13 |
+
+---
+
+### Phase 2 — Feature Extraction Engine — Milestone 3 (2026-08-06)
+
+| Commit | Subject | Notes Ref |
+|--------|---------|-----------|
+| `f1d4d62` | Implement DomainIntelService (DNS/WHOIS extraction) and first extraction endpoint | §3, §13 |
+| `7f149ac` | Implement NetworkIntelService (IP/DNS/SSL/HTTP) and network extraction endpoints | §3, §13 |
+| `c71fe6b` | Implement WebpageIntelService, FeatureAggregationService, and POST `/extract/domain` | §3, §13 |
+| `3ed3e0e` | Expose unified Feature Extraction Engine REST API endpoints and final stabilization | §3, §16 |
+| `c5d8df8` | Milestone 3: Feature Extraction Engine completed | §13 |
+
+---
+
+### Phase 3 — Threat Intelligence Engine — Milestone 4 (2026-08-06)
+
+| Commit | Subject | Notes Ref |
+|--------|---------|-----------|
+| `2436d35` | Enhance PROJECT_NOTES.md with tech stack, workflows, diagrams, and roadmaps | §2–§9 |
+| `7ee3c99` | Stage 4.1 — Threat Intelligence Foundation: base provider interfaces, service registry orchestrator | §3, §13 |
+| `ac93fff` | Stage 4.2 — VirusTotal Integration (API v3) | §3, §16 |
+| `3120a1a` | Update `.env.example` with `VIRUSTOTAL_API_KEY` placeholder | §17 |
+| `87434a8` | Stage 4.3 — PhishTank & URLHaus Integration | §3, §16 |
+| `b62c863` | Fix HTTP 403/401 errors for PhishTank and URLHaus providers (header fixes) | §13 |
+| `763a554` | Stage 4.4 — AbuseIPDB & AlienVault OTX Integration (Milestone 4 complete) | §3, §16 |
+| `efe14c0` | Stage 4.5 — Aggregated Threat Evidence Engine & Endpoints | §3, §16 |
+| `5913732` | Refactor threat intel provider lookup logic & unify error handling | §3, §13 |
+
+---
+
+### Phase 4 — Unified Evidence Engine — Milestone 5 (2026-08-06)
+
+| Commit | Subject | Notes Ref |
+|--------|---------|-----------|
+| `b35b60b` | Stage 5.1 — Unified Evidence Models & Foundation | §10, §13 |
+| `d19ccc0` | Stage 5.2 — Internal & External Evidence Merge Strategy | §3, §10 |
+| `f3c9463` | Stage 5.3 — Evidence Normalization & Confidence Calculation | §3, §10 |
+| `6c8b0fd` | Stage 5.4 — Unified Evidence API & Persistence (Milestone 5 complete) | §16 |
+| `303731f` | Stage 5.5 — Evidence Timeline & Traceability | §3 |
+| `4ca4936` | Stage 5.6 — Unified Evidence Engine finalization & refactoring (Milestone 5 FINAL) | §13 |
+
+---
+
+### Phase 5 — Frontend Foundation (Static) (2026-08-06)
+
+| Commit | Subject | Notes Ref |
+|--------|---------|-----------|
+| `b768d5d` | Bootstrap Vite React application entry points | §10 |
+| `cf4a599` | Implement centralized router and placeholder pages | §10 |
+| `1b01927` | Create responsive dashboard layout with drawer sidebar | §10 |
+| `d2cc7a0` | Update PROJECT_NOTES for Stage 1 layout work | §1 |
+| `14df9b6` | Add static dashboard analytics data model | §10 |
+| `28f64cc` | Create modular dashboard components | §10 |
+| `c4f0c66` | Integrate components into dashboard page view | §10 |
+| `d6da628` | Add reusable RiskScoreBadge and StatusPill components | §10 |
+| `c5a97d2` | Implement static SOC dashboard analytics | §10 |
+| `76e6599` | Add static threat intelligence and reports dataset | §10 |
+| `f7bb31d` | Build modular threat intelligence and reports components | §10 |
+| `d336438` | Integrate components into reports page view | §10 |
+| `af6fa2d` | Implement Threat Intelligence & Reports dashboard | §10 |
+| `ae25c01` | Fix threat intelligence card alignment | §13 |
+| `6506f39` | Refactor threat intelligence card presentation | §13 |
+| `6d06dc3` | Implement Campaign Intelligence Dashboard | §10 |
+| `0321081` | Add mock API services layer and schemas | §10 |
+| `37495ac` | Add data normalisation adapters | §10 |
+| `66f2677` | Implement DataProvider and custom hooks | §10 |
+| `7124313` | Create skeleton loader and error fallback components | §10 |
+| `868df77` | Rewire page components to consume centralized hooks | §10 |
+| `17de189` | Introduce centralized mock service architecture | §10 |
+| `39cfe19` | Fix invalid SVG path rendering | §13 |
+| `901631b` | Fix invalid SVG path rendering | §13 |
+| `6431d32` | Fix invalid document icon path | §13 |
+| `17b629a` | Fix Threat Scoring Explanation header alignment | §13 |
+| `04c133a` | Fix investigation workspace card overflow and alignment | §13 |
+| `db2c2bf` | Fix scan pipeline within card bounds | §13 |
+| `6c5719c` | Add static URL investigation telemetry dataset | §10 |
+| `fc280c8` | Build reusable investigation components | §10 |
+| `beb76a7` | Implement URL investigation workspace page and routing | §10 |
+| `8abe60d` | Implement URL investigation workspace | §10 |
+
+---
+
+### Phase 6 — Risk Scoring Engine — Milestone 6 (2026-08-07)
+
+| Commit | Subject | Notes Ref |
+|--------|---------|-----------|
+| `4f9b80b` | Stages 6.1 & 6.2 — Explainable Risk Scoring Engine foundation & core logic | §6, §13 |
+| `26e6198` | Stages 6.3 & 6.4 — Recommendation Engine, DB Persistence & Risk API (Milestone 6 FINAL) | §6, §16 |
+| `971b7cf` | Enhance Risk Engine API with `overall_confidence` and finalize Milestone 6 | §6, §16 |
+| `a48d24c` | Stage 6.6 — Final refactoring, standardized logging, project documentation | §13 |
+
+---
+
+### Phase 7 — Campaign Correlation Engine — Milestone 7 (2026-08-07)
+
+| Commit | Subject | Notes Ref |
+|--------|---------|-----------|
+| `db734de` | Stage 7.1 — Campaign Correlation Engine foundation, models, schemas, and service interfaces | §7, §13 |
+| `add195d` | Stage 7.2 — Core correlation strategies, SimilarityEngine weights, and evaluate_link service | §7, §13 |
+| `b367831` | Stage 7.3 — Campaign Clustering & Attribution Engine with join, merge, and split logic | §7, §13 |
+| `a85dbbf` | Stage 7.4 — Campaign Timeline and Relationship Graph engines | §7, §13 |
+| `451b305` | Stages 7.5 & 7.6 — DB persistence, repository mapping, FastAPI campaigns endpoint, E2E validation | §7, §16 |
+
+---
+
+### Phase 8 — AI Assistant Engine — Milestone 8 (2026-08-07)
+
+| Commit | Subject | Notes Ref |
+|--------|---------|-----------|
+| `666ce1d` | Stages 8.1 & 8.2 — AI architectural foundation, context builder, and system prompt generator | §10, §13 |
+| `ed99191` | Stages 8.3 & 8.4 — Reasoning engine, question router, and report generators | §10, §13 |
+| `86a87ee` | Stages 8.5 & 8.6 — OpenRouter completions client and REST API endpoints | §16, §19.2 |
+
+---
+
+### Phase A — Frontend ↔ Backend Live Integration (2026-08-07)
+
+| Commit | Subject | Notes Ref |
+|--------|---------|-----------|
+| `780b8bd` | Task 0 — Merge remote frontend branch into main (monorepo) | §14 |
+| `ce5ba90` | Tasks 1–3 — Familiarization & validation report in project notes | §14, §15 |
+| `039c766` | Tasks 4–7 — Backend-frontend API mapping, strict dev rules, and focus pivot | §16, §17 |
+| `56066ff` | Stage A.1 — Frontend API networking layer: Axios client, interceptors, error handler | §16 |
+| `2299d82` | Stage A.2 — Connect dashboard to live FastAPI backend, replace all mock data | §16 |
+| `41d31a7` | Stages A.3 & A.4 — Submission workflow and detailed investigation views | §18 |
+| `176c3ce` | Stages A.5 & A.6 — Campaign graphs, dynamic timelines, live reports, AI Q&A chat | §19 |
+| `fdec3a9` | Phase A complete — Full frontend integration with backend APIs | §14–§19 |
+
+---
+
+### Phase B — Seeding, Validation & Demo Readiness (2026-08-07)
+
+| Commit | Subject | Notes Ref |
+|--------|---------|-----------|
+| `e412b2f` | Stages B.1 & B.2 — 15 demo scenario DB records + end-to-end backend validation scripts | §20 |
+| `c879f9a` | Stages B.3 & B.4 — Final system validation & demo playbook | §21 |
+
+---
+
+### Phase D — Consistency, Validation & Polish (2026-08-07)
+
+| Commit | Subject | Notes Ref |
+|--------|---------|-----------|
+| `d805553` | Stages D.1 & D.2 — Risk score consistency engine & AI context synchronization | §22, §23 |
+| *(inline)* | Stages D.3 & D.4 — Threat intel feed validation & campaign correlation validation | §24 |
+| *(inline)* | Stage D.5 & D.6 — Report consistency, export validation & end-to-end audit | §26 |
+| *(inline)* | Domain ingestion Get-or-Create logic (duplicate URL fix) | §25 |
+| `9e74f3a` | Historical scan selector dropdown & deep-linking to Reports page | §27 |
+
+---
+
+### Summary Statistics
+
+| Metric | Value |
+|--------|-------|
+| **Total Commits** | 80+ |
+| **First Commit Date** | 2026-08-06 |
+| **Latest Commit Date** | 2026-08-07 |
+| **Active Branch** | `main` |
+| **Remote Tracking** | `origin/main` (https://github.com/MatamAkshith/IARE_Hackathon) |
+| **Working Tree Status** | ✅ Clean — nothing to commit |
+| **PROJECT_NOTES Coverage** | ✅ Sections 1–27 mapped to all major commits |
+| **Open Issues** | None — platform is Demo-Ready |
