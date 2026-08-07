@@ -44,10 +44,13 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Scans UI & Workflows | Submission form, progress polling indicator, and detailed Investigation Details views wired to live API endpoints. |
 | **Completed** | Frontend API Integration | Replace all mock data services (Campaigns, Reports, Settings, Dashboard, Scans, Details) with real backend REST calls. Purged all static mock JSON structures from the repository. |
 | **Completed** | E2E Validation | Verified complete end-to-end flows in a local running environment. |
+| **Completed** | Demo Dataset Generation | Standalone SQLAlchemy script (`seed_demo_data.py`) generated 15 realistic investigation scenarios and 2 campaign clusters. |
+| **Completed** | System Validation | Validation script (`validate_backend.py`) verifies readiness, scans, evidence, risk, campaigns, and AI report endpoints. |
 | **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
 | **Remaining** | Deployment | Final packaging and cloud/docker deployment patterns. |
 | ✅ **LOCKED** | Backend Architecture | All 8 milestones complete. NO new backend endpoints or architectural changes will be introduced. |
 | ✅ **LOCKED** | Frontend Integration | Phase A (Stages A.1 - A.6) fully complete and validated. |
+| ✅ **LOCKED** | Demo Dataset & Validation | Phase B (Stages B.1 & B.2) fully seeded and validated. |
 
 
 ---
@@ -792,6 +795,8 @@ frontend/
 - **2026-08-07 (Sprint 1 - Task 61 - 10:00):** **Task 61 (Detailed Investigation View & Evidence - Stage A.4):** Created `InvestigationDetails.jsx` details page. Fetches full scan payload via `getInvestigationDetails(id)` on mount. Maps backend `resolved_observations` into individual section tables (Domain, DNS, WHOIS, SSL, HTML, Metadata) rendered in the `EvidenceAccordion`. Populates risk dial scores, findings tags, campaign overlaps, and parallel pre-generated AI summaries (Analyst technical reports + Executive summaries). Handled loading skeletons, try-catch connection blocks, and clean fallback arrays. Verified `npm run build` passes cleanly with 0 errors. Stage A.4 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 62 - 10:15):** **Task 62 (Campaign Intelligence Integration - Stage A.5):** Created `api/campaignService.js` and updated `services/campaignService.js` to fetch live data from `/campaigns/` list and detailed `/campaigns/{id}/graph` & `/campaigns/{id}/timeline` endpoints. Refactored `RelationshipGraph.jsx` to dynamically assign node coordinates (indicators on left, infrastructure assets on right) and render SVG lines using live API responses. Handled empty-states, loaders, and error fallbacks. Stage A.5 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 63 - 10:30):** **Task 63 (AI Assistant & Reports Integration - Stage A.6):** Created `api/aiService.js` connecting to `/ai/ask`, `/ai/report/analyst`, and `/ai/report/executive`. Developed interactive `AiAssistantChat.jsx` conversational Q&A widget featuring preset query chips, markdown rendering, and structured containment checklists. Embedded chat alongside technical previews in `InvestigationDetails.jsx`. Deployed live `reportService.js` fetching real telemetry logs for the Reports workspace view. Performed a complete codebase sweep, purging all mock JSON files (`campaignData`, `dashboardData`, `investigationData`, `threatIntelligenceData`, and `mockApi.js`). Verified frontend builds cleanly. Phase A 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 64 - 10:45):** **Task 64 (Demo Dataset Generation - Stage B.1):** Created `backend/scripts/seed_demo_data.py` standalone database seeding script. The script purges existing records and seeds 15 distinct completed scans representing phishing campaigns, typosquatting (e.g. `paypa1-update.com`), expired SSL/TLS certificates, and malicious redirects targeting Google, Microsoft, PayPal, Amazon, SBI, and HDFC Bank. Configured 2 campaign correlation clusters ("CozyBear Impersonation Wave" and "Fintech Harvester Syndicate") using both legacy `Campaign` and new `CampaignRecord` tables, populated with member details, shared infrastructure overlays, and datetime properties. Stage B.1 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 65 - 11:00):** **Task 65 (System Validation - Stage B.2):** Created `backend/scripts/validate_backend.py` verification test script using HTTPX. Verified health checks, scans lists, unified evidence structures, risk assessment histories, campaigns overview, campaign topology graphs, and AI technical analyst / executive business summary report endpoints against the running Uvicorn local server, ensuring 100% API compatibility and data schema compliance. Stage B.2 100% COMPLETE.
 
 
 
@@ -1140,6 +1145,39 @@ The AI Chat widget (`AiAssistantChat.jsx`) is embedded inside the details worksp
 ### 19.3 Known Limitations
 - **Graph Rendering Limits**: The dynamic coordinate mapper arranges up to 10 indicators (left side) and 10 infrastructure elements (right side) without layout overlapping. Large campaign clusters containing >25 indicators may degrade visual spacing.
 - **AI Report Latency**: Requesting real-time report summaries from `/ai/report/analyst` or `/ai/report/executive` may require 1–3 seconds depending on the OpenRouter provider gateway response speed.
+
+---
+
+## 20. Demo Dataset & System Validation Documentation
+
+### 20.1 Seeding Scenarios Overview (Stage B.1)
+The script `backend/scripts/seed_demo_data.py` generates 15 target indicators with realistic telemetry parameters and completed status:
+1. **secure-microsoft-login-verification.com**: Critical Microsoft phishing portal linked to CozyBear campaign. IP range: `185.230.125.44` (Shared).
+2. **office365-security-check.net**: Critical Microsoft credential harvesting portal linked to CozyBear campaign. IP range: `185.230.125.45`.
+3. **microsoft-login-auth.live**: Critical Microsoft credential harvesting portal linked to CozyBear campaign. IP range: `185.230.125.46`.
+4. **paypa1-update.com**: High-risk PayPal typosquatting domain linked to Fintech Harvester campaign. IP range: `185.230.125.44` (Shared).
+5. **amazon-verify-checkout.net**: High-risk Amazon Pay phishing portal linked to Fintech Harvester campaign. IP range: `185.230.125.44` (Shared).
+6. **sbi-netbanking-verify.in**: Critical State Bank of India netbanking mimic (individual threat).
+7. **hdfcbank-login-secure.co**: Critical HDFC Bank login portal mimic (individual threat).
+8. **accounts-google-verify.com**: High-risk Google login credentials harvester (individual threat).
+9. **gmail-upgrade-verification.net**: High-risk Gmail portal upgrade credential harvester (individual threat).
+10. **github-auth-verify.com**: Medium-risk GitHub redirect containing an expired SSL/TLS certificate.
+11. **git-update-portal.org**: Medium-risk GitHub redirection chain containing 2 hops.
+12. **google.com**: Safe/Legitimate Google main brand portal (baseline contrast).
+13. **microsoft.com**: Safe/Legitimate Microsoft main brand portal (baseline contrast).
+14. **paypal.com**: Safe/Legitimate PayPal main brand portal (baseline contrast).
+15. **statebankofindia.com**: Safe/Legitimate State Bank of India main portal (baseline contrast).
+
+### 20.2 System Validation Tests (Stage B.2)
+The verification script `backend/scripts/validate_backend.py` runs 8 consecutive endpoint checks against `http://localhost:8000/api/v1`:
+* **Health Readiness `/health/ready`**: Verifies database connection and general server status.
+* **Scans Log `/scans`**: Asserts that all 15 seeded scan records are successfully returned.
+* **Unified Evidence `/unified-evidence/{indicator}`**: Validates the presence of WHOIS, DNS, and TLS observations.
+* **Risk History `/risk/{indicator}`**: Validates that risk score metrics and triggered heuristics are present.
+* **Campaigns Log `/campaigns`**: Asserts that the 2 custom campaign correlation clusters are successfully returned.
+* **Campaign Topology `/campaigns/{id}/graph`**: Asserts that CozyBear graph relationships compile with nodes and edges.
+* **AI Analyst Report `/ai/report/analyst`**: Verifies that technical markdown summary and mitigation actions checklist compile cleanly.
+* **AI Executive Summary `/ai/report/executive`**: Verifies that C-level business impact narratives and risk rating categories compile cleanly.
 
 ---
 
