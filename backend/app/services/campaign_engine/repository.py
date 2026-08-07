@@ -44,14 +44,21 @@ class CampaignRepository:
 
         summary_data = record.summary_json or {}
         # Parse timestamps in summary safely
-        first_seen = summary_data.get("first_seen")
-        last_seen = summary_data.get("last_seen")
+        first_seen = summary_data.get("first_seen") or summary_data.get("firstSeen")
+        last_seen = summary_data.get("last_seen") or summary_data.get("lastSeen")
+        
+        # Fallback to record timestamps if missing
+        from datetime import datetime, timezone
+        if not first_seen:
+            first_seen = record.created_at or datetime.now(timezone.utc)
+        if not last_seen:
+            last_seen = record.updated_at or datetime.now(timezone.utc)
         
         summary = CampaignSummary(
-            total_indicators=summary_data.get("total_indicators", len(members)),
+            total_indicators=summary_data.get("total_indicators") or len(members) or 1,
             first_seen=first_seen,
             last_seen=last_seen,
-            primary_ttp_tags=summary_data.get("primary_ttp_tags") or []
+            primary_ttp_tags=summary_data.get("primary_ttp_tags") or summary_data.get("primaryTtpTags") or []
         )
 
         shared_infra = []
@@ -65,6 +72,7 @@ class CampaignRepository:
             ))
 
         return Campaign(
+            id=record.id,
             campaign_id=record.campaign_id,
             name=record.name,
             status=CampaignStatus(record.status),
@@ -203,10 +211,15 @@ class CampaignRepository:
         return domain_campaigns
 
     def get_campaign_by_id(self, campaign_id: str, db: Session) -> Optional[Campaign]:
-        """Retrieves a campaign by its unique campaign_id."""
-        record = db.query(CampaignRecord).filter(
-            CampaignRecord.campaign_id == campaign_id
-        ).first()
+        """Retrieves a campaign by its unique campaign_id or database integer ID."""
+        if str(campaign_id).isdigit():
+            record = db.query(CampaignRecord).filter(
+                CampaignRecord.id == int(campaign_id)
+            ).first()
+        else:
+            record = db.query(CampaignRecord).filter(
+                CampaignRecord.campaign_id == campaign_id
+            ).first()
         if not record:
             return None
         campaign = self.record_to_domain(record)

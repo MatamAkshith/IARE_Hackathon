@@ -69,6 +69,7 @@ class Campaign(BaseModel):
     """
     The root domain model representing a coordinated phishing campaign.
     """
+    id: Optional[int] = None
     campaign_id: str
     name: str
     status: CampaignStatus = CampaignStatus.MONITORING

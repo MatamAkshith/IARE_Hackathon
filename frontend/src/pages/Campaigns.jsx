@@ -37,12 +37,15 @@ export default function Campaigns() {
       setListLoading(true)
       try {
         const list = await getCampaignsList(0, 50)
-        const sorted = (list || []).sort((a, b) => b.campaign_id.localeCompare(a.campaign_id))
+        // Sort campaigns by ID descending
+        const sorted = (list || []).sort((a, b) => b.id - a.id)
         setCampaignList(sorted)
 
         // Determine initial selection from URL params or first campaign
         const paramId = searchParams.get('campaignId') || searchParams.get('id')
-        const initialId = paramId || (sorted.length > 0 ? sorted[0].campaign_id : null)
+        const initialId = paramId
+          ? (isNaN(paramId) ? paramId : Number(paramId))
+          : (sorted.length > 0 ? sorted[0].id : null)
         if (initialId) setSelectedCampaignId(initialId)
       } catch (err) {
         console.error('[Campaigns] Failed to load campaign list:', err)
@@ -77,10 +80,11 @@ export default function Campaigns() {
   }, [selectedCampaignId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCampaignChange = (e) => {
-    setSelectedCampaignId(e.target.value)
+    const val = e.target.value
+    setSelectedCampaignId(isNaN(val) ? val : Number(val))
   }
 
-  const selectedMeta = campaignList.find(c => c.campaign_id === selectedCampaignId)
+  const selectedMeta = campaignList.find(c => c.id === selectedCampaignId || c.campaign_id === selectedCampaignId)
 
   if (listLoading) return <SkeletonLoader />
 
@@ -115,8 +119,8 @@ export default function Campaigns() {
                   <option value="">No campaigns available</option>
                 ) : (
                   campaignList.map(c => (
-                    <option key={c.campaign_id} value={c.campaign_id}>
-                      {c.campaign_id} — {c.name}
+                    <option key={c.id} value={c.id}>
+                      {c.name}
                     </option>
                   ))
                 )}

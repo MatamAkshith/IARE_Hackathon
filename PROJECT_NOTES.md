@@ -1825,3 +1825,18 @@ This section provides a full cross-referenced audit of every commit in the repos
   * Renders numeric scores using a color-coded severity badge (Safe, Medium, High, Critical).
   * Displays "Calculating..." for pending/scanning investigations.
 * Replaced blank action slots for pending/scanning scans with a disabled, spinning **Analyzing** button.
+
+---
+
+## 44. Campaigns Dropdown Wiring & Pydantic Validation Correction (2026-08-07)
+
+### 44.1 Safe Schema Parsing (Backend)
+* Resolved a database validation crash in `/api/v1/campaigns` caused by missing or camelCase datetime variables (`first_seen`/`last_seen`) in the campaign summary JSON field.
+* Configured `record_to_domain` (`backend/app/services/campaign_engine/repository.py`) to safely support camelCase and snake_case properties, adding robust fallbacks to `record.created_at`/`record.updated_at` (or current timezone-aware timestamp) to guarantee successful validation.
+* Added `id: int` to both `Campaign` Pydantic model (`backend/app/services/campaign_engine/models.py`) and `CampaignResponse` (`backend/app/services/campaign_engine/schemas.py`) schemas, mapping it in repository queries.
+* Enhanced `get_campaign_by_id` repository selector to support looking up campaigns by database primary key integer ID or campaign_id string identifier dynamically.
+
+### 44.2 Campaigns Select Dropdown Selector (Frontend)
+* Updated `Campaigns.jsx` (`frontend/src/pages/Campaigns.jsx`) to map the active campaign select dropdown values to `c.id` (database primary key ID) and displays `c.name` as display label.
+* Fixed selection state matching to support mapping details dynamically using either `id` (integer) or `campaign_id` (UUID string), resolving the initial dropdown empty state stuck on mount.
+* Verified that selecting other active campaign clusters dynamically triggers the fetch and clears selector placeholder views.

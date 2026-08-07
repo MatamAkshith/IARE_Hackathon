@@ -46,6 +46,7 @@ class CampaignResponse(BaseModel):
     """
     API Response representation of a Campaign.
     """
+    id: int
     campaign_id: str
     name: str
     status: CampaignStatus

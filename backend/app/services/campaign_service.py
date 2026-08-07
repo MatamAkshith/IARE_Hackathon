@@ -138,8 +138,11 @@ def attribute_scan_to_campaign(
                 "riskLevel": "High" if overall_score < 86 else "Critical",
                 "confidence": "90%",
                 "totalIndicators": 1,
+                "first_seen": now.isoformat(),
+                "last_seen": now.isoformat(),
                 "firstSeen": now.isoformat(),
                 "lastSeen": now.isoformat(),
+                "primary_ttp_tags": [brand.lower()] if brand else ["generic"],
                 "primaryTtpTags": [brand.lower()] if brand else ["generic"]
             },
             shared_infrastructure_json=[
