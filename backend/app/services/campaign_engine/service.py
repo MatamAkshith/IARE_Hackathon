@@ -1,11 +1,9 @@
 """
-CampaignCorrelationService — Stage 7.1
+CampaignCorrelationService — Stage 7.2
 
 Main orchestration service skeleton for finding, grouping, and managing
-phishing assets within Campaign clusters.
-
-All actual correlation logics, matching algorithms, database integrations,
-and REST endpoints will be built in subsequent stages.
+phishing assets within Campaign clusters. Includes the evaluate_link interface
+wrapping the similarity engine.
 """
 
 import logging
@@ -20,7 +18,9 @@ from app.services.campaign_engine.models import (
     CampaignStatus,
     CampaignSummary,
     CorrelationEvidence,
+    CorrelationResult,
 )
+from app.services.campaign_engine.similarity import SimilarityEngine
 
 logger = logging.getLogger("app.services.campaign_engine.service")
 
@@ -28,11 +28,36 @@ logger = logging.getLogger("app.services.campaign_engine.service")
 class CampaignCorrelationService:
     """
     Main orchestration class for the Campaign Correlation Engine.
-    Provides stub interfaces for grouping indicators into coordinated campaigns.
+    Provides stub interfaces for campaign grouping and similarity evaluation.
     """
 
     def __init__(self) -> None:
-        logger.info("[CampaignCorrelationService] Initializing Campaign Correlation Service.")
+        self._similarity_engine = SimilarityEngine()
+        logger.info("[CampaignCorrelationService] Initializing Campaign Correlation Service with SimilarityEngine.")
+
+    def evaluate_link(
+        self,
+        source_evidence: Dict[str, Any],
+        target_evidence: Dict[str, Any],
+    ) -> CorrelationResult:
+        """
+        Runs the registered similarity engine correlators to evaluate relationships
+        and calculate a similarity match score between two evidence packages.
+
+        Parameters
+        ----------
+        source_evidence : Dictionary representing resolved features of Evidence A.
+        target_evidence : Dictionary representing resolved features of Evidence B.
+
+        Returns
+        -------
+        CorrelationResult detailing matched overlaps, is_correlated boolean, and score.
+        """
+        logger.info(
+            f"[evaluate_link] Starting similarity match between "
+            f"'{source_evidence.get('indicator', 'unknown')}' and '{target_evidence.get('indicator', 'unknown')}'"
+        )
+        return self._similarity_engine.compare_evidence(source_evidence, target_evidence)
 
     def find_related_campaigns(
         self,

@@ -1,15 +1,14 @@
 """
-BaseCorrelationStrategy — Stage 7.1
+BaseCorrelationStrategy — Stage 7.2
 
 Defines the abstract interface for all correlation strategies used by the
-Campaign Correlation Engine. Subclasses will implement concrete algorithms
-(e.g., matching IPs, nameservers, HTML structural similarities, or favicon hashes).
+Campaign Correlation Engine.
 """
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
-from app.services.campaign_engine.models import CorrelationResult
+from app.services.campaign_engine.models import CorrelationResult, CorrelationEvidence
 
 
 class BaseCorrelationStrategy(ABC):
@@ -30,6 +29,16 @@ class BaseCorrelationStrategy(ABC):
         pass
 
     @abstractmethod
+    def correlate_pair(
+        self,
+        evidence_a: Dict[str, Any],
+        evidence_b: Dict[str, Any],
+    ) -> List[CorrelationEvidence]:
+        """
+        Compares two evidence packages and returns a list of matched CorrelationEvidence.
+        """
+        pass
+
     def correlate(
         self,
         current_evidence: Dict[str, Any],
@@ -38,15 +47,25 @@ class BaseCorrelationStrategy(ABC):
         """
         Evaluates similarity or infrastructure overlaps between the active
         evidence and a collection of historical evidence records.
-
-        Parameters
-        ----------
-        current_evidence         : Flat dictionary representing the current investigation features.
-        historical_evidence_list : List of flat dictionaries representing past investigation features.
-
-        Returns
-        -------
-        CorrelationResult containing the boolean verdict, similarity score, and details
-        of the overlapping evidence matched.
         """
-        pass
+        all_evidence: List[CorrelationEvidence] = []
+        for hist in historical_evidence_list:
+            ev_list = self.correlate_pair(current_evidence, hist)
+            if ev_list:
+                all_evidence.extend(ev_list)
+
+        # Deduplicate evidence based on type and value
+        seen = set()
+        deduped_evidence: List[CorrelationEvidence] = []
+        for ev in all_evidence:
+            key = (ev.type, ev.value)
+            if key not in seen:
+                seen.add(key)
+                deduped_evidence.append(ev)
+
+        is_correlated = len(deduped_evidence) > 0
+        return CorrelationResult(
+            is_correlated=is_correlated,
+            match_score=1.0 if is_correlated else 0.0,
+            evidence=deduped_evidence
+        )
