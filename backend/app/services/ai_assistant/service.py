@@ -1,6 +1,7 @@
 import logging
 from typing import List
 
+from app.core.config import settings
 from app.services.ai_assistant.base import BaseAIAssistantService
 from app.services.ai_assistant.context_builder import InvestigationContextBuilder
 from app.services.ai_assistant.schemas import AssistantResponse, AssistantMessage, InvestigationContext
@@ -8,6 +9,7 @@ from app.services.ai_assistant.models import ResponseType
 from app.services.ai_assistant.reasoning import InvestigationReasoningService
 from app.services.ai_assistant.reporting_models import ExecutiveSummary, AnalystReport
 from app.services.ai_assistant.report_generator import ReportGeneratorService
+from app.integrations.openrouter.provider import OpenRouterProvider
 
 logger = logging.getLogger("app.services.ai_assistant.service")
 
@@ -15,14 +17,15 @@ logger = logging.getLogger("app.services.ai_assistant.service")
 class AIAssistantService(BaseAIAssistantService):
     """
     Service layer orchestrating the AI Investigation Assistant.
-    Coordinates prompt construction, deterministic reasoning execution,
-    and structured report summaries generation.
+    Coordinates prompt construction, deterministic reasoning,
+    and OpenRouter LLM completions with fallback resilience.
     """
 
     def __init__(self) -> None:
         self.context_builder = InvestigationContextBuilder()
         self.reasoning_service = InvestigationReasoningService()
         self.report_generator = ReportGeneratorService()
+        self.openrouter_provider = OpenRouterProvider()
         logger.info("AIAssistantService initialized successfully.")
 
     async def generate_summary(self, context: InvestigationContext) -> AssistantResponse:
@@ -34,10 +37,8 @@ class AIAssistantService(BaseAIAssistantService):
         system_prompt = self.context_builder.generate_system_prompt(context)
         logger.debug(f"[generate_summary] Built prompt length: {len(system_prompt)} chars")
 
-        # Route to risk explanation logic for summary
-        response = self.reasoning_service.answer_question("Why is this URL risky?", context)
-        response.response_type = ResponseType.SUMMARY
-        return response
+        # Reuse ask_question with a predefined risk query
+        return await self.ask_question(query="Why is this URL risky?", context=context)
 
     async def chat(
         self,
@@ -51,28 +52,49 @@ class AIAssistantService(BaseAIAssistantService):
         """
         logger.info(f"[chat] Invoked for indicator '{context.indicator}' with {len(history)} historical message(s)")
 
-        # Route query through reasoning engine keyword router
-        response = self.reasoning_service.answer_question(message, context)
-        response.response_type = ResponseType.CHAT
-        return response
+        return await self.ask_question(query=message, context=context)
 
-    def ask_question(self, query: str, context: InvestigationContext) -> AssistantResponse:
+    async def ask_question(self, query: str, context: InvestigationContext) -> AssistantResponse:
         """
-        Exposes reasoning engine question routing directly as a synchronous method.
+        Queries OpenRouter for conversational Q&A. Fallbacks to the local reasoning engine
+        if the API key is not configured or the OpenRouter API fails.
         """
-        logger.info(f"[ask_question] Querying reasoning engine for '{query}' on indicator '{context.indicator}'")
-        return self.reasoning_service.answer_question(query, context)
+        if not settings.OPENROUTER_API_KEY:
+            logger.warning("OPENROUTER_API_KEY is not set. Falling back to local reasoning engine.")
+            return self.reasoning_service.answer_question(query, context)
 
-    def get_analyst_report(self, context: InvestigationContext) -> AnalystReport:
-        """
-        Generates a detailed, structured technical report for SOC analyst consumption.
-        """
-        logger.info(f"[get_analyst_report] Creating analyst report for '{context.indicator}'")
-        return self.report_generator.generate_analyst_report(context)
+        try:
+            return await self.openrouter_provider.ask_question(query, context)
+        except Exception as e:
+            logger.error(f"OpenRouter ask_question call failed: {e}. Falling back to local reasoning engine.")
+            return self.reasoning_service.answer_question(query, context)
 
-    def get_executive_summary(self, context: InvestigationContext) -> ExecutiveSummary:
+    async def get_analyst_report(self, context: InvestigationContext) -> AnalystReport:
         """
-        Generates a high-level business risk overview for C-level consumption.
+        Queries OpenRouter to generate a structured AnalystReport. Fallbacks to the local
+        report generator if OpenRouter fails or the API key is missing.
         """
-        logger.info(f"[get_executive_summary] Creating executive summary for '{context.indicator}'")
-        return self.report_generator.generate_executive_summary(context)
+        if not settings.OPENROUTER_API_KEY:
+            logger.warning("OPENROUTER_API_KEY is not set. Falling back to local report generator.")
+            return self.report_generator.generate_analyst_report(context)
+
+        try:
+            return await self.openrouter_provider.get_analyst_report(context)
+        except Exception as e:
+            logger.error(f"OpenRouter get_analyst_report call failed: {e}. Falling back to local report generator.")
+            return self.report_generator.generate_analyst_report(context)
+
+    async def get_executive_summary(self, context: InvestigationContext) -> ExecutiveSummary:
+        """
+        Queries OpenRouter to generate an ExecutiveSummary. Fallbacks to the local
+        report generator if OpenRouter fails or the API key is missing.
+        """
+        if not settings.OPENROUTER_API_KEY:
+            logger.warning("OPENROUTER_API_KEY is not set. Falling back to local report generator.")
+            return self.report_generator.generate_executive_summary(context)
+
+        try:
+            return await self.openrouter_provider.get_executive_summary(context)
+        except Exception as e:
+            logger.error(f"OpenRouter get_executive_summary call failed: {e}. Falling back to local report generator.")
+            return self.report_generator.generate_executive_summary(context)

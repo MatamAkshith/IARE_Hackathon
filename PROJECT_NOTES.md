@@ -41,7 +41,7 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Unified Evidence Engine | Merge, normalization, confidence scoring, DB persistence, REST API, audit trail, traceability & final refactor — Milestone 5 100% Complete (Stage 5.6). |
 | **Completed** | Risk Scoring Engine | Explainable rules, recommendations, validation & calibration, DB persistence, REST API & final refactor — Milestone 6 100% Complete (Stage 6.6). |
 | **Completed** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints — Milestone 7 100% Complete (Stage 7.6). |
-| **Completed** | AI Investigation Assistant | Foundation models, Context Builder, AI Reasoning engine, reporting models, and Report Generator Service — Milestone 8 (Stages 8.1 - 8.4) 100% COMPLETE. |
+| **Completed** | AI Investigation Assistant | OpenRouter provider-agnostic HTTP gateway integration, model configurations (default vs fallback), REST API endpoints (ask, report), and local engine fallback — Milestone 8 (Stages 8.1 - 8.6) 100% COMPLETE. |
 | **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
 | **Remaining** | Dashboard UI | Analyst control panel and queue dashboard. |
@@ -518,6 +518,7 @@ backend/app/
 ├── api/
 │   ├── v1/
 │   │   ├── endpoints/
+│   │   │   ├── ai_assistant.py# AI Assistant API
 │   │   │   ├── campaigns.py   # Campaigns API
 │   │   │   ├── domains.py     # Domains API
 │   │   │   ├── features.py    # Features API
@@ -544,6 +545,10 @@ backend/app/
 ├── middleware/
 │   ├── logging_middleware.py
 │   └── request_id.py
+├── integrations/           # Third-party integrations gateway clients
+│   └── openrouter/         # OpenRouter provider-agnostic LLM client
+│       ├── client.py       # Async HTTP completions client with retries and fallbacks
+│       └── provider.py     # Prompt serialization and Pydantic validators
 ├── models/                 # Database ORM models
 │   ├── __init__.py
 │   ├── campaign.py
@@ -567,7 +572,7 @@ backend/app/
 │   ├── risk_score.py
 │   └── scan.py
 ├── services/               # Modular business logic services
-│   ├── ai_assistant/       # AI Investigation Assistant (Stage 8.1 - 8.4)
+│   ├── ai_assistant/       # AI Investigation Assistant (Stage 8.1 - 8.6)
 │   │   ├── __init__.py     # Package exports
 │   │   ├── base.py         # BaseAIAssistantService interface
 │   │   ├── context_builder.py # InvestigationContextBuilder
@@ -642,6 +647,19 @@ backend/app/
         - `generate_executive_summary(context)`: Renders corporate-level overviews mapping severity ratings, threat classifications, corporate business impacts, and high-level containment plans.
         - **Graceful Null Traversal**: Leverages defensive coding patterns to fallback to empty values or descriptive strings (e.g. "Isolated outlier") if campaigns, risk details, or timelines are absent.
 
+42. **OpenRouter LLM Integration Architecture (Stage 8.5)**:
+    - **OpenRouter Configuration** (`openrouter/config.py`): Maps completions HTTP POST URL (`https://openrouter.ai/api/v1/chat/completions`) and configures request headers containing authorization, referer links, and site titles.
+    - **Async httpx Client** (`openrouter/client.py`): Implements `OpenRouterClient` wrapping raw asynchronous HTTP requests. Integrates a 30-second timeout, rate-limit retry loop with backoff, and automatic fallback routing to the fallback model if primary requests fail.
+    - **OpenRouter Provider** (`openrouter/provider.py`): Implements `OpenRouterProvider` managing system prompt wrapping and parsing LLM markdown JSON outputs into Pydantic models.
+    - **Local Resilience Fallback** (`service.py`): Integrates safety fallbacks inside `AIAssistantService` routing questions and reports to local engines (`InvestigationReasoningService`, `ReportGeneratorService`) if `OPENROUTER_API_KEY` is not set or network errors occur.
+
+43. **AI Assistant REST APIs (Stage 8.6)**:
+    - **REST Endpoints** (`endpoints/ai_assistant.py`): Implements three versioned routes:
+        - `POST /api/v1/ai/ask` invoking `ask_question`.
+        - `POST /api/v1/ai/report/analyst` invoking `get_analyst_report`.
+        - `POST /api/v1/ai/report/executive` invoking `get_executive_summary`.
+    - **Router Mount** (`router.py`): Registers the AI assistant prefix router in the version 1 core container.
+
 ---
 
 ## 11. Decision Log
@@ -709,6 +727,8 @@ backend/app/
 - **2026-08-07 (Sprint 1 - Task 41 - 07:00):** **Task 41 (Context Builder & Service Stub - Stage 8.2):** Implemented `InvestigationContextBuilder` in `context_builder.py` aggregating and serializing evidence/risk/campaign details into a structured system prompt, defaulting missing fields to "Not Available" gracefully. Coded concrete `AIAssistantService` stub in `service.py` verifying context and prompt lengths. Package exports declared in `__init__.py`. Tested verification script cleanly. Stage 8.2 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 42 - 07:15):** **Task 42 (AI Reasoning Engine - Stage 8.3):** Implemented `InvestigationReasoningService` providing keyword routing for SOC questions ("Why is this URL risky?", "What infrastructure is shared?", "What should an analyst investigate next?") with confidence estimations, and SuggestedAction mapping logic. Stage 8.3 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 43 - 07:30):** **Task 43 (Report Generator - Stage 8.4):** Created `reporting_models.py` defining Pydantic report schemas and `ReportGeneratorService` generating ExecutiveSummary and AnalystReport payloads with defensive code for handling missing context properties gracefully. Stage 8.4 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 44 - 07:45):** **Task 44 (OpenRouter Client & Provider Integration - Stage 8.5):** Implemented `OpenRouterClient` (`client.py`) executing async HTTP completions via `httpx` with timeout parameters, rate-limit retry logic, and fallback model capabilities. Programmed `OpenRouterProvider` (`provider.py`) compiling prompt parameters and parsing LLM outputs into Pydantic report schemas. Refactored `AIAssistantService` to direct reasoning and reports dynamically, falling back to local deterministic engines on OpenRouter errors or when credentials are not configured. Stage 8.5 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 45 - 08:00):** **Task 45 (AI Assistant REST APIs - Stage 8.6):** Created versioned endpoint controllers (`endpoints/ai_assistant.py`) mounting `POST /ai/ask`, `POST /ai/report/analyst`, and `POST /ai/report/executive` routes. Registered routes in version 1 core router. Tested all API workflows via FastAPI TestClient validating fallback modes and schema validations. Stage 8.6 & Milestone 8 100% COMPLETE.
 
 
 

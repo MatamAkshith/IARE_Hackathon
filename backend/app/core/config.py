@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     ABUSEIPDB_API_KEY: str | None = None
     ALIENVAULT_OTX_API_KEY: str | None = None
 
+    OPENROUTER_API_KEY: str | None = None
+    OPENROUTER_DEFAULT_MODEL: str = "meta-llama/llama-3-8b-instruct"
+    OPENROUTER_FALLBACK_MODEL: str = "meta-llama/llama-3-8b-instruct"
+
+
 
    # 4 spaces indentation for the decorator
     @property
