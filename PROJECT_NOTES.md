@@ -41,6 +41,7 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Unified Evidence Engine | Merge, normalization, confidence scoring, DB persistence, REST API, audit trail, traceability & final refactor — Milestone 5 100% Complete (Stage 5.6). |
 | **Completed** | Risk Scoring Engine | Explainable rules, recommendations, validation & calibration, DB persistence, REST API & final refactor — Milestone 6 100% Complete (Stage 6.6). |
 | **Completed** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints — Milestone 7 100% Complete (Stage 7.6). |
+| **Completed** | AI Investigation Assistant | Architectural foundation, Context Builder, system prompt generator & service stub — Milestone 8 (Stages 8.1 & 8.2) 100% COMPLETE. |
 | **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
 | **Remaining** | Dashboard UI | Analyst control panel and queue dashboard. |
@@ -566,6 +567,13 @@ backend/app/
 │   ├── risk_score.py
 │   └── scan.py
 ├── services/               # Modular business logic services
+│   ├── ai_assistant/       # AI Investigation Assistant (Stage 8.1/8.2)
+│   │   ├── __init__.py     # Package exports
+│   │   ├── base.py         # BaseAIAssistantService interface
+│   │   ├── context_builder.py # InvestigationContextBuilder
+│   │   ├── models.py       # Assistant ResponseType and ConversationStatus enums
+│   │   ├── schemas.py      # SuggestedAction, AssistantMessage, InvestigationContext
+│   │   └── service.py      # AIAssistantService class stub
 │   ├── campaign_engine/    # Campaign Correlation Engine (Stage 7.5/7.6)
 │   │   ├── __init__.py     # Exports models, schemas, strategies, service
 │   │   ├── base.py         # BaseCorrelationStrategy interface class
@@ -606,6 +614,17 @@ backend/app/
 │   └── network_intel.py
 └── main.py
 ```
+
+38. **AI Assistant Foundation & Models (Stage 8.1)**:
+    - **Models and Enums** (`models.py`): Defined `ResponseType` (chat, summary, recommendation) and `ConversationStatus` (active, closed) enums mapping LLM interaction lifecycle details.
+    - **Validation Schemas** (`schemas.py`): Created SuggestedAction, AssistantMessage, InvestigationContext, and AssistantResponse validation schemas.
+    - **Service Contract Interface** (`base.py`): Declared `BaseAIAssistantService` requiring implementations of `generate_summary(context)` and `chat(context, history, message)`.
+
+39. **Context Builder & Service Stub (Stage 8.2)**:
+    - **InvestigationContextBuilder** (`context_builder.py`): Implemented the context aggregator. Resolves input entities (accepting dicts, Pydantic models, or SQL entities) and validates them.
+    - **Graceful Error Recovery**: Prevents pipeline crashes on missing datasets (such as WHOIS DNS logs or risk calculations) by serializing them to `"Not Available"` string fallbacks rather than throwing errors.
+    - **Dynamic Prompt Assembly Strategy**: The `generate_system_prompt(context)` method translates the structured `InvestigationContext` into a comprehensive system prompt injected with target indicators metadata, risk scoring factors, and coordinated campaign shared infrastructure overlaps.
+    - **Service Implementation Stub** (`service.py`): Coded the concrete `AIAssistantService(BaseAIAssistantService)` class. Instantiates the `InvestigationContextBuilder` and returns structured stub answers containing the built prompt length details, ready for actual LLM API integrations.
 
 ---
 
@@ -670,6 +689,8 @@ backend/app/
 - **2026-08-07 (Sprint 1 - Task 37 - 06:25):** **Task 37 (Campaign Timeline & Graph Engines - Stage 7.4):** Created `graph_models.py` (declaring `GraphNode`, `GraphEdge`, `CampaignGraph`, `TimelineEvent`, `CampaignTimeline`), `graph_builder.py` (`CampaignGraphBuilder` generating bipartite node-edge mapping indicators to IPs/certificates/registrars/layout hashes), and `timeline.py` (`CampaignTimelineService` extracting WHOIS, association, and campaign start datetimes and sorting them oldest-to-newest). Mounted methods on `CampaignCorrelationService`. Stage 7.4 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 38 - 06:30):** **Task 38 (Campaign Persistence Schema & Repository - Stage 7.5):** Created ORM tables `campaigns` and `campaign_members` (`db/models/campaign.py`) linked with cascades. Registered in `db/base.py`. Created `CampaignRepository` (`repository.py`) managing transactional CRUD operations (`save_campaign`, `get_active_campaigns`, `get_campaign_by_id`, `list_campaigns`) converting SQLAlchemy records to Pydantic objects. Integrated repository into `CampaignCorrelationService.process_investigation()` and `check_campaign_drift()`. Stage 7.5 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 39 - 06:35):** **Task 39 (Campaign REST APIs & E2E Validation - Stage 7.6 | Milestone 7 COMPLETE):** Created REST API endpoints in `endpoints/campaigns.py` mounting POST `/correlate` and GET listing, detail, timeline, and graph routes. Registered router in v1 router. E2E integration test script verified full correlate CREATE/JOIN flow and retrieve list/detail/graph/timeline responses successfully via TestClient. Milestone 7 fully COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 40 - 06:45):** **Task 40 (AI Assistant Foundation & Models - Stage 8.1):** Set up `ai_assistant/` directory. Defined ResponseType/ConversationStatus enums in `models.py` and SuggestedAction/AssistantMessage/InvestigationContext/AssistantResponse validation schemas in `schemas.py`. Created abstract interface `BaseAIAssistantService` in `base.py`. Stage 8.1 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 41 - 07:00):** **Task 41 (Context Builder & Service Stub - Stage 8.2):** Implemented `InvestigationContextBuilder` in `context_builder.py` aggregating and serializing evidence/risk/campaign details into a structured system prompt, defaulting missing fields to "Not Available" gracefully. Coded concrete `AIAssistantService` stub in `service.py` verifying context and prompt lengths. Package exports declared in `__init__.py`. Tested verification script cleanly. Stage 8.2 100% COMPLETE.
 
 
 
