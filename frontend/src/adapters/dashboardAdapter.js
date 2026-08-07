@@ -14,7 +14,8 @@ export function adaptDashboardData(raw = {}) {
         value: String(kpi.trend.value || ''),
         positive: Boolean(kpi.trend.positive)
       } : undefined,
-      type: String(kpi.type || 'neutral')
+      type: String(kpi.type || 'neutral'),
+      route: kpi.route ? String(kpi.route) : undefined
     })),
     scans: (raw.scans || []).map((scan) => ({
       id: Number(scan.id || 0),

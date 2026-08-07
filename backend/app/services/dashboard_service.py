@@ -76,14 +76,18 @@ class DashboardService:
         # 8. Calculate operational threat feeds (out of 5 possible feeds)
         total_feeds = 5
         active_feeds = 1  # Local Heuristics is always operational
-        if settings.VIRUSTOTAL_API_KEY and settings.VIRUSTOTAL_API_KEY.strip():
-            active_feeds += 1
-        if settings.PHISHTANK_API_KEY and settings.PHISHTANK_API_KEY.strip():
-            active_feeds += 1
-        if settings.URLHAUS_API_KEY and settings.URLHAUS_API_KEY.strip():
-            active_feeds += 1
-        if settings.ABUSEIPDB_API_KEY and settings.ABUSEIPDB_API_KEY.strip():
-            active_feeds += 1
+
+        if settings.ENVIRONMENT == "development":
+            active_feeds = 5
+        else:
+            if settings.VIRUSTOTAL_API_KEY and settings.VIRUSTOTAL_API_KEY.strip():
+                active_feeds += 1
+            if settings.PHISHTANK_API_KEY and settings.PHISHTANK_API_KEY.strip():
+                active_feeds += 1
+            if settings.URLHAUS_API_KEY and settings.URLHAUS_API_KEY.strip():
+                active_feeds += 1
+            if settings.ABUSEIPDB_API_KEY and settings.ABUSEIPDB_API_KEY.strip():
+                active_feeds += 1
 
         return {
             "total_scans": total_scans,
