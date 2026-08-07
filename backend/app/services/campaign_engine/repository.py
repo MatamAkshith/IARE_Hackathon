@@ -192,7 +192,8 @@ class CampaignRepository:
         try:
             db.commit()
             db.refresh(record)
-            logger.info(f"[save_campaign] Successfully persisted campaign '{campaign.campaign_id}'")
+            campaign.id = record.id
+            logger.info(f"[save_campaign] Successfully persisted campaign '{campaign.campaign_id}' with database ID {record.id}")
         except Exception as exc:
             db.rollback()
             logger.error(f"[save_campaign] Failed to save campaign '{campaign.campaign_id}': {exc}", exc_info=True)
