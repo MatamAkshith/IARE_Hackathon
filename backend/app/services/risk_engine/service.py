@@ -108,13 +108,14 @@ class RiskScoringService:
         html_factors: List[RiskFactor] = []
         ti_factors: List[RiskFactor] = []
 
-        raw_score = 0.0
+        # Introduce a base risk score for all domains (accounting for general internet noise)
+        raw_score = 10.0
 
         # Intent keywords pattern matching
         intent_keywords = ['login', 'verify', 'auth', 'update', 'secure', 'account', 'banking', 'portal', 'signin', 'support']
         is_intent_matched = any(kw in host for kw in intent_keywords)
 
-        # ── 1. Target Brand & Intent Heuristics (+40 points) ────────────────── #
+        # ── 1. Target Brand & Intent Heuristics (+35 points) ────────────────── #
         monitored_brands = ["microsoft", "google", "amazon", "paypal", "infosys", "vardhaman", "vmeg"]
         official_brand_domains = {
             "google": ["google.com", "google.co.in", "google.net", "youtube.com", "googleblog.com"],
@@ -143,16 +144,16 @@ class RiskScoringService:
         if is_impersonation and is_intent_matched:
             domain_factors.append(RiskFactor(
                 name="Generalized Phishing Impersonation Penalty",
-                score_contribution=40.0,
+                score_contribution=35.0,
                 description="Domain name combines a recognized brand and phishing intent words without authorization.",
-                weight=40.0,
+                weight=35.0,
                 evidence_key="indicator"
             ))
-            raw_score += 40.0
+            raw_score += 35.0
 
         # ── 2. Infrastructure Penalty Stacking ────────────────────────────── #
         
-        # A. Missing MX records on intent-matched domain: +25 points
+        # A. Missing MX records on intent-matched domain: +20 points
         mx_records = evidence.get("mx_records")
         has_mx = True
         if mx_records is not None:
@@ -164,14 +165,14 @@ class RiskScoringService:
         if not has_mx and is_intent_matched:
             dns_factors.append(RiskFactor(
                 name="Missing MX Records on Sensitive Target",
-                score_contribution=25.0,
+                score_contribution=20.0,
                 description="Domain contains sensitive intent keywords but lacks MX email server records.",
-                weight=25.0,
+                weight=20.0,
                 evidence_key="mx_records"
             ))
-            raw_score += 25.0
+            raw_score += 20.0
 
-        # B. Invalid/Missing TLS certificate or domain age < 30 days: +25 points
+        # B. Invalid/Missing TLS certificate (+20 points) & domain age < 30 days (+15 points)
         ssl_valid = evidence.get("ssl_valid")
         tls_issuer = str(evidence.get("tls_issuer") or evidence.get("cert_issuer") or "").lower()
         is_self_signed = "self signed" in tls_issuer or "expired" in tls_issuer or "fake" in tls_issuer
@@ -186,15 +187,25 @@ class RiskScoringService:
             except (ValueError, TypeError):
                 pass
 
-        if has_tls_anomaly or has_age_anomaly:
+        if has_tls_anomaly:
             tls_factors.append(RiskFactor(
-                name="TLS Anomaly or Young Domain Age",
-                score_contribution=25.0,
-                description="The site lacks a valid certificate, uses a self-signed TLS cert, or has a registration age under 30 days.",
-                weight=25.0,
+                name="Invalid or Missing TLS Certificate",
+                score_contribution=20.0,
+                description="The site lacks a valid certificate, uses a self-signed TLS cert, or TLS validation failed.",
+                weight=20.0,
                 evidence_key="ssl_valid"
             ))
-            raw_score += 25.0
+            raw_score += 20.0
+
+        if has_age_anomaly:
+            tls_factors.append(RiskFactor(
+                name="Young Domain Age",
+                score_contribution=15.0,
+                description="The domain registration age is under 30 days.",
+                weight=15.0,
+                evidence_key="domain_age_days"
+            ))
+            raw_score += 15.0
 
         # C. High entropy or double-hyphen domain structure: +15 points
         def calculate_entropy(s: str) -> float:

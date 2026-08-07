@@ -38,6 +38,13 @@ def _populate_scan_campaign(db: Session, scan: Any) -> Any:
                 scan.campaign_name = camp_rec.name
                 scan.campaign_uid = camp_rec.campaign_id
 
+    # 3. Query latest risk assessment score
+    from app.db.models.risk_assessment import RiskAssessmentRecord
+    latest_risk = db.query(RiskAssessmentRecord).filter(
+        RiskAssessmentRecord.indicator == target_domain
+    ).order_by(RiskAssessmentRecord.timestamp.desc()).first()
+    scan.overall_score = latest_risk.overall_score if latest_risk else None
+
     return scan
 
 

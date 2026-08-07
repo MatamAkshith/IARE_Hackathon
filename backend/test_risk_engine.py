@@ -142,7 +142,7 @@ def test_microsoft_brand_impersonation():
             
         assert score.overall_score >= 71.0, "Microsoft spoof target must score >= 71.0 (HIGH/CRITICAL)"
         assert any(f.name == "Generalized Phishing Impersonation Penalty" for f in all_factors), "Missing brand+intent penalty"
-        assert any(f.name == "TLS Anomaly or Young Domain Age" for f in all_factors), "Missing TLS/Age factor"
+        assert any("TLS" in f.name or "Age" in f.name for f in all_factors), "Missing TLS/Age factor"
         assert any(f.name == "Missing MX Records on Sensitive Target" for f in all_factors), "Missing MX Records factor"
         print("[+] Microsoft Brand Impersonation check passed successfully!")
     except Exception as e:

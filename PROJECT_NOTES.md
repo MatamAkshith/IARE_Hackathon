@@ -1802,3 +1802,26 @@ This section provides a full cross-referenced audit of every commit in the repos
 * Made the campaign name badge a clickable button routing the analyst to `/campaigns?id={campaign_uid}`, facilitating seamless drill-down.
 * Updated `Campaigns.jsx` (`frontend/src/pages/Campaigns.jsx`) search parameter mapping to parse both `campaignId` and `id` keys.
 * Verified that backend test suites and frontend production builds pass cleanly.
+
+---
+
+## 43. Graded Risk Scoring & Enhanced Scans Table UI (2026-08-07)
+
+### 43.1 Graded Scoring Logic (Backend)
+* Adjusted the risk engine scoring mechanism in `service.py` (`backend/app/services/risk_engine/service.py`):
+  * Set a base score of `10.0` for all domains to account for background internet noise.
+  * Adjusted `Generalized Phishing Impersonation Penalty` weight to `+35`.
+  * Adjusted `Missing MX Records on Sensitive Target` weight to `+20`.
+  * Separated the combined TLS/Age anomaly into two granular checks:
+    * `Invalid or Missing TLS Certificate`: `+20` points.
+    * `Young Domain Age` ($< 30$ days): `+15` points.
+  * Verified that single-anomaly domains resolve to low/medium scores ($\sim 25\text{--}35$), producing a smooth risk gradient instead of binary $0$ or $100$ spikes.
+* Adapted backend unit tests (`backend/test_risk_engine.py`) to conform to the new granular factor structures and names.
+
+### 43.2 Interactive Column & Pending State Handling (Frontend)
+* Exposed `overall_score` inside the `ScanResponse` schema and populated it in backend endpoints by retrieving the latest risk assessment record for the domain.
+* Mapped `overall_score` in the frontend history mapper (`frontend/src/api/investigationService.js`).
+* Added a new **RISK SCORE** column in `Scans.jsx` placed before the Attribution column.
+  * Renders numeric scores using a color-coded severity badge (Safe, Medium, High, Critical).
+  * Displays "Calculating..." for pending/scanning investigations.
+* Replaced blank action slots for pending/scanning scans with a disabled, spinning **Analyzing** button.

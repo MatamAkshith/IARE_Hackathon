@@ -19,6 +19,7 @@ class ScanResponse(ScanBase):
     id: int
     campaign_name: Optional[str] = None
     campaign_uid: Optional[str] = None
+    overall_score: Optional[float] = None
     created_at: datetime
     updated_at: datetime
 

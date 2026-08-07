@@ -175,7 +175,8 @@ export async function getInvestigationHistory() {
     scanTime: new Date(s.created_at).toISOString().replace('T', ' ').substring(0, 16),
     campaign_id: s.campaign_id,
     campaign_name: s.campaign_name,
-    campaign_uid: s.campaign_uid
+    campaign_uid: s.campaign_uid,
+    overall_score: s.overall_score
   }))
 }
 
