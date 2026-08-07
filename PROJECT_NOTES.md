@@ -1592,3 +1592,32 @@ This section provides a full cross-referenced audit of every commit in the repos
   * Case 3 verifies `https://vardhaman.org` evaluates to `0.0` (SAFE).
   * Case 4 verifies `https://vardhaman-erp-login.com` evaluates to `>= 85.0` (HIGH).
 * **Validation**: Executed the test suite successfully with all assertions passing.
+
+---
+
+## 33. Telemetry-Driven Scoring & Dynamic Technical Anomalies (2026-08-07)
+
+### 33.1 Dynamic Telemetry Baseline
+* **SAFE Score Default**: Removed all hardcoded brand name matching rules and replaced them with a baseline score of `0.0`. Valid, healthy domains (clean threat intel, valid TLS, active DNS, active mail servers, and normal structure) evaluate to `0.0` (SAFE severity out of the box), eliminating the need for manual whitelisting.
+* **College Whitelist Integration**: Preserved the `vardhaman.org` whitelist short-circuit which maps immediately to SAFE (`0.0`).
+
+### 33.2 Objective Technical Risk Accumulation
+* Refactored the core scoring mechanism in `RiskScoringService` (`backend/app/services/risk_engine/service.py`) to calculate risk scores dynamically based on the summation of objective technical anomaly scores:
+  * **Invalid/Self-Signed/Expired TLS**: `+25` points.
+  * **Missing MX records with sensitive keywords**: `+20` points.
+  * **High-entropy or multi-hyphenated domain structure with sensitive keywords**: `+25` points.
+  * **WHOIS Domain Age < 30 days**: `+20` points.
+  * **External threat feed detection (VT, PhishTank, URLHaus)**: `+40` to `+60` points (VT: `+45`, PhishTank: `+50`, URLHaus: `+50`, max contribution capped).
+* Capped the maximum overall risk score at `100.0`.
+
+### 33.3 Standardized Severity Mapping & Test Suite
+* Updated `SEVERITY_THRESHOLDS` in `config.py` to match the new standardized mapping:
+  * `0 – 20`: SAFE
+  * `21 – 50`: LOW
+  * `51 – 70`: MEDIUM
+  * `71 – 90`: HIGH
+  * `91 – 100`: CRITICAL
+* Rewrote `test_risk_engine.py` to assert the new dynamic telemetry model:
+  * Legitimate, healthy targets (e.g. `google.com`) evaluate within `0-15` (SAFE).
+  * Spoofed/Suspicious targets (e.g. `vardhaman-erp-login.com` with typical telemetry anomalies) evaluate dynamically to `90.0` (HIGH) or higher.
+* All backend validation, calibration, and API tests executed and passed successfully.

@@ -59,7 +59,7 @@ DEFAULT_CONFIDENCE_MULTIPLIER: float = 0.75
 SEVERITY_THRESHOLDS: list[tuple[float, str]] = [
     (91.0, "critical"),
     (71.0, "high"),
-    (41.0, "medium"),
+    (51.0, "medium"),
     (21.0, "low"),
     ( 0.0, "safe"),
 ]

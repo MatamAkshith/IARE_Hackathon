@@ -1,19 +1,3 @@
-"""
-RiskScoringService — Core orchestrator for the Explainable Risk Engine.
-
-Pipeline (per request):
-  0. Validate evidence (short-circuit to SAFE if empty/malformed).
-  1. Extract evidence dict from UnifiedEvidence or accept a plain dict.
-  2. Run each registered evaluator via safe_evaluate() (never crashes).
-  3. Sum raw contributions; track which categories were present (dynamic denominator).
-  4. Normalize to 0-100 scale using the adjusted denominator.
-  5. Calibrate score by evidence confidence level.
-  6. Enforce strict 0-100 boundaries.
-  7. Map score to RiskSeverity tier.
-  8. Generate prioritized analyst recommendations via RecommendationEngine.
-  9. Assemble RiskScore with full RiskBreakdown and explainability.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -31,23 +15,10 @@ from app.services.risk_engine.models import (
     RiskSeverity,
 )
 from app.services.risk_engine.recommendations import RecommendationEngine
-from app.services.risk_engine.rules import (
-    ALL_EVALUATORS,
-    TOTAL_MAX_CONTRIBUTION,
-    DomainIntelEvaluator,
-    DnsWhoisEvaluator,
-    TlsCertificateEvaluator,
-    HtmlContentEvaluator,
-    ThreatIntelEvaluator,
-)
 from app.services.risk_engine.validator import RiskValidator
 
 logger = logging.getLogger("app.services.risk_engine.service")
 
-
-# ─────────────────────────────────────────────────────────────────────────── #
-# Severity mapping (driven by config.py thresholds)                            #
-# ─────────────────────────────────────────────────────────────────────────── #
 
 def _map_severity(score: float) -> RiskSeverity:
     """Maps a 0-100 score to a RiskSeverity tier using config thresholds."""
@@ -82,47 +53,25 @@ def _build_explanation(
 
 class RiskScoringService:
     """
-    Orchestrates the full risk scoring pipeline with validation and calibration.
-
-    Usage:
-        service = RiskScoringService()
-        score = service.calculate_risk(unified_evidence)
-        print(score.overall_score, score.severity, score.explanation)
+    RiskScoringService — Core orchestrator for the Explainable Risk Engine.
+    Implements a telemetry-driven, dynamic point-accumulation risk scoring model.
     """
 
     def __init__(self) -> None:
-        self._evaluators = ALL_EVALUATORS
         self._recommendation_engine = RecommendationEngine()
         self._validator = RiskValidator()
-        logger.info(
-            f"RiskScoringService initialized with {len(self._evaluators)} evaluator(s). "
-            f"Total max raw contribution: {TOTAL_MAX_CONTRIBUTION:.1f}."
-        )
+        logger.info("RiskScoringService initialized.")
 
     def calculate_risk(
         self,
         unified_evidence: Union[Dict[str, Any], Any],
     ) -> RiskScore:
-        """
-        Calculates an explainable risk score for the given evidence.
-
-        Parameters
-        ----------
-        unified_evidence : Either a UnifiedEvidence Pydantic model or a plain dict.
-                           If a model, resolved_observations and top-level fields are
-                           merged into a single flat evidence dict for evaluation.
-
-        Returns
-        -------
-        RiskScore with overall_score, severity, breakdown, recommendations, and explanation.
-        """
         evidence, indicator = self._extract_evidence(unified_evidence)
         confidence = self._extract_confidence(unified_evidence)
 
-        logger.info(f"[calculate_risk] Starting risk evaluation for indicator: '{indicator}'")
+        logger.info(f"[calculate_risk] Starting dynamic risk evaluation for indicator: '{indicator}'")
 
-        # ── Step 0: Validate evidence ─────────────────────────────────────── #
-        # Whitelist the official college domain (evaluates as SAFE / Legitimate)
+        # ── Step 0: Whitelist check ────────────────────────────────────────── #
         if indicator:
             ind_lower = indicator.lower()
             host = ind_lower.split("://")[-1].split("/")[0]
@@ -139,31 +88,8 @@ class RiskScoringService:
                     explanation="Official whitelisted college domain.",
                 )
 
-        # Check lexical brand impersonation first to allow empty evidence bypass
-        lexical_match = False
-        if indicator:
-            ind_lower = indicator.lower()
-            host = ind_lower.split("://")[-1].split("/")[0]
-            brands = [
-                "infosys", "tcs", "wipro", "hcl", "techmahindra", "cognizant", "accenture",
-                "icici", "hdfc", "sbi", "axis", "paytm", "phonepe",
-                "microsoft", "google", "amazon", "paypal", "github", "apple", "netflix",
-                "vardhaman", "vmeg"
-            ]
-            suspicious = [
-                "login", "verify", "auth", "secure", "update", "account", "portal",
-                "employee", "benefits", "benefit", "careers", "support", "hr", "jobs",
-                "erp", "student", "gradebook", "results"
-            ]
-            matched_brand = any(brand in host for brand in brands)
-            matched_suspicious = any(kw in host for kw in suspicious)
-            if matched_brand and matched_suspicious:
-                lexical_match = True
-
-        if not self._validator.validate_evidence(evidence) and not lexical_match:
-            logger.info(
-                f"[calculate_risk] Empty/invalid evidence for '{indicator}' — returning SAFE/0.0."
-            )
+        # If no evidence is present at all, return SAFE / 0.0
+        if not self._validator.validate_evidence(evidence):
             return RiskScore(
                 indicator=indicator,
                 overall_score=0.0,
@@ -175,51 +101,243 @@ class RiskScoringService:
                 explanation="No risk signals detected. Evidence was empty or malformed.",
             )
 
-        # ── Step 1: Run all evaluators ────────────────────────────────────── #
-        domain_factors:  List[RiskFactor] = []
-        dns_factors:     List[RiskFactor] = []
-        tls_factors:     List[RiskFactor] = []
-        html_factors:    List[RiskFactor] = []
-        ti_factors:      List[RiskFactor] = []
+        # Get host part for keyword and structural checks
+        ind_lower = indicator.lower() if indicator else ""
+        host = ind_lower.split("://")[-1].split("/")[0] if ind_lower else ""
 
-        present_max = 0.0  # dynamic denominator based on categories with data
+        domain_factors: List[RiskFactor] = []
+        dns_factors: List[RiskFactor] = []
+        tls_factors: List[RiskFactor] = []
+        html_factors: List[RiskFactor] = []
+        ti_factors: List[RiskFactor] = []
 
-        for evaluator in self._evaluators:
-            results = evaluator.safe_evaluate(evidence)
+        raw_score = 0.0
 
-            # Track which categories have any evidence key present (for denominator)
-            category_has_data = self._category_has_evidence(evaluator.category, evidence)
+        # ── 1. TLS Certificate Rules (+25 points) ─────────────────────────── #
+        ssl_valid = evidence.get("ssl_valid")
+        tls_issuer = str(evidence.get("tls_issuer") or evidence.get("cert_issuer") or "").lower()
+        is_self_signed = "self signed" in tls_issuer or "expired" in tls_issuer or "fake" in tls_issuer
+        
+        if ssl_valid is False or is_self_signed:
+            tls_factors.append(RiskFactor(
+                name="Invalid or Self-Signed TLS Certificate",
+                score_contribution=25.0,
+                description="The site's TLS certificate is invalid, self-signed, or expired — a strong phishing signal.",
+                weight=25.0,
+                evidence_key="ssl_valid"
+            ))
+            raw_score += 25.0
+        elif "let's encrypt" in tls_issuer or "zerossl" in tls_issuer or "buypass" in tls_issuer:
+            # Minor flag for free CAs
+            tls_factors.append(RiskFactor(
+                name="Free / Automated CA Certificate",
+                score_contribution=5.0,
+                description="Certificate issued by a free/automated CA. Free CAs require no identity verification.",
+                weight=5.0,
+                evidence_key="tls_issuer"
+            ))
+            raw_score += 5.0
 
-            if category_has_data:
-                present_max += evaluator.max_contribution
+        # ── 2. DNS / MX Record Rules (+20 points) ──────────────────────────── #
+        mx_records = evidence.get("mx_records")
+        has_mx = True
+        if mx_records is not None:
+            if not mx_records or mx_records == [] or mx_records == "":
+                has_mx = False
+        else:
+            has_mx = False
 
-            if isinstance(evaluator, DomainIntelEvaluator):
-                domain_factors = results
-            elif isinstance(evaluator, DnsWhoisEvaluator):
-                dns_factors = results
-            elif isinstance(evaluator, TlsCertificateEvaluator):
-                tls_factors = results
-            elif isinstance(evaluator, HtmlContentEvaluator):
-                html_factors = results
-            elif isinstance(evaluator, ThreatIntelEvaluator):
-                ti_factors = results
+        sensitive_keywords = ['login', 'auth', 'verify', 'portal', 'erp', 'secure', 'employee', 'benefits', 'student', 'gradebook', 'results']
+        contains_sensitive_kw = any(kw in host for kw in sensitive_keywords)
 
-        # Ensure lexical match factor is present in domain_factors if matched
-        if lexical_match:
-            has_lexical_factor = any(
-                f.name == "Target Brand Impersonation via Lexical Heuristics"
-                for f in domain_factors
-            )
-            if not has_lexical_factor:
-                domain_factors.append(RiskFactor(
-                    name="Target Brand Impersonation via Lexical Heuristics",
-                    score_contribution=25.0,
-                    description="Domain name contains a targeted enterprise brand combined with suspicious phishing keywords.",
-                    weight=25.0,
-                    evidence_key="indicator"
-                ))
+        if not has_mx and contains_sensitive_kw:
+            dns_factors.append(RiskFactor(
+                name="Missing MX Records on Sensitive Target",
+                score_contribution=20.0,
+                description="Domain name contains sensitive authentication keywords but lacks MX email server records.",
+                weight=20.0,
+                evidence_key="mx_records"
+            ))
+            raw_score += 20.0
+        elif not has_mx:
+            dns_factors.append(RiskFactor(
+                name="No MX Records",
+                score_contribution=5.0,
+                description="Domain has no MX records. Legitimate brands always have email infrastructure.",
+                weight=5.0,
+                evidence_key="mx_records"
+            ))
+            raw_score += 5.0
 
-        # ── Step 2: Assemble breakdown ────────────────────────────────────── #
+        # ── 3. Domain Structure Rules (+25 points) ─────────────────────────── #
+        # High-entropy or multi-hyphenated domain structure paired with sensitive auth keywords
+        def calculate_entropy(s: str) -> float:
+            import math
+            if not s:
+                return 0.0
+            entropy = 0.0
+            for x in set(s):
+                p_x = s.count(x) / len(s)
+                entropy += - p_x * math.log2(p_x)
+            return entropy
+
+        domain_part = host.split('.')[0] if '.' in host else host
+        is_multi_hyphenated = host.count('-') >= 2
+        is_high_entropy = calculate_entropy(domain_part) >= 4.0
+
+        if (is_multi_hyphenated or is_high_entropy) and contains_sensitive_kw:
+            domain_factors.append(RiskFactor(
+                name="Suspicious Domain Structure with Auth Keywords",
+                score_contribution=25.0,
+                description="Domain name is high-entropy or multi-hyphenated and contains sensitive auth keywords.",
+                weight=25.0,
+                evidence_key="indicator"
+            ))
+            raw_score += 25.0
+
+        # Check for suspicious TLDs
+        suspicious_tlds = (".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".club", ".online", ".site", ".website", ".live", ".fun", ".pw", ".cc", ".su")
+        if any(host.endswith(tld) for tld in suspicious_tlds):
+            domain_factors.append(RiskFactor(
+                name="Suspicious TLD",
+                score_contribution=10.0,
+                description="Domain uses a top-level domain commonly abused for phishing.",
+                weight=10.0,
+                evidence_key="indicator"
+            ))
+            raw_score += 10.0
+
+        # ── 4. WHOIS Domain Age Rules (+20 points) ─────────────────────────── #
+        age = evidence.get("domain_age_days")
+        if age is not None:
+            try:
+                age_days = int(age)
+                if age_days < 30:
+                    domain_factors.append(RiskFactor(
+                        name="Very Young Domain",
+                        score_contribution=20.0,
+                        description=f"Domain was registered only {age_days} day(s) ago.",
+                        weight=20.0,
+                        evidence_key="domain_age_days"
+                    ))
+                    raw_score += 20.0
+                elif age_days < 180:
+                    domain_factors.append(RiskFactor(
+                        name="Young Domain",
+                        score_contribution=10.0,
+                        description=f"Domain was registered {age_days} days ago (<6 months).",
+                        weight=10.0,
+                        evidence_key="domain_age_days"
+                    ))
+                    raw_score += 10.0
+            except (ValueError, TypeError):
+                pass
+
+        # ── 5. Threat Feed Detection (+40 to +60 points) ────────────────────── #
+        vt_verdict = str(evidence.get("virustotal_verdict") or "").lower().strip()
+        pt_verdict = evidence.get("phishtank_verdict")
+        uh_verdict = evidence.get("urlhaus_verdict")
+
+        threat_score = 0.0
+
+        if vt_verdict in ("malicious", "phishing"):
+            threat_score = max(threat_score, 45.0)
+            ti_factors.append(RiskFactor(
+                name="VirusTotal: Malicious Verdict",
+                score_contribution=45.0,
+                description="VirusTotal consensus verdict flags this indicator as malicious.",
+                weight=45.0,
+                evidence_key="virustotal_verdict"
+            ))
+        elif vt_verdict == "suspicious":
+            threat_score = max(threat_score, 20.0)
+            ti_factors.append(RiskFactor(
+                name="VirusTotal: Suspicious Verdict",
+                score_contribution=20.0,
+                description="VirusTotal consensus verdict flags this indicator as suspicious.",
+                weight=20.0,
+                evidence_key="virustotal_verdict"
+            ))
+
+        is_phish_pt = False
+        if isinstance(pt_verdict, bool) and pt_verdict:
+            is_phish_pt = True
+        elif isinstance(pt_verdict, str) and pt_verdict.lower() in ("true", "phishing", "malicious"):
+            is_phish_pt = True
+
+        if is_phish_pt:
+            threat_score = max(threat_score, 50.0)
+            ti_factors.append(RiskFactor(
+                name="PhishTank: Confirmed Phish",
+                score_contribution=50.0,
+                description="PhishTank actively blocks this URL as a confirmed phishing target.",
+                weight=50.0,
+                evidence_key="phishtank_verdict"
+            ))
+
+        if isinstance(uh_verdict, str) and uh_verdict.lower() in ("malicious", "online", "active"):
+            threat_score = max(threat_score, 50.0)
+            ti_factors.append(RiskFactor(
+                name="URLHaus: Active Malware URL",
+                score_contribution=50.0,
+                description="URLHaus lists this URL as an active malware distribution or phishing endpoint.",
+                weight=50.0,
+                evidence_key="urlhaus_verdict"
+            ))
+
+        raw_score += threat_score
+
+        # ── 6. HTML / Content Rules ────────────────────────────────────────── #
+        has_login_form = evidence.get("has_login_form")
+        if has_login_form is True:
+            html_factors.append(RiskFactor(
+                name="Login / Credential Form Detected",
+                score_contribution=10.0,
+                description="Page contains a login or credential-harvesting form — primary characteristic of phishing pages.",
+                weight=10.0,
+                evidence_key="has_login_form"
+            ))
+            raw_score += 10.0
+
+        pwd_inputs = evidence.get("password_inputs")
+        if pwd_inputs is not None:
+            try:
+                count = int(pwd_inputs)
+                if count > 0:
+                    html_factors.append(RiskFactor(
+                        name="Password Input Field(s) Detected",
+                        score_contribution=5.0,
+                        description=f"Page contains {count} password input field(s).",
+                        weight=5.0,
+                        evidence_key="password_inputs"
+                    ))
+                    raw_score += 5.0
+            except (ValueError, TypeError):
+                pass
+
+        # WHOIS Privacy / redacted registrant
+        whois_privacy = evidence.get("whois_privacy") or evidence.get("registrant_redacted")
+        if whois_privacy is True:
+            dns_factors.append(RiskFactor(
+                name="WHOIS Privacy Enabled",
+                score_contribution=5.0,
+                description="Registrant information is redacted. Privacy-protected domains are common in phishing.",
+                weight=5.0,
+                evidence_key="whois_privacy"
+            ))
+            raw_score += 5.0
+
+        # Calibrate raw score by confidence
+        calibrated_score = self._validator.calibrate_score(raw_score, confidence)
+        was_calibrated = calibrated_score != raw_score
+
+        # Clamp between 0.0 and 100.0
+        final_score = self._validator.enforce_boundaries(calibrated_score)
+
+        # Map to severity
+        severity = _map_severity(final_score)
+
+        # Assemble breakdown
         breakdown = RiskBreakdown(
             domain_intelligence=domain_factors,
             dns_whois=dns_factors,
@@ -229,43 +347,14 @@ class RiskScoringService:
         )
 
         all_factors = breakdown.all_factors()
-        raw_total = breakdown.total_contribution()
 
-        # ── Step 3: Normalize to 0-100 ────────────────────────────────────── #
-        denominator = present_max if present_max > 0 else TOTAL_MAX_CONTRIBUTION
-        normalized_score = min(100.0, (raw_total / denominator) * 100.0)
-        normalized_score = round(normalized_score, 2)
-
-        # ── Step 4: Calibrate by evidence confidence ──────────────────────── #
-        calibrated_score = self._validator.calibrate_score(normalized_score, confidence)
-        was_calibrated = calibrated_score != normalized_score
-
-        # ── Step 5: Enforce strict boundaries ─────────────────────────────── #
-        final_score = self._validator.enforce_boundaries(calibrated_score)
-        
-        if lexical_match:
-            final_score = max(final_score, 85.0)
-
-        # ── Step 6: Map to severity ───────────────────────────────────────── #
-        severity = _map_severity(final_score)
-
-        # ── Step 7: Build explanation ─────────────────────────────────────── #
         explanation = _build_explanation(
             final_score, severity, all_factors, confidence, was_calibrated,
         )
 
-        # ── Step 8: Generate analyst recommendations ──────────────────────── #
         recommendations = self._recommendation_engine.generate(
             factors=all_factors,
             severity=severity,
-        )
-
-        logger.info(
-            f"[calculate_risk] Evaluation complete for '{indicator}': "
-            f"raw={normalized_score:.2f}, calibrated={calibrated_score:.2f}, "
-            f"final={final_score:.2f}, severity={severity.value}, confidence='{confidence}', "
-            f"factors={len(all_factors)}, recommendations={len(recommendations)}, "
-            f"denominator={denominator:.2f}."
         )
 
         return RiskScore(
@@ -285,29 +374,18 @@ class RiskScoringService:
     def _extract_evidence(
         unified_evidence: Union[Dict[str, Any], Any]
     ) -> tuple[Dict[str, Any], str]:
-        """
-        Normalizes input to a flat evidence dict and extracts the indicator string.
-
-        Accepts:
-        - A plain dict (used directly as evidence).
-        - A UnifiedEvidence Pydantic model (merges resolved_observations with
-          top-level indicator fields).
-        """
         if isinstance(unified_evidence, dict):
             indicator = unified_evidence.get("indicator", "unknown")
             return unified_evidence, indicator
 
-        # Pydantic model path
         try:
             resolved = dict(getattr(unified_evidence, "resolved_observations", {}) or {})
             indicator = getattr(unified_evidence, "indicator", "unknown")
 
-            # Inject top-level model fields into the flat dict for evaluators
             if hasattr(unified_evidence, "indicator_type"):
                 resolved.setdefault("indicator_type", unified_evidence.indicator_type)
             resolved.setdefault("indicator", indicator)
 
-            # Also inject internal/external evidence keys not yet in resolved
             for source_attr in ("internal_evidence", "external_evidence"):
                 src = getattr(unified_evidence, source_attr, None) or {}
                 for k, v in src.items():
@@ -320,19 +398,18 @@ class RiskScoringService:
 
     @staticmethod
     def _extract_confidence(unified_evidence: Union[Dict[str, Any], Any]) -> str:
-        """
-        Extracts the overall confidence level from the evidence payload.
-        Returns 'unknown' if not found.
-        """
         if isinstance(unified_evidence, dict):
-            return str(unified_evidence.get("overall_confidence", "unknown"))
-        return str(getattr(unified_evidence, "overall_confidence", "unknown"))
-
-    @staticmethod
-    def _category_has_evidence(category: str, evidence: Dict[str, Any]) -> bool:
-        """
-        Determines whether any evidence keys relevant to a category are present.
-        Uses the centralized CATEGORY_EVIDENCE_KEYS from config.py.
-        """
-        keys = CATEGORY_EVIDENCE_KEYS.get(category, frozenset())
-        return any(k in evidence for k in keys)
+            conf = unified_evidence.get("overall_confidence", "unknown")
+        else:
+            conf = getattr(unified_evidence, "overall_confidence", "unknown")
+        
+        if hasattr(conf, "value"):
+            return str(conf.value).lower().strip()
+        conf_str = str(conf).lower().strip()
+        if "high" in conf_str:
+            return "high"
+        if "medium" in conf_str:
+            return "medium"
+        if "low" in conf_str:
+            return "low"
+        return conf_str

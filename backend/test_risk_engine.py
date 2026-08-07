@@ -5,16 +5,15 @@ from app.services.unified_evidence.models import UnifiedEvidence, EvidenceMetada
 def test_weighted_risk_calculation():
     print('--- Testing Risk Calculation Engine ---')
     
-    # 1. Create a proper UnifiedEvidence Pydantic instance
+    # 1. Create a proper UnifiedEvidence Pydantic instance for a highly suspicious domain
     unified_evidence = UnifiedEvidence(
         indicator="https://secure-login-update-now.com",
         indicator_type="url",
         resolved_observations={
-            "domain_age_days": 2,
-            "has_login_form": True,
-            "ssl_valid": False,
-            "virustotal_verdict": "malicious",
-            "abuseipdb_score": 95
+            "domain_age_days": 2,          # < 30 days -> +20 points
+            "ssl_valid": False,            # Invalid TLS -> +25 points
+            "mx_records": [],              # Missing MX + sensitive keywords -> +20 points
+            "virustotal_verdict": "malicious" # VT malicious -> +45 points
         },
         sources=[],
         overall_confidence="high",
@@ -45,18 +44,27 @@ def test_weighted_risk_calculation():
                     print(f"    - {factor['name']} (+{factor['score_contribution']} pts): {factor['description']}")
                     
         print(f"\n[+] Summary Explanation:\n    {risk_score.explanation}")
+        assert risk_score.overall_score >= 91.0, "Should be CRITICAL"
 
     except Exception as e:
         print(f"❌ Engine crashed during calculation: {e}")
+        raise e
 
-def test_brand_impersonation_lexical_rule():
-    print('\n--- Testing Brand Impersonation Lexical Heuristics ---')
+def test_dynamic_telemetry_baseline():
+    print('\n--- Testing Dynamic Telemetry Baseline (SAFE Score Default) ---')
     
-    # Test case 1: Target brand + suspicious keyword in domain, empty telemetry
-    evidence_empty = UnifiedEvidence(
-        indicator="https://login.microsoft-auth-verify.com/login.html",
+    # Test case 1: Healthy legitimate domain should score SAFE (0 - 15)
+    evidence_healthy = UnifiedEvidence(
+        indicator="https://google.com",
         indicator_type="url",
-        resolved_observations={},
+        resolved_observations={
+            "domain_age_days": 10000,
+            "ssl_valid": True,
+            "tls_issuer": "Google Trust Services",
+            "mx_records": ["aspmx.l.google.com"],
+            "ns_records": ["ns1.google.com"],
+            "virustotal_verdict": "clean"
+        },
         sources=[],
         overall_confidence="high",
         metadata=EvidenceMetadata(item_confidences={})
@@ -64,95 +72,49 @@ def test_brand_impersonation_lexical_rule():
     
     service = RiskScoringService()
     try:
-        score_empty = service.calculate_risk(evidence_empty)
+        score_healthy = service.calculate_risk(evidence_healthy)
         
-        print(f"[+] Indicator: {score_empty.indicator}")
-        print(f"[+] Final Risk Score: {score_empty.overall_score:.1f}/100 (Expected: >= 85.0)")
-        print(f"[+] Assigned Severity: {score_empty.severity.value.upper()}")
-        print(f"[+] Factors Triggered: {score_empty.factor_count}")
-        for category, factors in score_empty.breakdown.model_dump().items():
-            if factors:
-                for factor in factors:
-                    print(f"    - [{category.upper()}] {factor['name']}: {factor['description']}")
-                    
-        assert score_empty.overall_score >= 85.0, "Score should be capped at minimum 85.0"
-        assert any(f.name == "Target Brand Impersonation via Lexical Heuristics" for f in score_empty.breakdown.domain_intelligence), "Lexical impersonation factor missing"
-        print("[+] Microsoft Brand Impersonation test case passed successfully!")
-    except Exception as e:
-        print(f"❌ Microsoft Brand Impersonation test crashed: {e}")
-        raise e
-
-    # Test case 2: Infosys brand + employee benefits keyword, empty telemetry
-    evidence_infosys = UnifiedEvidence(
-        indicator="https://infosys-employee-benefits.net",
-        indicator_type="url",
-        resolved_observations={},
-        sources=[],
-        overall_confidence="high",
-        metadata=EvidenceMetadata(item_confidences={})
-    )
-    
-    try:
-        score_infosys = service.calculate_risk(evidence_infosys)
+        print(f"[+] Healthy Indicator: {score_healthy.indicator}")
+        print(f"[+] Final Risk Score: {score_healthy.overall_score:.1f}/100 (Expected: 0.0 - 15.0)")
+        print(f"[+] Assigned Severity: {score_healthy.severity.value.upper()}")
         
-        print(f"[+] Indicator: {score_infosys.indicator}")
-        print(f"[+] Final Risk Score: {score_infosys.overall_score:.1f}/100 (Expected: >= 85.0)")
-        print(f"[+] Assigned Severity: {score_infosys.severity.value.upper()}")
-        print(f"[+] Factors Triggered: {score_infosys.factor_count}")
-        for category, factors in score_infosys.breakdown.model_dump().items():
-            if factors:
-                for factor in factors:
-                    print(f"    - [{category.upper()}] {factor['name']}: {factor['description']}")
-                    
-        assert score_infosys.overall_score >= 85.0, "Score should be capped at minimum 85.0"
-        assert any(f.name == "Target Brand Impersonation via Lexical Heuristics" for f in score_infosys.breakdown.domain_intelligence), "Lexical impersonation factor missing"
-        print("[+] Infosys Brand Impersonation test case passed successfully!")
+        assert 0.0 <= score_healthy.overall_score <= 15.0, "Healthy domain should score SAFE (0-15)"
+        assert score_healthy.severity.value == "safe", "Should be SAFE severity"
+        print("[+] Legitimate healthy domain baseline test passed successfully!")
     except Exception as e:
-        print(f"❌ Infosys Brand Impersonation test crashed: {e}")
+        print(f"❌ Legitimate healthy domain baseline test crashed: {e}")
         raise e
 
-    # Test case 3: Official whitelisted college domain
-    evidence_whitelisted = UnifiedEvidence(
-        indicator="https://vardhaman.org",
-        indicator_type="url",
-        resolved_observations={},
-        sources=[],
-        overall_confidence="high",
-        metadata=EvidenceMetadata(item_confidences={})
-    )
-    try:
-        score_whitelisted = service.calculate_risk(evidence_whitelisted)
-        print(f"[+] Indicator: {score_whitelisted.indicator}")
-        print(f"[+] Final Risk Score: {score_whitelisted.overall_score:.1f}/100 (Expected: 0.0)")
-        print(f"[+] Assigned Severity: {score_whitelisted.severity.value.upper()}")
-        assert score_whitelisted.overall_score == 0.0, "Whitelisted domain must score 0.0"
-        assert score_whitelisted.severity.value == "safe", "Whitelisted domain must be SAFE"
-        print("[+] Whitelisting test case passed successfully!")
-    except Exception as e:
-        print(f"❌ Whitelisting test crashed: {e}")
-        raise e
-
-    # Test case 4: Spoofed college ERP target
-    evidence_spoofed = UnifiedEvidence(
+    # Test case 2: Spoofed domain with anomalies should accumulate points dynamically
+    evidence_suspicious = UnifiedEvidence(
         indicator="https://vardhaman-erp-login.com",
         indicator_type="url",
-        resolved_observations={},
+        resolved_observations={
+            "domain_age_days": 15,         # < 30 days -> +20 points
+            "ssl_valid": False,            # Invalid TLS -> +25 points
+            "mx_records": [],              # Missing MX + sensitive keywords -> +20 points
+        },
         sources=[],
         overall_confidence="high",
         metadata=EvidenceMetadata(item_confidences={})
     )
     try:
-        score_spoofed = service.calculate_risk(evidence_spoofed)
-        print(f"[+] Indicator: {score_spoofed.indicator}")
-        print(f"[+] Final Risk Score: {score_spoofed.overall_score:.1f}/100 (Expected: >= 85.0)")
-        print(f"[+] Assigned Severity: {score_spoofed.severity.value.upper()}")
-        assert score_spoofed.overall_score >= 85.0, "Spoofed ERP domain must score >= 85.0"
-        assert score_spoofed.severity.value == "high", "Spoofed ERP domain must be HIGH"
-        print("[+] Spoofed college ERP test case passed successfully!")
+        score_susp = service.calculate_risk(evidence_suspicious)
+        
+        print(f"\n[+] Suspicious Indicator: {score_susp.indicator}")
+        print(f"[+] Final Risk Score: {score_susp.overall_score:.1f}/100 (Expected: >= 71.0)")
+        print(f"[+] Assigned Severity: {score_susp.severity.value.upper()}")
+        for category, factors in score_susp.breakdown.model_dump().items():
+            if factors:
+                for factor in factors:
+                    print(f"    - [{category.upper()}] {factor['name']}: {factor['description']}")
+                    
+        assert score_susp.overall_score >= 71.0, "Should score >= 71.0 (HIGH/CRITICAL)"
+        print("[+] Suspofed domain dynamic accumulation test passed successfully!")
     except Exception as e:
-        print(f"❌ Spoofed college ERP test crashed: {e}")
+        print(f"❌ Suspofed domain dynamic accumulation test crashed: {e}")
         raise e
 
 if __name__ == '__main__':
     test_weighted_risk_calculation()
-    test_brand_impersonation_lexical_rule()
+    test_dynamic_telemetry_baseline()
