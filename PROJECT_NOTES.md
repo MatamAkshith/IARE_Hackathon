@@ -59,6 +59,23 @@ Every implementation must remain consistent with these sections. Every completed
 - **React**: Single page application framework.
 - **Vite**: Rapid frontend builder and server.
 - **TailwindCSS**: CSS framework for modern design aesthetics.
+- **Axios** (`^1.4.0`): HTTP client used for all backend API calls.
+
+### Frontend API Networking Layer (`frontend/src/api/`)
+| File | Purpose |
+| :--- | :--- |
+| `.env` | `VITE_API_BASE_URL` — single env variable pointing to `http://localhost:8000/api/v1` |
+| `api/client.js` | Singleton Axios instance with `baseURL`, 30s timeout, JSON headers, request/response interceptors |
+| `api/errorHandler.js` | `normalizeError()` — converts raw AxiosError into canonical `ApiError` object; handles FastAPI 422 arrays, network failures, and all 4xx/5xx codes |
+| `api/types.js` | JSDoc type definitions: `ApiError`, `FastApiValidationError`, `PaginationParams`, `PaginatedResponse<T>` |
+| `api/index.js` | Barrel file — re-exports `apiClient`, `normalizeError`, `isApiError` for convenient imports |
+
+**Interceptor chain**:
+```
+Request ──► Log outgoing call (dev only) ──► Forward to backend
+Response ──► Unwrap response.data ──► Return plain object to caller
+         └─► On error: normalizeError() ──► re-throw ApiError
+```
 
 ### Backend
 - **FastAPI**: Main high-performance RESTful API router framework.
@@ -690,6 +707,7 @@ frontend/
 | 2026-08-06 | PostgreSQL + SQLAlchemy | Need robust relational integrity for campaign grouping and cross-evidence linking. | MongoDB | Approved |
 | 2026-08-07 | Campaign Correlation Engine Abstractions | Choose strategy pattern interface and decoupled schema/model boundary to allow plugging in diverse similarity matchers (IP, SSL, HTML similarity) in stages without refactoring the core. | Hardcoded monolithic correlation service | Approved |
 | 2026-08-07 | Merge Frontend Branch (Task 0) | Establishes a unified monorepo structure to streamline local development, backend/frontend coordination, and end-to-end integration. | Separate repositories with submodule links | Approved |
+| 2026-08-07 | Use Axios as the frontend HTTP client (Stage A.1) | Axios was already present as a project dependency (`^1.4.0`). It provides interceptors for global request/response transformation, structured error objects, timeout support, and automatic JSON serialization — all required for the ThreatLens integration layer. The response interceptor unwraps `response.data` directly, so service files receive plain objects. All HTTP errors are normalized via `normalizeError()` into a canonical `ApiError` shape before reaching any React component. | fetch() with manual wrapper, SWR, React Query | Approved |
 
 
 ---
@@ -763,6 +781,7 @@ frontend/
 - **2026-08-07 (Sprint 1 - Task 55 - 09:00):** **Task 55 (Familiarization & Validation - Tasks 1, 2, 3):** Completed system architecture and monorepo codebase validation. Documented model persistence structure splits and compiled the frontend mock data endpoints mapping inside `PROJECT_NOTES.md`. Tasks 1, 2, and 3 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 56 - 09:10):** **Task 56 (Backend-Frontend API Mapping - Task 4):** Authored the comprehensive "Backend-Frontend API Mapping" section (Section 16) in `PROJECT_NOTES.md`. Defined endpoint contracts, request/response models, and all required UI states (loading, error, empty, highlight) for all 7 frontend surfaces: Dashboard, Investigation, Campaigns, AI Assistant, Reports, Risk Details Panel, and Evidence Viewer. Task 4 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 57 - 09:15):** **Task 57 (Development Rules & Focus Pivot - Tasks 5, 6, 7):** Authored the "Strict Development Rules" section (Section 17) in `PROJECT_NOTES.md` covering 12 binding rules across Architecture, Frontend Integration, and Documentation categories. Updated the "Current Development Status" table to mark Backend Architecture as LOCKED (all 8 milestones complete) and Frontend API Integration + E2E Validation as the active development focus. Tasks 5, 6, and 7 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 58 - 09:25):** **Task 58 (Frontend API Foundation - Stage A.1):** Established the centralized Axios HTTP client layer under `frontend/src/api/`. Created `frontend/.env` with `VITE_API_BASE_URL=http://localhost:8000/api/v1`. Created `api/client.js` — singleton Axios instance with `baseURL`, 30s timeout, JSON headers, dev-mode request logger, and response interceptor that unwraps `response.data` on success. Created `api/errorHandler.js` with `normalizeError()` converting raw AxiosErrors into structured `ApiError` objects (handles FastAPI 422 validation arrays, network errors, and all 4xx/5xx codes). Created `api/types.js` with JSDoc type contracts (`ApiError`, `FastApiValidationError`, `PaginationParams`, `PaginatedResponse<T>`). Created `api/index.js` barrel file. Verified `npm run build` compiles with zero errors. Documented API networking layer in tech stack and architecture sections. Stage A.1 100% COMPLETE.
 
 
 
