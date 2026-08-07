@@ -40,8 +40,8 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Threat Intelligence Integration | Integrations with VirusTotal, PhishTank, URLHaus, AbuseIPDB, and AlienVault OTX feeds with concurrent aggregation engine and lookups REST APIs. |
 | **Completed** | Unified Evidence Engine | Merge, normalization, confidence scoring, DB persistence, REST API, audit trail, traceability & final refactor — Milestone 5 100% Complete (Stage 5.6). |
 | **Completed** | Risk Scoring Engine | Explainable rules, recommendations, validation & calibration, DB persistence, REST API & final refactor — Milestone 6 100% Complete (Stage 6.6). |
-| **Current** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints (Milestone 7 - Next). |
-| **Remaining** | Campaign Correlation | Attacker attribution and clustering based on shared footprints. |
+| **Current** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints — Foundation & Abstractions (Stage 7.1) COMPLETE. |
+| **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
 | **Remaining** | Dashboard UI | Analyst control panel and queue dashboard. |
 | **Remaining** | Reporting | Exportable Markdown/PDF reports detailing threats evidence. |
@@ -188,12 +188,28 @@ The risk report will detail the exact weights that contributed to the score, all
 
 ---
 
-## 7. Campaign Correlation Design
+## 7. Campaign Correlation Design & Architecture
 
 > [!NOTE]
-> *This outlines the planned Campaign Correlation design. It is not yet implemented.*
+> *Stage 7.1 (Campaign Correlation Foundation) is implemented. Concrete similarity matcher plugins and infrastructure correlation algorithms will be implemented in subsequent stages.*
 
-Rather than treating target URLs as isolated events, ThreatLens groups assets into unified Campaign clusters based on shared infrastructure attributes. By matching footprints, analysts can identify the scope of target brands impersonation campaigns.
+Rather than treating target URLs as isolated events, ThreatLens groups assets into unified Campaign clusters based on shared infrastructure attributes. By matching footprints, analysts can identify the scope of target brand impersonation campaigns.
+
+### Campaign Engine Abstractions (Stage 7.1)
+The module is divided into a decoupling design:
+1. **Core Domain Models (`models.py`)**:
+   - `Campaign`: Holds campaign properties, tracked status, severity, list of associated member assets, summary metrics, and list of shared evidence.
+   - `CampaignMember`: Represents an indicator URL/IP linked to a campaign with timestamps and observations snapshot.
+   - `CorrelationEvidence`: Represents specific indicators matched (e.g. `shared_ip`, `favicon_hash`, `html_similarity`).
+   - `CorrelationResult`: Scoring output of matcher checking correlation.
+   - `CampaignSummary`: Overview statistics of indicators volume and tracking dates.
+   - `CampaignSeverity` & `CampaignStatus` Enums.
+2. **REST API validation Schemas (`schemas.py`)**:
+   - Defines API shapes for creating campaigns (`CampaignCreate`), updating metadata (`CampaignUpdate`), adding members (`AddCampaignMemberRequest`), and returning payloads (`CampaignResponse`).
+3. **Correlation Interface (`base.py`)**:
+   - `BaseCorrelationStrategy`: Declares abstract correlation signature: `correlate(current_evidence, historical_evidence_list) -> CorrelationResult`. Diverse matches can inherit from this strategy.
+4. **Campaign Service Orchestrator (`service.py`)**:
+   - `CampaignCorrelationService`: Entry service coordinating searches, campaign registration, and member allocations.
 
 Correlated evidence attributes include:
 - **Registrar similarity**: Domains registered near-simultaneously through matching registrars.
@@ -381,6 +397,14 @@ The data layer and RESTful API layer are decoupled using four core patterns:
     - **Standardized Logging**: Enforced uniform `logger.info()` lifecycle logs for start/completion of calculations in `service.py`, start/completion of endpoint requests in `risk.py`, and database persistence confirmations. Enforced `logger.debug()` for granular rule matching checks in `rules.py` and recommendations building in `recommendations.py`.
     - **Robust DB Commit Wrapper**: Enhanced the DB helper `_save_risk_score` in the API router to handle commit execution within a try/except block. On commit errors, it rolls back the transaction, logs the exception stack trace at ERROR level, and raises an explicit `HTTPException(status_code=500)` ensuring clean client responses.
 
+32. **Campaign Engine Foundation (Stage 7.1)**:
+    - **Package Directory** (`app/services/campaign_engine/`): Created the modular package skeleton with abstract strategy interface and typed domain models.
+    - **Enums & Models** (`models.py`): Defined `CampaignSeverity` and `CampaignStatus` enums. Established core domain Pydantic entities (`Campaign`, `CampaignMember`, `CorrelationEvidence`, `CorrelationResult`, `CampaignSummary`).
+    - **API Schemas** (`schemas.py`): Created structured validation schemas: `CampaignCreate` (seeding), `CampaignUpdate` (metadata), `AddCampaignMemberRequest` (member injection), and `CampaignResponse` (serialization).
+    - **Strategy Interface** (`base.py`): Defined `BaseCorrelationStrategy` declaring correlation logic contract signature: `correlate(current_evidence, historical_evidence_list) -> CorrelationResult`.
+    - **Orchestration Service** (`service.py`): Built `CampaignCorrelationService` managing stubs for `find_related_campaigns()`, `create_campaign()` (with UUID assignments and seeding), and `add_to_campaign()`.
+
+
 
 | Provider | URL Lookup | Domain Lookup | IP Lookup | Normalization Logic |
 | :--- | :--- | :--- | :--- | :--- |
@@ -458,6 +482,38 @@ backend/app/
 │   ├── feature.py
 │   ├── risk_score.py
 │   └── scan.py
+├── services/               # Modular business logic services
+│   ├── campaign_engine/    # Campaign Correlation Engine (Stage 7.1)
+│   │   ├── __init__.py     # Exports models, schemas, strategies, service
+│   │   ├── base.py         # BaseCorrelationStrategy interface class
+│   │   ├── models.py       # Domain enums & Pydantic models
+│   │   ├── schemas.py      # Ingress validation schemas
+│   │   └── service.py      # CampaignCorrelationService orchestrator
+│   ├── risk_engine/        # Explainable Risk Engine
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   ├── config.py
+│   │   ├── models.py
+│   │   ├── recommendations.py
+│   │   ├── rules.py
+│   │   ├── service.py
+│   │   └── validator.py
+│   ├── threat_intel/       # External Threat Intel feeds
+│   │   ├── providers/
+│   │   ├── __init__.py
+│   │   ├── aggregator.py
+│   │   ├── models.py
+│   │   └── service.py
+│   ├── unified_evidence/   # Evidence Merging, Normalization & Confidence
+│   │   ├── __init__.py
+│   │   ├── confidence.py
+│   │   ├── models.py
+│   │   ├── normalizer.py
+│   │   ├── service.py
+│   │   └── strategy.py
+│   ├── domain_intel.py
+│   ├── webpage_intel.py
+│   └── network_intel.py
 └── main.py
 ```
 
@@ -469,6 +525,7 @@ backend/app/
 | :--- | :--- | :--- | :--- | :--- |
 | 2026-08-06 | Choose FastAPI over Django | Lighter footprint, native async support for network requests, autogenerated OpenAPI docs. | Django REST Framework | Approved |
 | 2026-08-06 | PostgreSQL + SQLAlchemy | Need robust relational integrity for campaign grouping and cross-evidence linking. | MongoDB | Approved |
+| 2026-08-07 | Campaign Correlation Engine Abstractions | Choose strategy pattern interface and decoupled schema/model boundary to allow plugging in diverse similarity matchers (IP, SSL, HTML similarity) in stages without refactoring the core. | Hardcoded monolithic correlation service | Approved |
 
 ---
 
@@ -517,6 +574,7 @@ backend/app/
 - **2026-08-07 (Sprint 1 - Task 31 - 05:40):** **Task 31 (Risk Engine Recommendations, Persistence & API - Stages 6.3 & 6.4 | Milestone 6 FINAL):** Added `Recommendation` Pydantic model to `models.py`; extended `RiskScore.recommendations` field. Created `RecommendationEngine` (`recommendations.py`) with 20 factor-level rules + severity catch-alls, deduplication, and priority sorting. Integrated as Step 6 in `RiskScoringService.calculate_risk()`. Created `RiskAssessmentRecord` SQLAlchemy ORM model with JSON breakdown/recommendations columns and composite index. Registered in `db/base.py`. Exposed `POST /api/v1/risk/evaluate` and `GET /api/v1/risk/{indicator:path}` endpoints; registered router in v1. Verified pipeline end-to-end: 4 factors fired, 5 recommendations generated (1×immediate, 3×high, 1×medium). Stages 6.3 & 6.4 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 32 - 05:45):** **Task 32 (Risk Engine Validation & Calibration - Stage 6.5):** Created `config.py` extracting all weights, confidence multipliers, severity thresholds, and category key maps into centralized config. Created `RiskValidator` (`validator.py`) with `validate_evidence()` (empty/null guard), `calibrate_score()` (confidence multiplier), and `enforce_boundaries()` (NaN/clamp). Updated `rules.py` to import weights from `config.RISK_WEIGHTS`. Updated `service.py` with 10-step pipeline (Steps 0/4/5 = validation/calibration/boundaries). Verified 5 edge-case scenarios: HIGH→63.5, LOW→38.1 (calibrated), empty→0.0, all-null→0.0, MEDIUM→51.0 (calibrated). Stage 6.5 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 33 - 05:55):** **Task 33 (Risk Engine Refactoring, Logging & Finalization - Stage 6.6 | Milestone 6 FINAL):** Refactored codebase for Milestone 6 completion. Removed unused variables and dead parameters (`_SEVERITY_MAP` in `service.py`, `_CATEGORY_CAP` in `rules.py`). Standardized lifecycle logs at `INFO` and engine rule evaluations at `DEBUG`. Wrapped the database transaction logic in `risk.py` with explicit try/except/rollback controls raising standard `HTTPException(500)`. Stages 6.1–6.6 and Milestone 6 (Risk Scoring Engine) 100% FINAL.
+- **2026-08-07 (Sprint 1 - Task 34 - 06:10):** **Task 34 (Campaign Correlation Foundation - Stage 7.1):** Created modular campaign engine directory structure under `services/campaign_engine/`. Defined core Pydantic domain models (`Campaign`, `CampaignMember`, `CorrelationEvidence`, `CorrelationResult`, `CampaignSummary`) and severity/status enums. Formulated Pydantic ingress/egress validation schemas. Drafted strategy pattern interface (`BaseCorrelationStrategy`). Coded `CampaignCorrelationService` orchestrating stubs for campaign resolution, creation, and indicator allocation. Verification test script validated all structures import, load, and serialize cleanly. Stage 7.1 100% COMPLETE.
 
 
 
