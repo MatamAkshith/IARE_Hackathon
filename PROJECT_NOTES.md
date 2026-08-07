@@ -748,6 +748,7 @@ frontend/
 - **2026-08-07 (Sprint 1 - Task 42 - 07:15):** **Task 42 (AI Reasoning Engine - Stage 8.3):** Implemented `InvestigationReasoningService` providing keyword routing for SOC questions ("Why is this URL risky?", "What infrastructure is shared?", "What should an analyst investigate next?") with confidence estimations, and SuggestedAction mapping logic. Stage 8.3 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 43 - 07:30):** **Task 43 (Report Generator - Stage 8.4):** Created `reporting_models.py` defining Pydantic report schemas and `ReportGeneratorService` generating ExecutiveSummary and AnalystReport payloads with defensive code for handling missing context properties gracefully. Stage 8.4 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 44 - 07:45):** **Task 44 (OpenRouter Client & Provider Integration - Stage 8.5):** Implemented `OpenRouterClient` (`client.py`) executing async HTTP completions via `httpx` with timeout parameters, rate-limit retry logic, and fallback model capabilities. Programmed `OpenRouterProvider` (`provider.py`) compiling prompt parameters and parsing LLM outputs into Pydantic report schemas. Refactored `AIAssistantService` to direct reasoning and reports dynamically, falling back to local deterministic engines on OpenRouter errors or when credentials are not configured. Stage 8.5 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 45 - 08:00):** **Task 45 (AI Assistant REST APIs - Stage 8.6):** Created versioned endpoint controllers (`endpoints/ai_assistant.py`) mounting `POST /ai/ask`, `POST /ai/report/analyst`, and `POST /ai/report/executive` routes. Registered routes in version 1 core router. Tested all API workflows via FastAPI TestClient validating fallback modes and schema validations. Stage 8.6 & Milestone 8 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 46 - 08:10):** **Task 46 (Dashboard Stage 1 - Frontend Shell - Task 20):** Built the complete, responsive SOC-themed React frontend shell. Wired up index.html, index.css, main.jsx, and App.jsx. Centralized routes utilizing React Router v6 mapping to coming-soon placeholders for Dashboard, Scans, Campaigns, Reports, and Settings. Created AppLayout with Sidebar navigation highlights, brand sky-blue theme configs, and Topbar featuring responsive mobile drawer toggle controls.
 - **2026-08-07 (Sprint 1 - Task 47 - 08:15):** **Task 47 (Dashboard Stage 2 - Static Dashboard - Task 21):** Implemented complete static SOC analytics dashboard. Set up static telemetry datasets in `src/data/dashboardData.js` representing KPI cards, domain scan logs, risk bands, campaign distributions, timeline events, threat highlights, and offline readiness panels. Built modular components (KPICard, RiskChart, RecentScansTable, CampaignOverview, ThreatTimeline, ThreatSummary, StatusPanel) inside `src/components/dashboard/` and integrated them into `Dashboard.jsx`. Wrote reusable RiskScoreBadge and StatusPill components to color-code risk elements. Verified production-ready compilation.
 - **2026-08-07 (Sprint 1 - Task 48 - 08:20):** **Task 48 (Dashboard Stage 3 - Investigation Workspace - Task 22):** Created the static analyst URL investigation workspace. Added a static telemetry dataset in `src/data/investigationData.js` representing registrar details, A/MX DNS records, WHOIS timestamps, SSL certificate handshakes, HTML tag attributes, response metadata, and threat badges flags. Built modular UI components (URLInputCard, ScanStatus, RiskSummary, ExplanationPanel, EvidenceAccordion, BadgeGroup) inside `src/components/investigation/` and integrated them into the new `Investigation.jsx` workspace page, which uses a 1-second state transition delay to simulate pre-flight loading animations. Re-mapped the `/scans` route to the new workspace.
@@ -757,6 +758,7 @@ frontend/
 - **2026-08-07 (Sprint 1 - Task 52 - 08:40):** **Task 52 (SVG Runtime Error Fix - Task 26):** Fixed the persistent browser console warning `Error: <path> attribute d: Expected number`. Traced the root cause to malformed SVG path arc data inside `RiskChart.jsx` (threat risk pie slices), `Dashboard.jsx` (active-campaigns and threat-sources icons), and `ThreatFeedPanel.jsx` (external feeds icon) where the large-arc-flag and sweep-flag properties were not spaced correctly relative to the coordinates parameters. Resolved the layout issue by introducing spacing. Verified production-ready compile and verified console is error-free.
 - **2026-08-07 (Sprint 1 - Task 53 - 08:45):** **Task 53 (SVG Document Icon Fix - Task 27):** Completely eliminated the persistent browser console warning `Error: <path> attribute d: Expected number` in document-style icons. Traced the root cause to two malformed paths: (1) a missing `h` command in the standard document icon inside `RecentScansTable.jsx`, `IOCTable.jsx`, and `RecommendationsPanel.jsx`; and (2) unspaced arc parameters inside `Sidebar.jsx`, `RecommendationsPanel.jsx`, and `ExplanationPanel.jsx`. Corrected all paths to fully space all arguments and restore the missing `h` character. Verified compilation succeeds cleanly and the console has zero remaining warnings.
 - **2026-08-07 (Sprint 1 - Task 54 - 08:50):** **Task 54 (Monorepo Integration - Task 0):** Merged remote branch `origin/frontend` into `main`, resolving documentation and progress tracker conflicts. Validated backend startup and verified frontend dependencies installation. Established a unified monorepo structure. Task 0 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 55 - 09:00):** **Task 55 (Familiarization & Validation - Tasks 1, 2, 3):** Completed system architecture and monorepo codebase validation. Documented model persistence structure splits and compiled the frontend mock data endpoints mapping inside `PROJECT_NOTES.md`. Tasks 1, 2, and 3 100% COMPLETE.
 
 
 
@@ -766,10 +768,32 @@ frontend/
 
 
 
+
+
+## 14. Familiarization & Validation Report
+
+### Backend Discrepancies
+- **Model Split Boundary**: Relational database ORM classes are split between `app/models/` (older models for Domain, Scan, Feature, RiskScore, etc.) and `app/db/models/` (newer models for CampaignRecord, CampaignMemberRecord, UnifiedEvidence, RiskAssessment).
+- **Deprecated Model**: The `Campaign` model inside `app/models/campaign.py` is deprecated/unused, as all campaign functions are backed by `CampaignRecord` and `CampaignMemberRecord` in `app/db/models/campaign.py`.
+
+### Frontend Mock Data API Integration Mapping
+- **Dashboard Component** (`frontend/src/pages/Dashboard.jsx`):
+  - *Current Status*: Uses mock `getDashboard()` retrieving hardcoded KPIs, telemetry data, recent scans table, and risk distributions.
+  - *Target API Endpoint*: `GET /api/v1/scans/` (recent scans), `GET /api/v1/campaigns/` (attributed campaign lists & stats), and telemetry calculation routes.
+- **Investigation Workspace** (`frontend/src/pages/Investigation.jsx`):
+  - *Current Status*: Uses mock `getInvestigation(url)` simulating loading delay and parsing mock DNS, certificate, and HTML content tables.
+  - *Target API Endpoint*: `POST /api/v1/unified-evidence/process` (to scan URL), `GET /api/v1/unified-evidence/{indicator}` (for detailed categories), `GET /api/v1/risk/{indicator}` (for explanation breakdowns), and `POST /api/v1/ai/ask` (for analyst Q&A).
+- **Campaigns Workspace** (`frontend/src/pages/Campaigns.jsx`):
+  - *Current Status*: Uses mock `getCampaigns()` rendering active domains, shared IP/SSL overlaps, and a hardcoded SVG topology relationship graph.
+  - *Target API Endpoint*: `GET /api/v1/campaigns/{campaign_id}`, `GET /api/v1/campaigns/{campaign_id}/graph` (for SVG mapping), and `GET /api/v1/campaigns/{campaign_id}/timeline` (for timeline history).
+- **Reports Workspace** (`frontend/src/pages/Reports.jsx`):
+  - *Current Status*: Uses mock `getReports()` displaying community detections ratios, IOC checklist triggers, and Incident Report layout previews.
+  - *Target API Endpoint*: `POST /api/v1/ai/report/analyst` and `POST /api/v1/ai/report/executive` to dynamic PDF/markdown summaries.
 
 ---
 
-## 14. Verification Checklist for Manual Testing
+## 15. Verification Checklist for Manual Testing
+
 
 Ensure the local PostgreSQL database is running, then run the following checks:
 1. **Server Startup**: Run `uvicorn app.main:app --reload` and check that database tables initialization triggers successfully.
