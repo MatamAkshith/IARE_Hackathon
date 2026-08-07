@@ -1,21 +1,39 @@
-import { delay } from './mockApi'
-import { dashboardData } from '../data/dashboardData'
-import { adaptDashboardData } from '../adapters/dashboardAdapter'
+/**
+ * Dashboard Service — ThreatLens Frontend
+ *
+ * **Stage A.2**: Replaced mock data source with live backend API calls.
+ *
+ * This service is consumed by `DataProvider.jsx` via `getDashboard()`.
+ * The call chain is:
+ *   DataProvider → getDashboard() → getDashboardData() [api/dashboardApiService.js]
+ *   → adaptDashboardData() → DashboardData shape → React components
+ *
+ * The adapter contract (adaptDashboardData) is preserved. Only the data
+ * source has changed from static JSON to live backend API responses.
+ *
+ * @module services/dashboardService
+ */
+
+import { getDashboardData } from '../api/dashboardApiService.js'
+import { adaptDashboardData } from '../adapters/dashboardAdapter.js'
 
 /**
- * Service to retrieve main dashboard statistics.
- * 
- * @returns {Promise<DashboardData>}
+ * Fetches and normalizes dashboard telemetry from the live FastAPI backend.
+ *
+ * Orchestrates parallel fetches from:
+ *   - GET /api/v1/scans/
+ *   - GET /api/v1/campaigns/
+ *   - GET /api/v1/risk-scores/
+ *   - GET /api/v1/health/ready
+ *
+ * @returns {Promise<import('../interfaces').DashboardData>}
+ * @throws {import('../api/types').ApiError} On backend connection failure
  */
 export async function getDashboard() {
-  await delay(300, 600)
-  
-  // Support mock error simulation (e.g. if a flag is stored in session storage)
-  if (sessionStorage.getItem('mock_dashboard_error') === 'true') {
-    throw new Error('Failed to retrieve SOC dashboard telemetry.')
-  }
-  
-  return adaptDashboardData(dashboardData)
+  const raw = await getDashboardData()
+  // Pass through adaptDashboardData to preserve the normalized shape
+  // that all dashboard components depend on.
+  return adaptDashboardData(raw)
 }
 
 export default { getDashboard }
