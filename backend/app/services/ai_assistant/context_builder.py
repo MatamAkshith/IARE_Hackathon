@@ -101,10 +101,50 @@ class InvestigationContextBuilder:
         """
         logger.debug(f"Assembling system prompt for indicator: '{context.indicator}'")
 
+        # Extract structured metrics
+        risk_score = context.risk_assessment.overall_score if context.risk_assessment else 0.0
+        severity = _fmt(context.risk_assessment.severity.value if context.risk_assessment and hasattr(context.risk_assessment.severity, 'value') else (context.risk_assessment.severity if context.risk_assessment else 'SAFE')).upper()
+        
+        # Collect IOCs
+        iocs_list = [context.indicator]
+        obs = context.evidence.resolved_observations if context.evidence else {}
+        if obs.get("ip_address"):
+            iocs_list.append(obs["ip_address"])
+        iocs = ", ".join(iocs_list)
+
+        # Domain metadata
+        domain_metadata = (
+            f"Registrar: {_fmt(obs.get('registrar'))} | "
+            f"Age: {_fmt(obs.get('domain_age_days') or obs.get('age_days'))} days | "
+            f"Title: {_fmt(obs.get('page_title') or obs.get('title'))}"
+        )
+
+        # Campaign info
+        camp = context.campaign_details
+        if camp:
+            campaign_info = (
+                f"Campaign ID: {_fmt(camp.campaign_id)} | "
+                f"Name: {_fmt(camp.name)} | "
+                f"Severity: {_fmt(camp.severity.value if hasattr(camp.severity, 'value') else camp.severity).upper()} | "
+                f"Status: {_fmt(camp.status.value if hasattr(camp.status, 'value') else camp.status).upper()} | "
+                f"Total members: {len(camp.members)}"
+            )
+        else:
+            campaign_info = "No associated campaign (isolated threat outlier)."
+
         lines = [
             "You are ThreatLens AI, a specialized Tier-2 Security Co-pilot and Phishing/Brand Impersonation Investigator.",
             "Analyze the target indicator using the factual, structured investigation context provided below.",
             "Do not hallucinate features or make assumptions beyond the scope of this structured evidence.",
+            "",
+            f"=== TARGET INDICATOR under investigation: {context.indicator} ===",
+            "",
+            "=== STRUCTURED BACKEND CONTEXT ===",
+            f"Risk Score: {risk_score:.1f}/100",
+            f"Severity: {severity}",
+            f"IOCs: {iocs}",
+            f"Domain Metadata: {domain_metadata}",
+            f"Campaign Info: {campaign_info}",
             "",
             f"=== TARGET INDICATOR under investigation: {context.indicator} ===",
         ]
@@ -122,7 +162,7 @@ class InvestigationContextBuilder:
         if context.risk_assessment:
             ra = context.risk_assessment
             lines.append(f"Overall Risk Score: {ra.overall_score:.1f}/100")
-            lines.append(f"Risk Severity Tier: {_fmt(ra.severity.value if hasattr(ra.severity, 'value') else ra.severity).upper()}")
+            lines.append(f"Risk Severity Tier: {severity}")
             lines.append(f"Primary Verdict Rationale: {_fmt(ra.explanation)}")
             
             lines.append("\nFired Risk Rules & Factors:")
@@ -145,8 +185,6 @@ class InvestigationContextBuilder:
         # 3. Unified Evidence (Resolved Observations)
         lines.append("\n[UNIFIED EVIDENCE OBSERVATIONS]")
         if context.evidence and context.evidence.resolved_observations:
-            obs = context.evidence.resolved_observations
-
             # DNS & WHOIS
             lines.append("DNS & WHOIS Registrar Data:")
             lines.append(f"  - Registrar: {_fmt(obs.get('registrar'))}")
@@ -184,7 +222,6 @@ class InvestigationContextBuilder:
         # 4. Campaign Correlation
         lines.append("\n[CAMPAIGN CLUSTERING CORRELATION]")
         if context.campaign_details:
-            camp = context.campaign_details
             lines.append(f"Campaign ID: {_fmt(camp.campaign_id)}")
             lines.append(f"Campaign Alias Name: {_fmt(camp.name)}")
             lines.append(f"Operational Tracking Status: {_fmt(camp.status.value if hasattr(camp.status, 'value') else camp.status).upper()}")
@@ -213,11 +250,14 @@ class InvestigationContextBuilder:
         lines.extend([
             "",
             "=== AI RESPONDING INSTRUCTIONS ===",
-            "Your output must consist of clear, authoritative advice to the SOC analyst.",
-            "1. Synthesize the risk factors and explain clearly why this indicator is safe or malicious.",
-            "2. Map out any overlaps or campaigns that suggest an active brand threat.",
-            "3. Recommend specific containment or mitigation actions (e.g. block IP, report URL, revoke TLS, alert user).",
+            "You are a SOC Analyst reporting on deterministic backend metrics.",
+            f"You MUST base your summary strictly on the provided Risk Score ({risk_score:.1f}) and Severity ({severity}).",
+            "Do NOT state the risk is negligible if the Severity is HIGH or CRITICAL.",
+            f"Explicitly list the provided IOCs in your report: {iocs}.",
             "Maintain a highly technical, objective tone.",
+            "Synthesize the risk factors and explain clearly why this indicator is safe or malicious.",
+            "Map out any overlaps or campaigns that suggest an active brand threat.",
+            "Recommend specific containment or mitigation actions (e.g. block IP, report URL, revoke TLS, alert user).",
         ])
 
         return "\n".join(lines)

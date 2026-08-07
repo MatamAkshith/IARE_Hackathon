@@ -1202,4 +1202,40 @@ To present the ThreatLens platform to stakeholders or clients, walk through the 
 
 ---
 
+## 22. Telemetry Extractor Pipeline Error Handling & Lexical Brand Impersonation Rules (2026-08-07)
+
+### 22.1 Error Handling in Telemetry Extractor Pipeline
+* **Robust Exception Wrappers**: Modified all network socket, HTTP, SSL, and DNS lookups in `DomainIntelService`, `NetworkIntelService`, and `WebpageIntelService` to catch `(Exception, requests.RequestException, socket.error, ssl.SSLError)`.
+* **DNS Resolver Timeouts**: Enhanced `resolve_dns` to configure a custom `dns.resolver.Resolver` instance with a strict `timeout = 3.0` and `lifetime = 3.0` seconds, preventing hangs on unresponsive nameservers.
+* **WHOIS Socket Timeouts**: Configured a temporary default socket timeout of `5.0` seconds around `whois.whois(domain)` to prevent blocking the worker on slow WHOIS queries.
+* **Structured Fallback Telemetry**: If an extraction fails or times out, the service returns a structured fallback dictionary containing `{"status": "unreachable", "error": str(e)}` alongside empty defaults instead of raising an HTTP 500, enabling the scan record status to transition to `COMPLETED` successfully with partial data.
+
+### 22.2 Brand Impersonation & Lexical Risk Heuristics
+* **Nested Evidence Mapping**: Enhanced `DefaultMergeStrategy` to flatten nested extraction results from the individual intel services (`domain_intelligence`, `network_intelligence`, `webpage_intelligence`) into top-level flat observations in the resolved observations dictionary. This bridges the gap between nested extraction payloads and flat evaluator rule schemas.
+* **Lexical Risk Rules**: Implemented lexical brand impersonation checks in `DomainIntelEvaluator` looking for target enterprise brands (`microsoft`, `google`, `amazon`, `paypal`, `github`, `vardhaman`) combined with phishing-specific keywords (`login`, `verify`, `auth`, `secure`, `update`, `account`, `portal`) in the domain host part.
+* **Minimum Base Score Enforcers**: Configured `RiskScoringService` to enforce a minimum base Risk Score of `85.0` (HIGH severity) whenever a brand impersonation lexical match is flagged, regardless of whether DNS/WHOIS telemetry is present or empty.
+
+---
+
+## 23. Stage D.1 (Risk Score Consistency Engine) & Stage D.2 (AI Context Synchronization) (2026-08-07)
+
+### 23.1 Centralized Severity Mapping
+* **Centralized Thresholds**: Updated `SEVERITY_THRESHOLDS` in `config.py` to:
+  * `>= 91.0`: `critical`
+  * `>= 71.0`: `high`
+  * `>= 41.0`: `medium`
+  * `>= 21.0`: `low`
+  * `>= 0.0`: `safe`
+* **Score Bounds Mapping**: Updated the `RiskSeverity` docstring comments in `models.py` to explicitly match these mapping bounds (e.g. 0-20=SAFE, 21-40=LOW, 41-70=MEDIUM, 71-90=HIGH, 91-100=CRITICAL).
+
+### 23.2 Campaign Severity Aggregation
+* **Dynamic Aggregate Severity**: Implemented `_aggregate_severity` in `CampaignRepository`. When loading or saving campaigns, the service dynamically resolves the latest `RiskAssessmentRecord` for all correlated member indicators and sets the campaign's overall threat severity to the maximum severity among them (defaulting `safe` member investigations to `LOW` campaign severity).
+* **Identically Formatted Badges**: Mounted `/api/v1/investigations/{id}` endpoint matching the risk details layout. This guarantees that API responses for investigations and campaigns share identical severity badge strings ("safe", "low", "medium", "high", "critical"), eliminating contradictory dashboard displays.
+
+### 23.3 AI Context Synchronization
+* **Refactored Prompt Builder**: Refactored `generate_system_prompt` in `context_builder.py` to serialize and inject structured backend context parameters (`risk_score`, `severity`, `iocs`, `domain_metadata`, and `campaign_info`).
+* **Anti-Hallucination Guardrails**: Embedded strict Tier-2 security instructions inside the LLM prompt forcing the assistant to base summaries and responses strictly on the provided `Risk Score` and `Severity`, preventing Q&A responses from stating a threat is negligible if severity is HIGH or CRITICAL, and forcing it to explicitly list the provided IOCs.
+* **Forwarding Interface Compatibility**: Created `app/services/ai_service.py` and `app/services/campaign_engine.py` wrapper modules to ensure import forwarding compatibility.
+* **Progress**: Stage D.1 and Stage D.2 are **100% COMPLETE**.
+
 

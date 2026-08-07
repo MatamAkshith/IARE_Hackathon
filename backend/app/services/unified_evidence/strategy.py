@@ -26,10 +26,94 @@ class DefaultMergeStrategy(BaseMergeStrategy):
 
         resolved: Dict[str, Any] = {}
 
-        # Seed with all internal evidence
+        # 1. Seed with all raw keys to preserve nested categories for standard access
         for k, v in internal_data.items():
             resolved[k] = v
             logger.debug(f"Collected internal key '{k}'.")
+
+        # 2. Extract and flatten internal telemetry features to support down-pipeline evaluators
+        # Domain intelligence
+        dom_intel = internal_data.get("domain_intelligence") or {}
+        if dom_intel:
+            if dom_intel.get("url"):
+                resolved["url"] = dom_intel["url"]
+            parts = dom_intel.get("domain_parts") or {}
+            if parts.get("domain_name"):
+                resolved["domain_name"] = parts["domain_name"]
+            if parts.get("tld"):
+                resolved["tld"] = parts["tld"]
+            dns_rec = dom_intel.get("dns") or {}
+            if "A" in dns_rec:
+                resolved["a_records"] = dns_rec["A"]
+                if dns_rec["A"] and not resolved.get("ip_address"):
+                    resolved["ip_address"] = dns_rec["A"][0]
+            if "MX" in dns_rec:
+                resolved["mx_records"] = dns_rec["MX"]
+            if "NS" in dns_rec:
+                resolved["ns_records"] = dns_rec["NS"]
+            whois_rec = dom_intel.get("whois") or {}
+            if whois_rec:
+                if whois_rec.get("registrar"):
+                    resolved["whois_registrar"] = whois_rec["registrar"]
+                    resolved["registrar"] = whois_rec["registrar"]
+                if whois_rec.get("creation_date"):
+                    resolved["whois_creation_date"] = whois_rec["creation_date"]
+                    resolved["creation_date"] = whois_rec["creation_date"]
+                if whois_rec.get("expiration_date"):
+                    resolved["whois_expiration_date"] = whois_rec["expiration_date"]
+                    resolved["expiry_date"] = whois_rec["expiration_date"]
+                if whois_rec.get("domain_age_days") is not None:
+                    resolved["domain_age_days"] = whois_rec["domain_age_days"]
+                
+                # Check for private or redacted registrant / privacy
+                registrar = whois_rec.get("registrar") or ""
+                if any(x in str(registrar).lower() for x in ("private", "redact", "protect")):
+                    resolved["whois_privacy"] = True
+                    resolved["registrant_redacted"] = True
+
+        # Network intelligence
+        net_intel = internal_data.get("network_intelligence") or {}
+        if net_intel:
+            dns_res = net_intel.get("dns_resolution") or {}
+            if dns_res.get("ip_address"):
+                resolved["ip_address"] = dns_res["ip_address"]
+            if dns_res.get("reverse_dns"):
+                resolved["reverse_dns"] = dns_res["reverse_dns"]
+            ssl_c = net_intel.get("ssl_cert") or {}
+            if ssl_c:
+                resolved["ssl_valid"] = ssl_c.get("ssl_available", False)
+                resolved["ssl_available"] = ssl_c.get("ssl_available", False)
+                if ssl_c.get("issuer"):
+                    resolved["ssl_issuer"] = ssl_c["issuer"]
+                    resolved["tls_issuer"] = ssl_c["issuer"]
+                    resolved["cert_issuer"] = ssl_c["issuer"]
+                if ssl_c.get("common_name"):
+                    resolved["ssl_common_name"] = ssl_c["common_name"]
+                if ssl_c.get("days_until_expiry") is not None:
+                    resolved["ssl_days_remaining"] = ssl_c["days_until_expiry"]
+                    resolved["cert_days_remaining"] = ssl_c["days_until_expiry"]
+            http_c = net_intel.get("http_characteristics") or {}
+            if http_c:
+                if http_c.get("status_code") is not None:
+                    resolved["http_status_code"] = http_c["status_code"]
+                if http_c.get("final_url"):
+                    resolved["final_url"] = http_c["final_url"]
+
+        # Webpage intelligence
+        web_intel = internal_data.get("webpage_intelligence") or {}
+        if web_intel:
+            meta = web_intel.get("metadata") or {}
+            if meta.get("title"):
+                resolved["page_title"] = meta["title"]
+                resolved["title"] = meta["title"]
+            struct = web_intel.get("structure") or {}
+            if struct:
+                resolved["has_login_form"] = struct.get("is_login_form_detected", False)
+                resolved["is_login_form_detected"] = struct.get("is_login_form_detected", False)
+                resolved["password_inputs"] = 1 if struct.get("has_password_field", False) else 0
+                resolved["has_password_field"] = struct.get("has_password_field", False)
+                resolved["forms_count"] = struct.get("total_forms", 0)
+                resolved["total_forms"] = struct.get("total_forms", 0)
 
         # Overlay external evidence, enforcing external-wins conflict rule
         for k, v in external_data.items():

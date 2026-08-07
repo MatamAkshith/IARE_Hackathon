@@ -131,6 +131,23 @@ class DomainIntelEvaluator(BaseRiskEvaluator):
                     key="ip_address",
                 ))
 
+        # --- Target Brand Impersonation via Lexical Heuristics ---
+        if isinstance(indicator, str) and indicator:
+            ind_lower = indicator.lower()
+            host = ind_lower.split("://")[-1].split("/")[0]
+            brands = ["microsoft", "google", "amazon", "paypal", "github", "vardhaman"]
+            suspicious = ["login", "verify", "auth", "secure", "update", "account", "portal"]
+            matched_brand = any(brand in host for brand in brands)
+            matched_suspicious = any(kw in host for kw in suspicious)
+            if matched_brand and matched_suspicious:
+                factors.append(_factor(
+                    name="Target Brand Impersonation via Lexical Heuristics",
+                    score=25.0,
+                    description="Domain name contains a targeted enterprise brand combined with suspicious phishing keywords.",
+                    weight=25.0,
+                    key="indicator",
+                ))
+
         logger.debug(f"DomainIntelEvaluator: {len(factors)} factor(s) fired.")
         return factors
 

@@ -5,10 +5,15 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 import urllib.parse
 import requests
+import urllib3
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 
+# Disable insecure request warning logs from urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 logger = logging.getLogger("app.services.network_intel")
+
 
 class NetworkIntelService:
     @staticmethod
@@ -39,9 +44,9 @@ class NetworkIntelService:
             try:
                 ptr = socket.gethostbyaddr(ip)[0]
                 data["reverse_dns"] = ptr
-            except Exception as e:
+            except (Exception, requests.RequestException, socket.error, ssl.SSLError) as e:
                 logger.debug(f"Reverse DNS lookup failed for IP {ip}: {e}")
-        except Exception as e:
+        except (Exception, requests.RequestException, socket.error, ssl.SSLError) as e:
             logger.warning(f"IP resolution failed for host {hostname}: {e}")
         return data
 
@@ -114,8 +119,10 @@ class NetworkIntelService:
                             data["sans"] = ext.value.get_values_for_type(x509.DNSName)
                         except Exception:
                             pass
-        except Exception as e:
+        except (Exception, requests.RequestException, socket.error, ssl.SSLError) as e:
             logger.debug(f"SSL cert extraction failed for {hostname}: {e}")
+            data["status"] = "unreachable"
+            data["error"] = str(e)
 
         return data
 
@@ -133,33 +140,64 @@ class NetworkIntelService:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
-            response = requests.get(url, headers=headers, timeout=10, allow_redirects=True)
+            # verify=False is needed to query insecure or self-signed/expired targets safely
+            response = requests.get(url, headers=headers, timeout=10, allow_redirects=True, verify=False)
             data["status_code"] = response.status_code
             data["final_url"] = response.url
             data["redirect_chain"] = [req.url for req in response.history]
-        except Exception as e:
+        except (Exception, requests.RequestException, socket.error, ssl.SSLError) as e:
             logger.warning(f"HTTP GET check failed for {url}: {e}")
+            data["status"] = "unreachable"
+            data["error"] = str(e)
         return data
 
     def extract_network_intelligence(self, url: str) -> Dict[str, Any]:
         """
         Gathers IP/DNS details, SSL/TLS certificate parameters, and HTTP response headers.
         """
-        hostname = self.extract_host(url)
-        
-        # Ensure scheme is present for http requests
-        http_url = url
-        if not http_url.lower().startswith(("http://", "https://")):
-            http_url = f"https://{url}"
+        try:
+            hostname = self.extract_host(url)
+            
+            # Ensure scheme is present for http requests
+            http_url = url
+            if not http_url.lower().startswith(("http://", "https://")):
+                http_url = f"https://{url}"
 
-        ip_dns = self.get_ip_and_dns(hostname)
-        ssl_data = self.extract_ssl_cert(hostname)
-        http_data = self.extract_http_characteristics(http_url)
+            ip_dns = self.get_ip_and_dns(hostname)
+            ssl_data = self.extract_ssl_cert(hostname)
+            http_data = self.extract_http_characteristics(http_url)
 
-        return {
-            "url": http_url,
-            "host": hostname,
-            "dns_resolution": ip_dns,
-            "ssl_cert": ssl_data,
-            "http_characteristics": http_data
-        }
+            return {
+                "url": http_url,
+                "host": hostname,
+                "dns_resolution": ip_dns,
+                "ssl_cert": ssl_data,
+                "http_characteristics": http_data
+            }
+        except (Exception, requests.RequestException, socket.error, ssl.SSLError) as e:
+            logger.error(f"NetworkIntelService failed for {url}: {e}")
+            return {
+                "url": url,
+                "status": "unreachable",
+                "error": str(e),
+                "dns_resolution": {"ip_address": None, "reverse_dns": None},
+                "ssl_cert": {
+                    "ssl_available": False,
+                    "issuer": None,
+                    "subject": None,
+                    "common_name": None,
+                    "sans": [],
+                    "valid_from": None,
+                    "valid_until": None,
+                    "days_until_expiry": None,
+                    "signature_algorithm": None,
+                    "tls_version": None,
+                    "cipher_suite": None
+                },
+                "http_characteristics": {
+                    "status_code": None,
+                    "redirect_chain": [],
+                    "final_url": url
+                }
+            }
+

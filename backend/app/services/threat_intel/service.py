@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import asyncio
 
 from app.services.threat_intel.base import BaseThreatIntelProvider

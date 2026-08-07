@@ -12,8 +12,8 @@ class RiskSeverity(str, Enum):
         SAFE     :   0 – 20   (clean or insufficient evidence)
         LOW      :  21 – 40   (minor indicators, likely benign)
         MEDIUM   :  41 – 70   (notable signals, warrants monitoring)
-        HIGH     :  71 – 89   (strong indicators of malicious intent)
-        CRITICAL :  90 – 100  (confirmed or near-certain phishing/impersonation)
+        HIGH     :  71 – 90   (strong indicators of malicious intent)
+        CRITICAL :  91 – 100  (confirmed or near-certain phishing/impersonation)
     """
     SAFE = "safe"
     LOW = "low"

@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 import requests
 from bs4 import BeautifulSoup
 import tldextract
+import socket
+import ssl
 
 logger = logging.getLogger("app.services.webpage_intel")
 
@@ -40,13 +42,14 @@ class WebpageIntelService:
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
-            response = requests.get(url, headers=headers, timeout=10)
+            # verify=False is needed to bypass SSL failures on untrusted threat sites
+            response = requests.get(url, headers=headers, timeout=10, verify=False)
             if response.status_code == 200:
                 return response.text
             else:
                 logger.warning(f"Failed to fetch webpage content for {url}: Status code {response.status_code}")
                 return None
-        except Exception as e:
+        except (Exception, requests.RequestException, socket.error, ssl.SSLError) as e:
             logger.warning(f"Failed to fetch webpage content for {url}: {e}")
             return None
 
@@ -82,16 +85,19 @@ class WebpageIntelService:
             }
         }
 
-        html = self.fetch_html(url)
-        if not html:
-            return data
-
         try:
+            html = self.fetch_html(url)
+            if not html:
+                data["status"] = "unreachable"
+                data["error"] = "Failed to fetch HTML content (host offline or request timeout)"
+                return data
+
             soup = BeautifulSoup(html, "html.parser")
             
             # Base domain for internal/external comparison
             extracted_base = tldextract.extract(url)
             base_domain = f"{extracted_base.domain}.{extracted_base.suffix}"
+
 
             # 1. Metadata extraction
             if soup.title:
@@ -193,7 +199,9 @@ class WebpageIntelService:
                     else:
                         data["links"]["internal_links"] += 1
 
-        except Exception as e:
+        except (Exception, requests.RequestException, socket.error, ssl.SSLError) as e:
             logger.error(f"HTML parsing failed for {url}: {e}")
+            data["status"] = "unreachable"
+            data["error"] = str(e)
 
         return data

@@ -122,7 +122,19 @@ class RiskScoringService:
         logger.info(f"[calculate_risk] Starting risk evaluation for indicator: '{indicator}'")
 
         # ── Step 0: Validate evidence ─────────────────────────────────────── #
-        if not self._validator.validate_evidence(evidence):
+        # Check lexical brand impersonation first to allow empty evidence bypass
+        lexical_match = False
+        if indicator:
+            ind_lower = indicator.lower()
+            host = ind_lower.split("://")[-1].split("/")[0]
+            brands = ["microsoft", "google", "amazon", "paypal", "github", "vardhaman"]
+            suspicious = ["login", "verify", "auth", "secure", "update", "account", "portal"]
+            matched_brand = any(brand in host for brand in brands)
+            matched_suspicious = any(kw in host for kw in suspicious)
+            if matched_brand and matched_suspicious:
+                lexical_match = True
+
+        if not self._validator.validate_evidence(evidence) and not lexical_match:
             logger.info(
                 f"[calculate_risk] Empty/invalid evidence for '{indicator}' — returning SAFE/0.0."
             )
@@ -166,6 +178,21 @@ class RiskScoringService:
             elif isinstance(evaluator, ThreatIntelEvaluator):
                 ti_factors = results
 
+        # Ensure lexical match factor is present in domain_factors if matched
+        if lexical_match:
+            has_lexical_factor = any(
+                f.name == "Target Brand Impersonation via Lexical Heuristics"
+                for f in domain_factors
+            )
+            if not has_lexical_factor:
+                domain_factors.append(RiskFactor(
+                    name="Target Brand Impersonation via Lexical Heuristics",
+                    score_contribution=25.0,
+                    description="Domain name contains a targeted enterprise brand combined with suspicious phishing keywords.",
+                    weight=25.0,
+                    evidence_key="indicator"
+                ))
+
         # ── Step 2: Assemble breakdown ────────────────────────────────────── #
         breakdown = RiskBreakdown(
             domain_intelligence=domain_factors,
@@ -189,6 +216,9 @@ class RiskScoringService:
 
         # ── Step 5: Enforce strict boundaries ─────────────────────────────── #
         final_score = self._validator.enforce_boundaries(calibrated_score)
+        
+        if lexical_match:
+            final_score = max(final_score, 85.0)
 
         # ── Step 6: Map to severity ───────────────────────────────────────── #
         severity = _map_severity(final_score)

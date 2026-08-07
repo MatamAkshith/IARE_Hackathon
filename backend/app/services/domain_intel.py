@@ -4,6 +4,9 @@ from typing import Any, Dict, List, Optional
 import tldextract
 import whois
 import dns.resolver
+import socket
+import ssl
+import requests
 
 logger = logging.getLogger("app.services.domain_intel")
 
@@ -49,25 +52,30 @@ class DomainIntelService:
         """
         records = {"A": [], "MX": [], "NS": []}
         
+        # Configure resolver with short timeouts
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = 3.0
+        resolver.lifetime = 3.0
+
         # A records
         try:
-            answers = dns.resolver.resolve(domain, "A")
+            answers = resolver.resolve(domain, "A")
             records["A"] = [str(rdata) for rdata in answers]
-        except Exception as e:
+        except (Exception, requests.RequestException, socket.error, ssl.SSLError) as e:
             logger.debug(f"Failed to resolve A records for {domain}: {e}")
 
         # MX records
         try:
-            answers = dns.resolver.resolve(domain, "MX")
+            answers = resolver.resolve(domain, "MX")
             records["MX"] = [str(rdata.exchange).rstrip(".") for rdata in answers]
-        except Exception as e:
+        except (Exception, requests.RequestException, socket.error, ssl.SSLError) as e:
             logger.debug(f"Failed to resolve MX records for {domain}: {e}")
 
         # NS records
         try:
-            answers = dns.resolver.resolve(domain, "NS")
+            answers = resolver.resolve(domain, "NS")
             records["NS"] = [str(rdata.target).rstrip(".") for rdata in answers]
-        except Exception as e:
+        except (Exception, requests.RequestException, socket.error, ssl.SSLError) as e:
             logger.debug(f"Failed to resolve NS records for {domain}: {e}")
 
         return records
@@ -87,7 +95,12 @@ class DomainIntelService:
         }
 
         try:
-            w = whois.whois(domain)
+            orig_timeout = socket.getdefaulttimeout()
+            socket.setdefaulttimeout(5.0)
+            try:
+                w = whois.whois(domain)
+            finally:
+                socket.setdefaulttimeout(orig_timeout)
             whois_data["registrar"] = w.get("registrar")
 
             # Handle creation date (can be single datetime, list, or None)
@@ -130,7 +143,7 @@ class DomainIntelService:
             elif isinstance(n_servers, str):
                 whois_data["name_servers"] = [n_servers.lower()]
 
-        except Exception as e:
+        except (Exception, requests.RequestException, socket.error, ssl.SSLError) as e:
             logger.warning(f"WHOIS lookup failed for {domain}: {e}")
 
         return whois_data
@@ -140,16 +153,33 @@ class DomainIntelService:
         Accepts a raw URL, normalizes it, extracts domain parts, resolves DNS,
         and retrieves WHOIS info.
         """
-        normalized_url = self.normalize_url(url)
-        domain_parts = self.extract_domain_info(normalized_url)
-        target_domain = domain_parts["registered_domain"] or domain_parts["full_domain"]
+        try:
+            normalized_url = self.normalize_url(url)
+            domain_parts = self.extract_domain_info(normalized_url)
+            target_domain = domain_parts["registered_domain"] or domain_parts["full_domain"]
 
-        dns_records = self.resolve_dns(target_domain)
-        whois_records = self.query_whois(target_domain)
+            dns_records = self.resolve_dns(target_domain)
+            whois_records = self.query_whois(target_domain)
 
-        return {
-            "url": normalized_url,
-            "domain_parts": domain_parts,
-            "dns": dns_records,
-            "whois": whois_records
-        }
+            return {
+                "url": normalized_url,
+                "domain_parts": domain_parts,
+                "dns": dns_records,
+                "whois": whois_records
+            }
+        except (Exception, requests.RequestException, socket.error, ssl.SSLError) as e:
+            logger.warning(f"extract_intelligence failed for {url}: {e}")
+            return {
+                "url": url,
+                "status": "unreachable",
+                "error": str(e),
+                "dns": {"A": [], "MX": [], "NS": []},
+                "whois": {
+                    "registrar": None,
+                    "creation_date": None,
+                    "expiration_date": None,
+                    "name_servers": [],
+                    "domain_age_days": None
+                }
+            }
+

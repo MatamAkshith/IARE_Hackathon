@@ -76,11 +76,49 @@ class CampaignRepository:
             updated_at=record.updated_at
         )
 
+    def _aggregate_severity(self, campaign: Campaign, db: Session) -> None:
+        """
+        Dynamically aggregates and overrides the campaign threat severity to match
+        the highest severity of its correlated member investigations.
+        """
+        if not campaign.members:
+            return
+
+        from app.db.models.risk_assessment import RiskAssessmentRecord
+
+        member_indicators = [m.indicator for m in campaign.members]
+        severity_order = {
+            "safe": 0,
+            "low": 1,
+            "medium": 2,
+            "high": 3,
+            "critical": 4
+        }
+        max_val = 0
+        max_sev_str = "low"
+
+        for indicator in member_indicators:
+            latest_risk = db.query(RiskAssessmentRecord).filter(
+                RiskAssessmentRecord.indicator == indicator
+            ).order_by(RiskAssessmentRecord.timestamp.desc()).first()
+            if latest_risk:
+                sev_str = latest_risk.severity.lower()
+                val = severity_order.get(sev_str, 0)
+                if val > max_val:
+                    max_val = val
+                    max_sev_str = latest_risk.severity
+
+        if max_sev_str == "safe":
+            campaign.severity = CampaignSeverity.LOW
+        else:
+            campaign.severity = CampaignSeverity(max_sev_str.lower())
+
     def save_campaign(self, campaign: Campaign, db: Session) -> CampaignRecord:
         """
         Persists a Pydantic Campaign model to the database.
         Handles both creating new campaigns and updating existing ones.
         """
+        self._aggregate_severity(campaign, db)
         logger.info(f"[save_campaign] Saving campaign '{campaign.campaign_id}' (members: {len(campaign.members)})")
 
         record = db.query(CampaignRecord).filter(
@@ -159,7 +197,10 @@ class CampaignRepository:
         records = db.query(CampaignRecord).filter(
             CampaignRecord.status == CampaignStatus.ACTIVE.value
         ).all()
-        return [self.record_to_domain(r) for r in records]
+        domain_campaigns = [self.record_to_domain(r) for r in records]
+        for c in domain_campaigns:
+            self._aggregate_severity(c, db)
+        return domain_campaigns
 
     def get_campaign_by_id(self, campaign_id: str, db: Session) -> Optional[Campaign]:
         """Retrieves a campaign by its unique campaign_id."""
@@ -168,11 +209,16 @@ class CampaignRepository:
         ).first()
         if not record:
             return None
-        return self.record_to_domain(record)
+        campaign = self.record_to_domain(record)
+        self._aggregate_severity(campaign, db)
+        return campaign
 
     def list_campaigns(self, db: Session, skip: int = 0, limit: int = 50) -> List[Campaign]:
         """Lists campaigns with pagination, ordered by latest update first."""
         records = db.query(CampaignRecord).order_by(
             desc(CampaignRecord.updated_at)
         ).offset(skip).limit(limit).all()
-        return [self.record_to_domain(r) for r in records]
+        domain_campaigns = [self.record_to_domain(r) for r in records]
+        for c in domain_campaigns:
+            self._aggregate_severity(c, db)
+        return domain_campaigns
