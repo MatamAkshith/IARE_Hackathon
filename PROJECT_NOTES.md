@@ -41,7 +41,7 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Unified Evidence Engine | Merge, normalization, confidence scoring, DB persistence, REST API, audit trail, traceability & final refactor — Milestone 5 100% Complete (Stage 5.6). |
 | **Completed** | Risk Scoring Engine | Explainable rules, recommendations, validation & calibration, DB persistence, REST API & final refactor — Milestone 6 100% Complete (Stage 6.6). |
 | **Completed** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints — Milestone 7 100% Complete (Stage 7.6). |
-| **Completed** | AI Investigation Assistant | Architectural foundation, Context Builder, system prompt generator & service stub — Milestone 8 (Stages 8.1 & 8.2) 100% COMPLETE. |
+| **Completed** | AI Investigation Assistant | Foundation models, Context Builder, AI Reasoning engine, reporting models, and Report Generator Service — Milestone 8 (Stages 8.1 - 8.4) 100% COMPLETE. |
 | **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
 | **Remaining** | Dashboard UI | Analyst control panel and queue dashboard. |
@@ -567,13 +567,16 @@ backend/app/
 │   ├── risk_score.py
 │   └── scan.py
 ├── services/               # Modular business logic services
-│   ├── ai_assistant/       # AI Investigation Assistant (Stage 8.1/8.2)
+│   ├── ai_assistant/       # AI Investigation Assistant (Stage 8.1 - 8.4)
 │   │   ├── __init__.py     # Package exports
 │   │   ├── base.py         # BaseAIAssistantService interface
 │   │   ├── context_builder.py # InvestigationContextBuilder
 │   │   ├── models.py       # Assistant ResponseType and ConversationStatus enums
+│   │   ├── reasoning.py    # Stage 8.3 InvestigationReasoningService
+│   │   ├── report_generator.py # Stage 8.4 ReportGeneratorService
+│   │   ├── reporting_models.py # Stage 8.4 Report validation Pydantic models
 │   │   ├── schemas.py      # SuggestedAction, AssistantMessage, InvestigationContext
-│   │   └── service.py      # AIAssistantService class stub
+│   │   └── service.py      # AIAssistantService class orchestrator
 │   ├── campaign_engine/    # Campaign Correlation Engine (Stage 7.5/7.6)
 │   │   ├── __init__.py     # Exports models, schemas, strategies, service
 │   │   ├── base.py         # BaseCorrelationStrategy interface class
@@ -625,6 +628,19 @@ backend/app/
     - **Graceful Error Recovery**: Prevents pipeline crashes on missing datasets (such as WHOIS DNS logs or risk calculations) by serializing them to `"Not Available"` string fallbacks rather than throwing errors.
     - **Dynamic Prompt Assembly Strategy**: The `generate_system_prompt(context)` method translates the structured `InvestigationContext` into a comprehensive system prompt injected with target indicators metadata, risk scoring factors, and coordinated campaign shared infrastructure overlaps.
     - **Service Implementation Stub** (`service.py`): Coded the concrete `AIAssistantService(BaseAIAssistantService)` class. Instantiates the `InvestigationContextBuilder` and returns structured stub answers containing the built prompt length details, ready for actual LLM API integrations.
+
+40. **AI Reasoning Engine (Stage 8.3)**:
+    - **Reasoning Service** (`reasoning.py`): Implemented the `InvestigationReasoningService` providing deterministic local context analysis.
+    - **Deduplicated Suggested Actions**: Evaluates risk assessments, domain registration age limits (e.g. <=30 days), login form indicators, and campaign footprints to recommend specific mitigation blocks and registry alerts.
+    - **Intent-Based Question Routing**: The `answer_question(query, context)` method routes query strings via keyword patterns to resolve explanations for: (1) **Risk & Severity Rationale** (score metrics and fired rule list), (2) **Coordinated Campaigns** (linked members and infrastructure overlaps), (3) **SOC Mitigation Guidelines** (priority action steps), and (4) **General Fallback Summaries**.
+    - **Confidence Estimations**: Dynamically computes confidence levels (High/Medium/Low) matching data availability and encloses them directly inside the analyst conversational response blocks.
+
+41. **Report Generator Architecture (Stage 8.4)**:
+    - **Reporting Models** (`reporting_models.py`): Defined Pydantic models for report schemas: `EvidenceSummary`, `RecommendationSummary`, `ExecutiveSummary`, and `AnalystReport`.
+    - **Report Generator Service** (`report_generator.py`): Implemented the `ReportGeneratorService`.
+        - `generate_analyst_report(context)`: Renders full technical reports serializing age metadata, cert validity details, forms metrics, VT verdicts, related campaigns members, action recommendations, and audit timeline event logs.
+        - `generate_executive_summary(context)`: Renders corporate-level overviews mapping severity ratings, threat classifications, corporate business impacts, and high-level containment plans.
+        - **Graceful Null Traversal**: Leverages defensive coding patterns to fallback to empty values or descriptive strings (e.g. "Isolated outlier") if campaigns, risk details, or timelines are absent.
 
 ---
 
@@ -691,6 +707,8 @@ backend/app/
 - **2026-08-07 (Sprint 1 - Task 39 - 06:35):** **Task 39 (Campaign REST APIs & E2E Validation - Stage 7.6 | Milestone 7 COMPLETE):** Created REST API endpoints in `endpoints/campaigns.py` mounting POST `/correlate` and GET listing, detail, timeline, and graph routes. Registered router in v1 router. E2E integration test script verified full correlate CREATE/JOIN flow and retrieve list/detail/graph/timeline responses successfully via TestClient. Milestone 7 fully COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 40 - 06:45):** **Task 40 (AI Assistant Foundation & Models - Stage 8.1):** Set up `ai_assistant/` directory. Defined ResponseType/ConversationStatus enums in `models.py` and SuggestedAction/AssistantMessage/InvestigationContext/AssistantResponse validation schemas in `schemas.py`. Created abstract interface `BaseAIAssistantService` in `base.py`. Stage 8.1 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 41 - 07:00):** **Task 41 (Context Builder & Service Stub - Stage 8.2):** Implemented `InvestigationContextBuilder` in `context_builder.py` aggregating and serializing evidence/risk/campaign details into a structured system prompt, defaulting missing fields to "Not Available" gracefully. Coded concrete `AIAssistantService` stub in `service.py` verifying context and prompt lengths. Package exports declared in `__init__.py`. Tested verification script cleanly. Stage 8.2 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 42 - 07:15):** **Task 42 (AI Reasoning Engine - Stage 8.3):** Implemented `InvestigationReasoningService` providing keyword routing for SOC questions ("Why is this URL risky?", "What infrastructure is shared?", "What should an analyst investigate next?") with confidence estimations, and SuggestedAction mapping logic. Stage 8.3 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 43 - 07:30):** **Task 43 (Report Generator - Stage 8.4):** Created `reporting_models.py` defining Pydantic report schemas and `ReportGeneratorService` generating ExecutiveSummary and AnalystReport payloads with defensive code for handling missing context properties gracefully. Stage 8.4 100% COMPLETE.
 
 
 
