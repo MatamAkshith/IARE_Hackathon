@@ -1,33 +1,21 @@
 import React from 'react'
 
 /**
- * KPI Summary Card component with hover glows and responsive styling.
+ * KPI Summary Card component with standardized hover glows and responsive styling.
  * 
  * @param {Object} props
  * @param {string} props.title The metric label
  * @param {string|number} props.value The current total metric value
  * @param {Object} [props.trend] Optional trend data { value, positive }
  * @param {React.ReactNode} props.icon SVG markup icon
- * @param {string} [props.type] Color coding style (neutral, warning, danger, success, info)
  * @param {Function} [props.onClick] Optional click handler for navigation
  */
-export default function KPICard({ title, value, trend, icon, type = 'neutral', onClick }) {
-  // Default state: subtle muted border and bg tint. Hover: full-brightness border + glow.
-  // All cards follow the same pattern: default is dim, hover is bright.
-  const typeClasses = {
-    neutral: 'border-slate-800/50 hover:border-slate-600 hover:shadow-slate-700/20 text-slate-300',
-    success: 'border-emerald-950 bg-emerald-950/10 text-emerald-400 hover:border-emerald-800/80 hover:shadow-emerald-500/10',
-    info:    'border-brand-950 bg-brand-950/10 text-brand-400 hover:border-brand-800/80 hover:shadow-brand-500/10',
-    warning: 'border-amber-950 bg-amber-950/10 text-amber-400 hover:border-amber-800/80 hover:shadow-amber-500/10',
-    danger:  'border-rose-950 bg-rose-950/10 text-rose-400 hover:border-rose-800/80 hover:shadow-rose-500/10',
-  }
-
-  const borderClass = typeClasses[type] || typeClasses.neutral
+export default function KPICard({ title, value, trend, icon, onClick }) {
   const interactiveClass = onClick ? 'cursor-pointer select-none' : ''
 
   return (
     <div
-      className={`p-5 rounded-xl border bg-[#090d16] flex items-center justify-between transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${borderClass} ${interactiveClass} group`}
+      className={`p-5 rounded-xl border border-slate-800/60 bg-[#090d16] flex items-center justify-between transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-500 hover:shadow-[0_0_15px_rgba(14,165,233,0.15)] ${interactiveClass} group`}
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -50,7 +38,7 @@ export default function KPICard({ title, value, trend, icon, type = 'neutral', o
         )}
       </div>
 
-      <div className="p-3 rounded-lg bg-[#0e1422] border border-[#1a2336] text-slate-400 group-hover:text-brand-400 group-hover:border-brand-500/35 transition-all duration-300">
+      <div className="p-3 rounded-lg bg-[#0e1422] border border-[#1a2336] text-slate-400 group-hover:text-brand-400 group-hover:border-brand-500/35 transition-all duration-200">
         {icon}
       </div>
     </div>

@@ -1735,3 +1735,22 @@ This section provides a full cross-referenced audit of every commit in the repos
 * Exposed the computed count under key `recent_activity_count` in the `GET /api/v1/dashboard/stats` JSON payload response.
 * Bound the metric value to the frontend KPI card layout, replacing static fallback placeholders.
 * Staged, committed, and successfully pushed all revisions to branch `main`.
+
+---
+
+## 39. Standardization & Alignment of SOC Dashboard Metric Cards (2026-08-07)
+
+### 39.1 Unified Styling & Inverted Hover Fix
+* Refactored `KPICard.jsx` (`frontend/src/components/dashboard/KPICard.jsx`) to enforce a single, uniform layout pattern across all 6 metric cards.
+* Removed color-specific conditional styles (`success`, `info`, `warning`, `danger` class mappings) to prevent inconsistent border colors and the static white border on the Avg Risk Score card.
+* Applied a standardized base styling layout: solid `#090d16` background and subtle, uniform `border-slate-800/60` borders for all cards.
+
+### 39.2 Consistent Hover Glow & Animation
+* Programmed the exact same transition and hover styles for all 6 cards: `transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-500 hover:shadow-[0_0_15px_rgba(14,165,233,0.15)]`.
+* Guaranteed that hover borders and shadow glows are only triggered when mouse is hovering over the card.
+
+### 39.3 Layout Alignment & Trend Removal
+* Removed the trend/active subtitle from the **Threat Feeds** card in `dashboardApiService.js` (`frontend/src/api/dashboardApiService.js`) by setting `trend: undefined`.
+* This ensures that all 6 metric cards contain exactly two rows of text (the label and value), maintaining perfect vertical and horizontal grid alignment across the top layout.
+* Verified that the project compiles cleanly under Vite.
+* Changes staged, committed, and pushed to branch `main`.

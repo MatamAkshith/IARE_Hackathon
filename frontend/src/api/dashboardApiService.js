@@ -156,7 +156,7 @@ export async function getDashboardData() {
       id: 'threat-sources',
       title: 'Threat Feeds',
       value: '5/5',
-      trend: { value: 'Active', positive: true },
+      trend: undefined,
       type: 'success',
       route: '/reports'
     },
