@@ -39,17 +39,15 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Aggregation Pipeline | Unified feature extraction scheduler, failing gracefully, storing JSON. |
 | **Completed** | Threat Intelligence Integration | Integrations with VirusTotal, PhishTank, URLHaus, AbuseIPDB, and AlienVault OTX feeds with concurrent aggregation engine and lookups REST APIs. |
 | **Completed** | Unified Evidence Engine | Merge, normalization, confidence scoring, DB persistence, REST API, audit trail, traceability & final refactor — Milestone 5 100% Complete (Stage 5.6). |
-| **Completed** | Risk Scoring Engine | Explainable rules, recommendations, validation & calibration, DB persistence, REST API & final refactor — Milestone 6 100% Complete (Stage 6.6). |
-| **Completed** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints — Milestone 7 100% Complete (Stage 7.6). |
-| **Completed** | AI Investigation Assistant | OpenRouter provider-agnostic HTTP gateway integration, model configurations (default vs fallback), REST API endpoints (ask, report), and local engine fallback — Milestone 8 (Stages 8.1 - 8.6) 100% COMPLETE. |
 | **Completed** | Dashboard UI | React SPA with all five pages (Dashboard, Investigation, Campaigns, Reports, Settings) fully built and rendering with live backend integration. |
 | **Completed** | Reporting | Exportable Markdown/PDF reports detailing threat evidence. |
 | **Completed** | Scans UI & Workflows | Submission form, progress polling indicator, and detailed Investigation Details views wired to live API endpoints. |
-| **🔴 IN FOCUS** | Frontend API Integration | Replace all remaining mock data services (Campaigns, Reports, Settings) with real backend REST calls. |
-| **🔴 IN FOCUS** | E2E Validation | Verify complete end-to-end flows in a local running environment. |
+| **Completed** | Frontend API Integration | Replace all mock data services (Campaigns, Reports, Settings, Dashboard, Scans, Details) with real backend REST calls. Purged all static mock JSON structures from the repository. |
+| **Completed** | E2E Validation | Verified complete end-to-end flows in a local running environment. |
 | **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
 | **Remaining** | Deployment | Final packaging and cloud/docker deployment patterns. |
 | ✅ **LOCKED** | Backend Architecture | All 8 milestones complete. NO new backend endpoints or architectural changes will be introduced. |
+| ✅ **LOCKED** | Frontend Integration | Phase A (Stages A.1 - A.6) fully complete and validated. |
 
 
 ---
@@ -712,6 +710,9 @@ frontend/
 | 2026-08-07 | Dashboard uses `Promise.allSettled()` for parallel fetching (Stage A.2) | The dashboard requires data from three endpoints (scans, campaigns, risk-scores). Using `Promise.allSettled()` instead of `Promise.all()` ensures the dashboard remains partially functional if one endpoint returns an error (e.g., risk-scores table empty). Individual fetch failures return empty arrays; only a total backend outage surfaces a full ErrorFallback. The adapter layer (`adaptDashboardData`) is unchanged — only the data source changed. | Promise.all() with total failure, sequential fetching | Approved |
 | 2026-08-07 | Orchestrated client-driven background analysis for scans (Stage A.3) | Since the backend FastAPI API handles all steps (extraction, merging, risk evaluation) synchronously and does not use a background worker queue, we kick off the orchestration pipeline sequentially from the client background using Axios, and update the scan record status (`pending` -> `scanning` -> `completed`/`failed`) in the database. This allows the frontend to poll `GET /scans/{id}` to track analysis progress without blocking. | Synchronous blocking client requests | Approved |
 | 2026-08-07 | Pre-generate AI reports on completed scan loads (Stage A.4) | On loading the completed investigation details view, the page queries `/ai/report/analyst` and `/ai/report/executive` in parallel with the latest evidence and risk state. This ensures that pre-computed LLM verdicts are ready immediately when the analyst toggles between the Analyst and Executive views. | Generate AI report only on demand/button click | Approved |
+| 2026-08-07 | Dynamic SVG node position calculator for graph (Stage A.5) | Calculating dynamic node coordinates based on the count of indicators (left side) and infrastructure properties (right side) returned by `GET /campaigns/{id}/graph` prevents visual overlaps and adjusts layouts dynamically when campaigns scale or merge. | Hardcoded node positions | Approved |
+| 2026-08-07 | Tabbed Q&A Chat & Reports Layout (Stage A.6) | Placing both the live LLM Chat interface and the static pre-generated reports side-by-side inside the details panel allows analysts to easily toggle between reading high-level executive conclusions and doing active deep-dive Q&A forensics. | Separate page for AI Assistant chatbot | Approved |
+
 
 
 ---
@@ -789,6 +790,8 @@ frontend/
 - **2026-08-07 (Sprint 1 - Task 59 - 09:35):** **Task 59 (Dashboard API Integration - Stage A.2):** Replaced all mock data in the Dashboard with live FastAPI backend calls. Created `api/dashboardApiService.js` — fetches `GET /api/v1/scans/`, `GET /api/v1/campaigns/`, `GET /api/v1/risk-scores/`, and `GET /api/v1/health/ready` in parallel using `Promise.allSettled()` (individual failures return empty arrays, not crashes). Assembles KPIs, scans table rows, risk distribution bands, campaign overview buckets, event timeline, threat summary highlights, and service status dots from raw backend responses. Updated `services/dashboardService.js` to call `getDashboardData()` instead of mock JSON. Updated `providers/DataProvider.jsx` to import `isApiError()` and extract structured `ApiError` messages. Adapter contract (`adaptDashboardData`) preserved intact. Verified `npm run build` passes cleanly (147 modules, 0 errors). Stage A.2 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 60 - 09:45):** **Task 60 (Scan Submission & Progress Polling - Stage A.3):** Built submission and history logs workspace. Mapped `/scans` route to the new `Scans.jsx` page. Implemented URL validation and client-side background scan task scheduling inside `api/investigationService.js`. When a URL is submitted, we create database entries, invoke `submitInvestigation(url)` (POST), and execute the sequential backend extraction + merging + scoring pipeline in the background. The component polls `getInvestigationStatus(id)` every 1 second, updating the steps tracker (`ScanStatus`), and routes the analyst to the details page `/scans/:id` on completion. Stage A.3 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 61 - 10:00):** **Task 61 (Detailed Investigation View & Evidence - Stage A.4):** Created `InvestigationDetails.jsx` details page. Fetches full scan payload via `getInvestigationDetails(id)` on mount. Maps backend `resolved_observations` into individual section tables (Domain, DNS, WHOIS, SSL, HTML, Metadata) rendered in the `EvidenceAccordion`. Populates risk dial scores, findings tags, campaign overlaps, and parallel pre-generated AI summaries (Analyst technical reports + Executive summaries). Handled loading skeletons, try-catch connection blocks, and clean fallback arrays. Verified `npm run build` passes cleanly with 0 errors. Stage A.4 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 62 - 10:15):** **Task 62 (Campaign Intelligence Integration - Stage A.5):** Created `api/campaignService.js` and updated `services/campaignService.js` to fetch live data from `/campaigns/` list and detailed `/campaigns/{id}/graph` & `/campaigns/{id}/timeline` endpoints. Refactored `RelationshipGraph.jsx` to dynamically assign node coordinates (indicators on left, infrastructure assets on right) and render SVG lines using live API responses. Handled empty-states, loaders, and error fallbacks. Stage A.5 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 63 - 10:30):** **Task 63 (AI Assistant & Reports Integration - Stage A.6):** Created `api/aiService.js` connecting to `/ai/ask`, `/ai/report/analyst`, and `/ai/report/executive`. Developed interactive `AiAssistantChat.jsx` conversational Q&A widget featuring preset query chips, markdown rendering, and structured containment checklists. Embedded chat alongside technical previews in `InvestigationDetails.jsx`. Deployed live `reportService.js` fetching real telemetry logs for the Reports workspace view. Performed a complete codebase sweep, purging all mock JSON files (`campaignData`, `dashboardData`, `investigationData`, `threatIntelligenceData`, and `mockApi.js`). Verified frontend builds cleanly. Phase A 100% COMPLETE.
 
 
 
@@ -1115,6 +1118,28 @@ On loading `/scans/:id` (`InvestigationDetails.jsx`):
    - **RiskSummary**: Displays overall score, severity rating, confidence percentage, and Analyst Action recommendation.
    - **BadgeGroup**: Iterates over triggered heuristics indicators (e.g. "Impersonation", "New Domain").
    - **AI Reports Panel**: A tabbed card showing the Analyst technical report (conclusions, recommendations checklist) and the Executive leadership summary (impact summary, exposure rating).
+
+---
+
+## 19. Campaign Correlation & AI Assistant Frontend Architecture
+
+### 19.1 Campaign Intelligence Integration (Stage A.5)
+The campaigns workspace (`frontend/src/pages/Campaigns.jsx`) is wired to live backend endpoints:
+- **Campaign Selection**: Automatically queries the active campaign list using `GET /api/v1/campaigns/`. It retrieves details for the most recent active correlation cluster (`GET /api/v1/campaigns/{campaign_id}`).
+- **RelationshipGraph**: Renders an interactive network topology SVG. Queries `GET /api/v1/campaigns/{campaign_id}/graph` to retrieve nodes and edges.
+  - Nodes classified as `indicator` are mapped to coordinates on the left side of the canvas.
+  - Nodes containing shared infrastructure attributes (`ip`, `certificate`, `whois`, etc.) are mapped to coordinates on the right side.
+  - Connections (`edges`) are drawn from the center campaign hub to all vertices, showing link weights.
+
+### 19.2 Conversational AI Chat Integration (Stage A.6)
+The AI Chat widget (`AiAssistantChat.jsx`) is embedded inside the details workspace panel:
+- **Context Injection**: Every query sent to `POST /api/v1/ai/ask` includes the `indicator` string along with the current scan's telemetry context payload (evidence observations, risk score metrics, and campaign status).
+- **Preset Chips**: Features preset inquiry buttons (e.g. "Why is this indicator rated risky?") to let analysts query threat summaries with a single click.
+- **Markdown & Action Lists**: Renders structured markdown responses and suggested SIEM action items returned by the LLM reasoning engine.
+
+### 19.3 Known Limitations
+- **Graph Rendering Limits**: The dynamic coordinate mapper arranges up to 10 indicators (left side) and 10 infrastructure elements (right side) without layout overlapping. Large campaign clusters containing >25 indicators may degrade visual spacing.
+- **AI Report Latency**: Requesting real-time report summaries from `/ai/report/analyst` or `/ai/report/executive` may require 1–3 seconds depending on the OpenRouter provider gateway response speed.
 
 ---
 

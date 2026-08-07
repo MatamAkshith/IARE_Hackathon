@@ -35,9 +35,10 @@ export default function Campaigns() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Left Side: Topology Visualizer, Connected Domains, and Evidence log */}
         <div className="lg:col-span-2 space-y-6">
-          <RelationshipGraph />
+          <RelationshipGraph campaignId={summary.campaignId} />
           
           <ConnectedDomainsTable domains={connectedDomains} />
+
           
           <EvidenceTable evidence={sharedEvidence} />
         </div>

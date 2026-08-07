@@ -1,20 +1,36 @@
-import { delay } from './mockApi'
-import { campaignData } from '../data/campaignData'
-import { adaptCampaignData } from '../adapters/campaignAdapter'
+/**
+ * Campaign Service — ThreatLens Frontend
+ *
+ * Stage A.5 — Campaigns Workspace API Integration.
+ *
+ * Queries CozyBear campaign details, infrastructure footprints, and timeline milestones.
+ * Replaces mock services with live backend endpoints queries.
+ *
+ * @module services/campaignService
+ */
+
+import { getCampaignsList, getCampaignDetails } from '../api/campaignService.js'
 
 /**
- * Service to retrieve CozyBear campaign correlation groups.
- * 
- * @returns {Promise<CampaignData>}
+ * Retrieves the campaigns list or a single campaign's details.
+ * Replaces the mock database read with a live API call to retrieve campaign
+ * records and adapt them to the expected frontend interfaces.
+ *
+ * If no specific campaign ID is active, falls back to the first campaign found
+ * in the active list, or returns null if no campaigns exist yet.
+ *
+ * @returns {Promise<import('../interfaces').CampaignData|null>}
  */
 export async function getCampaigns() {
-  await delay(400, 700)
+  const list = await getCampaignsList(0, 10)
   
-  if (sessionStorage.getItem('mock_campaign_error') === 'true') {
-    throw new Error('Failed to retrieve attributed campaign clusters.')
+  if (!list || list.length === 0) {
+    return null
   }
-  
-  return adaptCampaignData(campaignData)
+
+  // Fetch the first campaign from the active list
+  const activeCampaign = list[0]
+  return getCampaignDetails(activeCampaign.campaign_id)
 }
 
 export default { getCampaigns }

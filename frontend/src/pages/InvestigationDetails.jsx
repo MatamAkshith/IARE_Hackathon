@@ -7,6 +7,7 @@ import RiskSummary from '../components/investigation/RiskSummary'
 import BadgeGroup from '../components/investigation/BadgeGroup'
 import ExplanationPanel from '../components/investigation/ExplanationPanel'
 import EvidenceAccordion from '../components/investigation/EvidenceAccordion'
+import AiAssistantChat from '../components/ai/AiAssistantChat'
 
 /**
  * Investigation Details View — ThreatLens Frontend
@@ -22,6 +23,7 @@ import EvidenceAccordion from '../components/investigation/EvidenceAccordion'
  *  - Suspicious indicator ExplanationPanel lists
  *  - Connected Campaign attribution panels
  *  - pre-generated AI Assistant reports (Analyst and Executive tabs)
+ *  - Conversational AI Assistant Chatbot (Stage A.6)
  */
 export default function InvestigationDetails() {
   const { id } = useParams()
@@ -31,6 +33,7 @@ export default function InvestigationDetails() {
   const [details, setDetails] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [activeRightTab, setActiveRightTab] = useState('chat') // chat, report
   const [activeReportTab, setActiveReportTab] = useState('analyst') // analyst, executive
 
   const fetchDetails = async () => {
@@ -169,137 +172,163 @@ export default function InvestigationDetails() {
           </div>
         </div>
 
-        {/* Right Column: AI Investigation Assistant pre-generated reports */}
+        {/* Right Column: AI Assistant or Reports Tabbed Pane */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="border border-[#1a2336] bg-[#090d16] rounded-xl overflow-hidden shadow-md flex flex-col min-h-[400px]">
-            {/* Header Tabs */}
-            <div className="px-5 py-4 border-b border-[#1a2336] bg-[#0c121e]/80 flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <h3 className="font-semibold text-slate-200 text-sm tracking-wide">ThreatLens AI Assistant</h3>
-              </div>
-              
-              <div className="flex bg-[#0e1422] p-0.5 rounded border border-[#172033] text-[9px] font-bold uppercase tracking-wide">
-                <button
-                  type="button"
-                  onClick={() => setActiveReportTab('analyst')}
-                  className={`px-2 py-1 rounded transition-colors ${
-                    activeReportTab === 'analyst' ? 'bg-brand-900/50 text-brand-300' : 'text-slate-500 hover:text-slate-350'
-                  }`}
-                >
-                  Analyst
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveReportTab('executive')}
-                  className={`px-2 py-1 rounded transition-colors ${
-                    activeReportTab === 'executive' ? 'bg-brand-900/50 text-brand-300' : 'text-slate-500 hover:text-slate-350'
-                  }`}
-                >
-                  Executive
-                </button>
-              </div>
-            </div>
+          <div className="flex bg-[#0e1422] p-1 rounded border border-[#1a2336] text-[10px] font-bold uppercase tracking-wider">
+            <button
+              type="button"
+              onClick={() => setActiveRightTab('chat')}
+              className={`flex-1 py-2 rounded-lg text-center transition-all ${
+                activeRightTab === 'chat' ? 'bg-brand-900/45 text-brand-300 shadow-md' : 'text-slate-500 hover:text-slate-350'
+              }`}
+            >
+              Assistant Chat
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveRightTab('report')}
+              className={`flex-1 py-2 rounded-lg text-center transition-all ${
+                activeRightTab === 'report' ? 'bg-brand-900/45 text-brand-300 shadow-md' : 'text-slate-500 hover:text-slate-350'
+              }`}
+            >
+              Incident Reports
+            </button>
+          </div>
 
-            {/* Report Content Body */}
-            <div className="p-5 flex-1 flex flex-col justify-between text-xs space-y-4">
-              {activeReportTab === 'analyst' ? (
-                aiSummary?.analyst ? (
-                  <div className="space-y-4 animate-fade-in">
-                    <div>
-                      <span className="block text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">
-                        Technical Conclusion
-                      </span>
-                      <p className="text-slate-350 leading-relaxed font-sans font-medium mt-1">
-                        {aiSummary.analyst.conclusion}
-                      </p>
-                    </div>
+          {activeRightTab === 'chat' ? (
+            <AiAssistantChat indicator={url} context={details._raw} />
+          ) : (
+            <div className="border border-[#1a2336] bg-[#090d16] rounded-xl overflow-hidden shadow-md flex flex-col min-h-[440px]">
+              {/* Header Tabs */}
+              <div className="px-5 py-4 border-b border-[#1a2336] bg-[#0c121e]/80 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7 a 2 2 0 0 1 -2 -2 V5 a 2 2 0 0 1 2 -2 h5.586 a 1 1 0 0 1 0.707 0.293 l5.414 5.414 a 1 1 0 0 1 0.293 0.707 V19 a 2 2 0 0 1 -2 2 z" />
+                  </svg>
+                  <h3 className="font-semibold text-slate-200 text-sm tracking-wide">Threat Report Preview</h3>
+                </div>
+                
+                <div className="flex bg-[#0e1422] p-0.5 rounded border border-[#172033] text-[9px] font-bold uppercase tracking-wide">
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('analyst')}
+                    className={`px-2 py-1 rounded transition-colors ${
+                      activeReportTab === 'analyst' ? 'bg-brand-900/50 text-brand-300' : 'text-slate-500 hover:text-slate-350'
+                    }`}
+                  >
+                    Analyst
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveReportTab('executive')}
+                    className={`px-2 py-1 rounded transition-colors ${
+                      activeReportTab === 'executive' ? 'bg-brand-900/50 text-brand-300' : 'text-slate-500 hover:text-slate-350'
+                    }`}
+                  >
+                    Executive
+                  </button>
+                </div>
+              </div>
 
-                    {aiSummary.analyst.risk_assessment_explanation && (
+              {/* Report Content Body */}
+              <div className="p-5 flex-1 flex flex-col justify-between text-xs space-y-4">
+                {activeReportTab === 'analyst' ? (
+                  aiSummary?.analyst ? (
+                    <div className="space-y-4 animate-fade-in">
                       <div>
                         <span className="block text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">
-                          Risk Verdict Explanation
-                        </span>
-                        <p className="text-slate-350 leading-relaxed font-sans font-medium mt-1 italic">
-                          "{aiSummary.analyst.risk_assessment_explanation}"
-                        </p>
-                      </div>
-                    )}
-
-                    {aiSummary.analyst.recommendations && (
-                      <div className="space-y-2">
-                        <span className="block text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">
-                          Containment Action Checklist
-                        </span>
-                        <ul className="space-y-1.5 pl-4 list-disc text-slate-400">
-                          {(aiSummary.analyst.recommendations.immediate_actions || []).map((act, i) => (
-                            <li key={i}>{act}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-slate-500 flex flex-col items-center justify-center space-y-2 flex-1">
-                    <svg className="w-8 h-8 text-slate-650" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>Analyst report pre-generation unavailable.</span>
-                  </div>
-                )
-              ) : (
-                aiSummary?.executive ? (
-                  <div className="space-y-4 animate-fade-in">
-                    <div>
-                      <span className="block text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">
-                        Business Exposure Rating
-                      </span>
-                      <span className="text-rose-400 font-extrabold uppercase font-mono tracking-wider block mt-0.5 text-[11px]">
-                        {aiSummary.executive.overall_risk_rating}
-                      </span>
-                    </div>
-
-                    <div>
-                      <span className="block text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">
-                        Business Impact Summary
-                      </span>
-                      <p className="text-slate-350 leading-relaxed font-sans font-medium mt-1">
-                        {aiSummary.executive.business_impact}
-                      </p>
-                    </div>
-
-                    {aiSummary.executive.recommended_action_summary && (
-                      <div>
-                        <span className="block text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">
-                          Recommended Actions Summary
+                          Technical Conclusion
                         </span>
                         <p className="text-slate-350 leading-relaxed font-sans font-medium mt-1">
-                          {aiSummary.executive.recommended_action_summary}
+                          {aiSummary.analyst.conclusion}
                         </p>
                       </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-slate-500 flex flex-col items-center justify-center space-y-2 flex-1">
-                    <svg className="w-8 h-8 text-slate-650" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>Executive summary pre-generation unavailable.</span>
-                  </div>
-                )
-              )}
 
-              {/* Notice Banner */}
-              <div className="border-t border-[#1a2336] pt-4 text-[10px] text-slate-500 leading-tight">
-                ⚡ Generated by provider-agnostic LLM reasoning gateway. Fallbacks active.
+                      {aiSummary.analyst.risk_assessment_explanation && (
+                        <div>
+                          <span className="block text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">
+                            Risk Verdict Explanation
+                          </span>
+                          <p className="text-slate-350 leading-relaxed font-sans font-medium mt-1 italic">
+                            "{aiSummary.analyst.risk_assessment_explanation}"
+                          </p>
+                        </div>
+                      )}
+
+                      {aiSummary.analyst.recommendations && (
+                        <div className="space-y-2">
+                          <span className="block text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">
+                            Containment Action Checklist
+                          </span>
+                          <ul className="space-y-1.5 pl-4 list-disc text-slate-455">
+                            {(aiSummary.analyst.recommendations.immediate_actions || []).map((act, i) => (
+                              <li key={i}>{act}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-slate-500 flex flex-col items-center justify-center space-y-2 flex-1">
+                      <svg className="w-8 h-8 text-slate-650" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Analyst report pre-generation unavailable.</span>
+                    </div>
+                  )
+                ) : (
+                  aiSummary?.executive ? (
+                    <div className="space-y-4 animate-fade-in">
+                      <div>
+                        <span className="block text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">
+                          Business Exposure Rating
+                        </span>
+                        <span className="text-rose-400 font-extrabold uppercase font-mono tracking-wider block mt-0.5 text-[11px]">
+                          {aiSummary.executive.overall_risk_rating}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="block text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">
+                          Business Impact Summary
+                        </span>
+                        <p className="text-slate-350 leading-relaxed font-sans font-medium mt-1">
+                          {aiSummary.executive.business_impact}
+                        </p>
+                      </div>
+
+                      {aiSummary.executive.recommended_action_summary && (
+                        <div>
+                          <span className="block text-[9px] uppercase font-extrabold text-slate-500 tracking-wider">
+                            Recommended Actions Summary
+                          </span>
+                          <p className="text-slate-350 leading-relaxed font-sans font-medium mt-1">
+                            {aiSummary.executive.recommended_action_summary}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-slate-500 flex flex-col items-center justify-center space-y-2 flex-1">
+                      <svg className="w-8 h-8 text-slate-650" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Executive summary pre-generation unavailable.</span>
+                    </div>
+                  )
+                )}
+
+                {/* Notice Banner */}
+                <div className="border-t border-[#1a2336] pt-4 text-[10px] text-slate-500 leading-tight">
+                  ⚡ Generated by provider-agnostic LLM reasoning gateway. Fallbacks active.
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
       </div>
     </div>
   )
 }
+
