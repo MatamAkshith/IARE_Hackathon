@@ -67,23 +67,41 @@ class RiskBreakdown(BaseModel):
         return sum(f.score_contribution for f in self.all_factors())
 
 
+class Recommendation(BaseModel):
+    """
+    An actionable analyst recommendation derived from triggered risk factors.
+
+    Attributes:
+        action      : Short imperative phrase describing what to do.
+        priority    : 'immediate', 'high', 'medium', or 'low'.
+        description : Full sentence explaining the rationale and steps.
+        factor      : Name of the triggering RiskFactor (for traceability).
+    """
+    action: str
+    priority: str  # 'immediate' | 'high' | 'medium' | 'low'
+    description: str
+    factor: Optional[str] = None
+
+
 class RiskScore(BaseModel):
     """
     The complete, explainable risk assessment for a single indicator.
 
     Attributes:
-        indicator      : The URL, domain, or IP that was evaluated.
-        overall_score  : Normalized 0-100 risk score.
-        severity       : Severity tier mapped from overall_score.
-        breakdown      : Category-level explainability breakdown.
-        factor_count   : Total number of risk factors that fired.
-        timestamp      : UTC timestamp of when the score was calculated.
-        explanation    : Top-level human-readable summary sentence.
+        indicator       : The URL, domain, or IP that was evaluated.
+        overall_score   : Normalized 0-100 risk score.
+        severity        : Severity tier mapped from overall_score.
+        breakdown       : Category-level explainability breakdown.
+        recommendations : Prioritized list of analyst action recommendations.
+        factor_count    : Total number of risk factors that fired.
+        timestamp       : UTC timestamp of when the score was calculated.
+        explanation     : Top-level human-readable summary sentence.
     """
     indicator: str
     overall_score: float = Field(ge=0.0, le=100.0)
     severity: RiskSeverity
     breakdown: RiskBreakdown
+    recommendations: List[Recommendation] = Field(default_factory=list)
     factor_count: int = Field(default=0, ge=0)
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     explanation: str = ""

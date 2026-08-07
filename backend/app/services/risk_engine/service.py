@@ -7,8 +7,8 @@ Pipeline (per request):
   3. Sum raw contributions; track which categories were present (dynamic denominator).
   4. Normalize to 0-100 scale using the adjusted denominator.
   5. Map score to RiskSeverity tier.
-  6. Assemble RiskScore with full RiskBreakdown for explainability.
-  7. Generate a top-level human-readable explanation sentence.
+  6. Generate prioritized analyst recommendations via RecommendationEngine.
+  7. Assemble RiskScore with full RiskBreakdown and explainability.
 """
 
 from __future__ import annotations
@@ -22,7 +22,9 @@ from app.services.risk_engine.models import (
     RiskFactor,
     RiskScore,
     RiskSeverity,
+    Recommendation,
 )
+from app.services.risk_engine.recommendations import RecommendationEngine
 from app.services.risk_engine.rules import (
     ALL_EVALUATORS,
     TOTAL_MAX_CONTRIBUTION,
@@ -82,6 +84,7 @@ class RiskScoringService:
 
     def __init__(self) -> None:
         self._evaluators = ALL_EVALUATORS
+        self._recommendation_engine = RecommendationEngine()
         logger.info(
             f"RiskScoringService initialized with {len(self._evaluators)} evaluator(s). "
             f"Total max raw contribution: {TOTAL_MAX_CONTRIBUTION:.1f}."
@@ -160,10 +163,17 @@ class RiskScoringService:
         # ── Step 5: Build explanation ─────────────────────────────────────── #
         explanation = _build_explanation(normalized_score, severity, all_factors)
 
+        # ── Step 6: Generate analyst recommendations ──────────────────────── #
+        recommendations = self._recommendation_engine.generate(
+            factors=all_factors,
+            severity=severity,
+        )
+
         logger.info(
             f"[calculate_risk] Evaluation complete for '{indicator}': "
             f"score={normalized_score:.2f}, severity={severity.value}, "
-            f"factors={len(all_factors)}, raw_total={raw_total:.2f}, denominator={denominator:.2f}."
+            f"factors={len(all_factors)}, recommendations={len(recommendations)}, "
+            f"raw_total={raw_total:.2f}, denominator={denominator:.2f}."
         )
 
         return RiskScore(
@@ -171,10 +181,12 @@ class RiskScoringService:
             overall_score=normalized_score,
             severity=severity,
             breakdown=breakdown,
+            recommendations=recommendations,
             factor_count=len(all_factors),
             timestamp=datetime.now(timezone.utc),
             explanation=explanation,
         )
+
 
     # ── Private helpers ───────────────────────────────────────────────────── #
 

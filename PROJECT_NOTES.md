@@ -39,8 +39,8 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Aggregation Pipeline | Unified feature extraction scheduler, failing gracefully, storing JSON. |
 | **Completed** | Threat Intelligence Integration | Integrations with VirusTotal, PhishTank, URLHaus, AbuseIPDB, and AlienVault OTX feeds with concurrent aggregation engine and lookups REST APIs. |
 | **Completed** | Unified Evidence Engine | Merge, normalization, confidence scoring, DB persistence, REST API, audit trail, traceability & final refactor — Milestone 5 100% Complete (Stage 5.6). |
-| **Current** | Risk Scoring Engine | Explainable weighted rule-based risk assessment engine — Foundation & Core Logic (Stages 6.1 & 6.2) COMPLETE. |
-| **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
+| **Completed** | Risk Scoring Engine | Explainable rules, recommendations engine, DB persistence & REST API — Milestone 6 100% Complete (Stages 6.1–6.4). |
+| **Current** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints (Milestone 7 - Next). |
 | **Remaining** | Campaign Correlation | Attacker attribution and clustering based on shared footprints. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
 | **Remaining** | Dashboard UI | Analyst control panel and queue dashboard. |
@@ -319,10 +319,24 @@ The data layer and RESTful API layer are decoupled using four core patterns:
     RiskScore(indicator, score, severity, breakdown, explanation)
     ```
 
+25. **Recommendation Engine (Stage 6.3)**: `RecommendationEngine` (`recommendations.py`) maps triggered `RiskFactor` names to 20 deterministic, human-readable analyst recommendations ranked by priority. Design:
+    - **Factor-level rules**: Each `RiskFactor.name` maps to `(action, priority, description)` tuple. Examples: `"VirusTotal: Malicious Verdict"` → `"Block indicator at perimeter"` (immediate); `"Login / Credential Form Detected"` → `"Test for credential harvesting"` (high).
+    - **Severity catch-all**: A baseline `Recommendation` is always appended for the overall severity tier (CRITICAL→immediate incident response, HIGH→escalate, MEDIUM→triage queue, LOW→log+monitor, SAFE→no action).
+    - **Deduplication**: Same `action` string is never added twice across factors.
+    - **Priority sorting**: Output is sorted `immediate → high → medium → low` before returning.
+    - **Integration**: `RecommendationEngine.generate(factors, severity)` called as Step 6 in `RiskScoringService.calculate_risk()`; results stored in `RiskScore.recommendations`.
 
+26. **Risk Assessment Persistence (Stage 6.4)**: `RiskAssessmentRecord` SQLAlchemy ORM model (`app/db/models/risk_assessment.py`) columns:
+    - `indicator` (String/2048, indexed), `indicator_type` (String), `overall_score` (Float), `severity` (String).
+    - `breakdown` (JSON) — full `RiskBreakdown.model_dump()` for audit.
+    - `recommendations` (JSON) — `List[Recommendation.model_dump()]`.
+    - `explanation` (Text), `unified_evidence_indicator` (String, indexed), `timestamp` (DateTime with tz).
+    - Composite index `(indicator, timestamp)` for fast history queries.
 
-
-### Threat Intelligence Normalization Matrix
+27. **Risk Engine REST API (Stage 6.4)**:
+    - `POST /api/v1/risk/evaluate` — Accepts `EvaluateRiskRequest` (indicator + optional evidence dicts). Runs full pipeline, saves `RiskAssessmentRecord` to DB (if `save_to_db=True`), returns `RiskScore`.
+    - `GET /api/v1/risk/{indicator:path}` — Returns `List[RiskAssessmentResponse]` for history retrieval, ordered by timestamp desc. Returns 404 if no records found.
+    - Router registered under prefix `/risk` with tag `"Risk Engine"` in `v1_router`.
 
 | Provider | URL Lookup | Domain Lookup | IP Lookup | Normalization Logic |
 | :--- | :--- | :--- | :--- | :--- |
@@ -456,6 +470,25 @@ backend/app/
 - **2026-08-07 (Sprint 1 - Task 28 - 00:25):** **Task 28 (Evidence Timeline & Traceability - Stage 5.5):** Created `EvidenceTimelineBuilder` (`timeline.py`) generating four-phase audit trails (collection → conflict resolution → normalization → confidence scoring). Added `EvidenceEvent` and `AuditTrail` Pydantic models. Integrated timeline builder into `UnifiedEvidenceService.process_evidence` as Step 5; serialized `audit_trail` into `metadata_json` on DB persist. Exposed `GET /api/v1/unified-evidence/timeline?indicator=<…>` endpoint for audit trail retrieval. Stage 5.5 100% complete.
 - **2026-08-07 (Sprint 1 - Task 29 - 00:35):** **Task 29 (Unified Evidence Engine Finalization & Refactoring - Stage 5.6 | Milestone 5 FINAL):** Performed end-to-end refactoring of all 5 module files. Standardized logging (INFO for lifecycle events, DEBUG for granular detail) across `strategy.py`, `normalizer.py`, `confidence.py`, `timeline.py`, and `service.py`. Added outer try/except pipeline guard in `service.py`. Fixed Python <3.10 type union syntax in `timeline.py`. Extracted private helpers to eliminate code duplication. Replaced list-based key lookups with frozensets. Stage 5.6 and Milestone 5 (Unified Evidence Engine) 100% FINAL.
 - **2026-08-07 (Sprint 1 - Task 30 - 05:30):** **Task 30 (Risk Scoring Engine Foundation + Core Logic - Stages 6.1 & 6.2):** Created `app/services/risk_engine/` package. Defined `RiskSeverity`, `RiskFactor`, `RiskBreakdown`, `RiskScore` Pydantic models. Built `BaseRiskEvaluator` ABC with `safe_evaluate()` wrapper. Implemented 5 weighted evaluators (`DomainIntelEvaluator`, `DnsWhoisEvaluator`, `TlsCertificateEvaluator`, `HtmlContentEvaluator`, `ThreatIntelEvaluator`) with total 100-pt weight budget. Built `RiskScoringService` with dynamic denominator, 0-100 normalization, severity mapping, and explainability. Verified 3 test scenarios: HIGH (75/100), SAFE (0/100), MEDIUM (45/100). Stages 6.1 & 6.2 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 31 - 05:40):** **Task 31 (Risk Engine Recommendations, Persistence & API - Stages 6.3 & 6.4 | Milestone 6 FINAL):** Added `Recommendation` Pydantic model to `models.py`; extended `RiskScore.recommendations` field. Created `RecommendationEngine` (`recommendations.py`) with 20 factor-level rules + severity catch-alls, deduplication, and priority sorting. Integrated as Step 6 in `RiskScoringService.calculate_risk()`. Created `RiskAssessmentRecord` SQLAlchemy ORM model with JSON breakdown/recommendations columns and composite index. Registered in `db/base.py`. Exposed `POST /api/v1/risk/evaluate` and `GET /api/v1/risk/{indicator:path}` endpoints; registered router in v1. Verified pipeline end-to-end: 4 factors fired, 5 recommendations generated (1×immediate, 3×high, 1×medium). Stages 6.3 & 6.4 and Milestone 6 (Risk Scoring Engine) 100% FINAL.
+
+
+---
+
+## 15. Milestone 7 Readiness — Campaign Correlation
+
+Milestone 6 (Risk Scoring Engine) is now fully complete. The system is ready to begin Milestone 7 (Campaign Correlation).
+
+**Prerequisite state at Milestone 7 entry:**
+- `RiskAssessmentRecord` is populated with scored assessments per indicator.
+- `UnifiedEvidenceRecord` provides full normalized evidence per indicator.
+- Both tables are indexed on `indicator` for fast cross-table joining.
+
+**Planned architecture for Milestone 7:**
+- Cluster indicators sharing infrastructure features (IP, NS records, WHOIS registrant, TLS fingerprint) into named campaigns.
+- Attribute campaigns to threat actor archetypes based on TTP patterns.
+- Expose `GET /api/v1/campaigns/{campaign_id}/indicators` for SOC pivot queries.
+- Track campaign evolution over time using the existing `timestamp` indexes.
 
 
 
