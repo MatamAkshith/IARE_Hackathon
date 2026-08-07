@@ -36,7 +36,9 @@ export default function IncidentReportPreview({ report = {} }) {
             CONFIDENTIAL SOC THREAT INTEL REPORT
           </span>
           <h2 className="text-sm font-bold text-slate-100 mt-1 font-mono tracking-tight">{report.title}</h2>
-          <span className="text-[9px] font-mono text-slate-500 mt-0.5 block">GENERATE TIMESTAMP: 2026-08-07 00:30:00Z</span>
+          <span className="text-[9px] font-mono text-slate-500 mt-0.5 block">
+            GENERATE TIMESTAMP: {new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC
+          </span>
         </div>
 
         {/* Section categories */}

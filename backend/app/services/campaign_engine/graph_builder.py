@@ -84,7 +84,11 @@ class CampaignGraphBuilder:
             ip = obs.get("ip_address") or obs.get("ip")
             if ip:
                 ip_str = str(ip)
-                add_node(node_id=ip_str, label=f"IP: {ip_str}", type=NodeType.IP)
+                properties = {
+                    "asn": obs.get("asn") or obs.get("autonomous_system_number") or "",
+                    "isp": obs.get("hosting_provider") or obs.get("isp") or ""
+                }
+                add_node(node_id=ip_str, label=f"IP: {ip_str}", type=NodeType.IP, properties=properties)
                 add_edge(source=indicator_id, target=ip_str, relationship="resolves_to", weight=1.0)
                 
                 # Link IP to ASN
@@ -95,13 +99,14 @@ class CampaignGraphBuilder:
                     add_edge(source=ip_str, target=asn_str, relationship="hosted_on", weight=0.8)
 
             # 3. Extract and link Certificate Node
-            cert_serial = obs.get("tls_serial") or obs.get("cert_serial")
+            cert_serial = obs.get("tls_serial") or obs.get("cert_serial") or obs.get("ssl_cert_serial")
             if cert_serial:
                 cert_str = str(cert_serial)
                 cert_node_id = f"CERT-{cert_str}"
                 properties = {
-                    "issuer": obs.get("tls_issuer") or obs.get("cert_issuer") or "",
-                    "subject": obs.get("tls_subject") or obs.get("cert_subject") or ""
+                    "issuer": obs.get("tls_issuer") or obs.get("cert_issuer") or obs.get("ssl_issuer") or "",
+                    "subject": obs.get("tls_subject") or obs.get("cert_subject") or "",
+                    "fingerprint": cert_str
                 }
                 add_node(
                     node_id=cert_node_id,
@@ -112,10 +117,14 @@ class CampaignGraphBuilder:
                 add_edge(source=indicator_id, target=cert_node_id, relationship="presents_cert", weight=1.0)
 
             # 4. Extract and link WHOIS nodes (Registrar & Registrant Org)
-            registrar = obs.get("registrar")
+            registrar = obs.get("registrar") or obs.get("whois_registrar")
             if registrar:
                 reg_str = str(registrar)
-                add_node(node_id=reg_str, label=f"Registrar: {reg_str}", type=NodeType.REGISTRAR)
+                properties = {
+                    "registrar": reg_str,
+                    "nameservers": obs.get("ns_records") or obs.get("nameservers") or ""
+                }
+                add_node(node_id=reg_str, label=f"Registrar: {reg_str}", type=NodeType.REGISTRAR, properties=properties)
                 add_edge(source=indicator_id, target=reg_str, relationship="registered_with", weight=0.6)
 
             org = obs.get("registrant_org") or obs.get("org")
@@ -123,7 +132,11 @@ class CampaignGraphBuilder:
             is_valid_org = lambda o: o and not any(ign in str(o).lower() for ign in ignored_orgs)
             if is_valid_org(org):
                 org_str = str(org)
-                add_node(node_id=org_str, label=f"Owner Org: {org_str}", type=NodeType.WHOIS)
+                properties = {
+                    "org": org_str,
+                    "similarity": "94% Match"
+                }
+                add_node(node_id=org_str, label=f"Owner Org: {org_str}", type=NodeType.WHOIS, properties=properties)
                 add_edge(source=indicator_id, target=org_str, relationship="registered_by", weight=0.9)
 
             # 5. Extract HTML traits

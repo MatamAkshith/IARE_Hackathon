@@ -32,7 +32,8 @@ export function adaptReportData(raw = {}) {
         isp: feed.isp ? String(feed.isp) : undefined,
         usageType: feed.usageType ? String(feed.usageType) : undefined,
         reports: feed.reports !== undefined ? Number(feed.reports) : undefined,
-        lastReported: feed.lastReported ? String(feed.lastReported) : undefined
+        lastReported: feed.lastReported ? String(feed.lastReported) : undefined,
+        error: feed.error ? String(feed.error) : undefined
       }
     })
   }

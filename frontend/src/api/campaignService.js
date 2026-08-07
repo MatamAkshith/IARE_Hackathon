@@ -40,7 +40,7 @@ export async function getCampaignDetails(id) {
   // Extract infrastructure data from graph nodes
   const ipNode = graph.nodes?.find(n => n.type === 'ip')
   const sslNode = graph.nodes?.find(n => n.type === 'certificate')
-  const whoisNode = graph.nodes?.find(n => n.type === 'whois')
+  const whoisNode = graph.nodes?.find(n => n.type === 'registrar') || graph.nodes?.find(n => n.type === 'whois')
 
   const infrastructure = {
     ipAddress: ipNode?.id || 'Unknown',
@@ -87,12 +87,12 @@ export async function getCampaignDetails(id) {
   const connectedDomains = (campaign.members || []).map((m, index) => ({
     id: index + 1,
     domain: m.indicator,
-    riskScore: campaign.severity === 'critical' ? 92 : 84,
+    riskScore: m.resolved_observations?.risk_score || (campaign.severity === 'critical' ? 92 : 84),
     status: 'active',
     firstSeen: new Date(campaign.created_at).toISOString().replace('T', ' ').substring(0, 16),
     lastSeen: new Date(campaign.updated_at).toISOString().replace('T', ' ').substring(0, 16),
-    country: 'United States',
-    hostingProvider: 'GlobalHost Corp'
+    country: m.resolved_observations?.country || 'United States',
+    hostingProvider: m.resolved_observations?.hosting_provider || m.resolved_observations?.isp || 'GlobalHost Corp'
   }))
 
   return adaptCampaignData({

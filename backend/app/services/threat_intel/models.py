@@ -21,6 +21,7 @@ class ProviderResponse(BaseModel):
     matches: List[ThreatMatch]
     raw_response: Dict[str, Any]
     error: Optional[str] = None
+    status: str = "success"  # "success" | "no_result" | "unavailable" | "rate_limited"
     response_time_ms: int
 
 class ThreatEvidence(BaseModel):

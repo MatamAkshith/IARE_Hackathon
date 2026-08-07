@@ -27,6 +27,7 @@ class URLHausProvider(BaseThreatIntelProvider):
                     matches=[],
                     raw_response={},
                     error="Bypassed URLHaus lookup: API key is missing or not configured",
+                    status="unavailable",
                     response_time_ms=0
                 )
 
@@ -58,27 +59,33 @@ class URLHausProvider(BaseThreatIntelProvider):
                                 raw_tags=tags
                             )
                         ]
+                        status_str = "success"
                     elif query_status == "no_results":
                         verdict = ThreatVerdict.CLEAN
                         matches = []
+                        status_str = "no_result"
                     else:
                         verdict = ThreatVerdict.UNKNOWN
                         matches = []
+                        status_str = "no_result"
 
                     return ProviderResponse(
                         provider_name=self.provider_name,
                         verdict=verdict,
                         matches=matches,
                         raw_response=raw_data,
+                        status=status_str,
                         response_time_ms=0
                     )
                 else:
+                    status_str = "rate_limited" if response.status_code == 429 else "unavailable"
                     return ProviderResponse(
                         provider_name=self.provider_name,
                         verdict=ThreatVerdict.UNKNOWN,
                         matches=[],
                         raw_response={},
                         error=f"URLHaus API returned HTTP {response.status_code}",
+                        status=status_str,
                         response_time_ms=0
                     )
 

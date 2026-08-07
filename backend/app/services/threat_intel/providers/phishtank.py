@@ -52,24 +52,29 @@ class PhishTankProvider(BaseThreatIntelProvider):
                                 raw_tags=["in_database", "valid_phish"]
                             )
                         ]
+                        status_str = "success"
                     else:
                         verdict = ThreatVerdict.CLEAN
                         matches = []
+                        status_str = "no_result"
 
                     return ProviderResponse(
                         provider_name=self.provider_name,
                         verdict=verdict,
                         matches=matches,
                         raw_response=raw_data,
+                        status=status_str,
                         response_time_ms=0
                     )
                 else:
+                    status_str = "rate_limited" if response.status_code == 429 else "unavailable"
                     return ProviderResponse(
                         provider_name=self.provider_name,
                         verdict=ThreatVerdict.UNKNOWN,
                         matches=[],
                         raw_response={},
                         error=f"PhishTank API returned HTTP {response.status_code}",
+                        status=status_str,
                         response_time_ms=0
                     )
 

@@ -101,6 +101,7 @@ class ThreatIntelService:
                     matches=[],
                     raw_response={},
                     error=str(result),
+                    status="unavailable",
                     response_time_ms=0
                 )
             else:
@@ -144,6 +145,7 @@ class ThreatIntelService:
                     matches=[],
                     raw_response={},
                     error=str(result),
+                    status="unavailable",
                     response_time_ms=0
                 )
             else:
@@ -187,6 +189,7 @@ class ThreatIntelService:
                     matches=[],
                     raw_response={},
                     error=str(result),
+                    status="unavailable",
                     response_time_ms=0
                 )
             else:

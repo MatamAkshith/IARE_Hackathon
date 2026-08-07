@@ -27,6 +27,7 @@ class EvidenceRecordResponse(BaseModel):
     overall_confidence: str
     resolved_observations: Optional[Dict[str, Any]] = None
     sources: Optional[List[Dict[str, Any]]] = None
+    external_evidence: Optional[Dict[str, Any]] = None
     metadata_json: Optional[Dict[str, Any]] = None
     timestamp: str
 
@@ -190,6 +191,7 @@ def get_evidence_history(
                 overall_confidence=r.overall_confidence,
                 resolved_observations=r.resolved_observations,
                 sources=r.sources,
+                external_evidence=r.external_evidence,
                 metadata_json=r.metadata_json,
                 timestamp=r.timestamp.isoformat() if r.timestamp else ""
             )

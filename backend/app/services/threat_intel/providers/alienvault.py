@@ -72,14 +72,18 @@ class AlienVaultProvider(BaseThreatIntelProvider):
 
                 if response.status_code == 200:
                     raw_data = response.json()
-                    return self._normalize_response(raw_data)
+                    res = self._normalize_response(raw_data)
+                    res.status = "success"
+                    return res
                 else:
+                    status_str = "rate_limited" if response.status_code == 429 else "unavailable"
                     return ProviderResponse(
                         provider_name=self.provider_name,
                         verdict=ThreatVerdict.UNKNOWN,
                         matches=[],
                         raw_response={},
                         error=f"AlienVault OTX API returned HTTP {response.status_code}",
+                        status=status_str,
                         response_time_ms=0
                     )
 

@@ -83,6 +83,7 @@ class ThreatIntelAggregator:
                         matches=[],
                         raw_response={},
                         error="Request timed out",
+                        status="unavailable",
                         response_time_ms=int(timeout * 1000)
                     )
                 except Exception as ex:
@@ -93,6 +94,7 @@ class ThreatIntelAggregator:
                         matches=[],
                         raw_response={},
                         error=str(ex),
+                        status="unavailable",
                         response_time_ms=0
                     )
 
@@ -117,6 +119,7 @@ class ThreatIntelAggregator:
                     matches=[],
                     raw_response={},
                     error=f"Internal aggregation exception: {str(result)}",
+                    status="unavailable",
                     response_time_ms=0
                 )
             else:

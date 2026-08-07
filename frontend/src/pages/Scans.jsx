@@ -219,18 +219,28 @@ export default function Scans() {
                             {scan.scanTime}
                           </td>
                           <td className="py-3.5 px-5 text-center">
-                            {scan.status === 'completed' ? (
-                              <button
-                                type="button"
-                                onClick={() => navigate(`/scans/${scan.id}`)}
-                                className="px-2.5 py-1 rounded bg-[#0e1422] border border-[#1a2336] hover:border-brand-500 text-brand-400 hover:text-brand-300 font-bold transition-all text-[10px] uppercase"
-                              >
-                                View Details
-                              </button>
-                            ) : (
-                              <span className="text-slate-600 text-[10px] font-semibold select-none">—</span>
-                            )}
-                          </td>
+                             {scan.status === 'completed' ? (
+                               <div className="flex items-center justify-center gap-2">
+                                 <button
+                                   type="button"
+                                   onClick={() => navigate(`/scans/${scan.id}`)}
+                                   className="px-2.5 py-1 rounded bg-[#0e1422] border border-[#1a2336] hover:border-brand-500 text-brand-400 hover:text-brand-300 font-bold transition-all text-[10px] uppercase"
+                                 >
+                                   Details
+                                 </button>
+                                 <button
+                                   type="button"
+                                   onClick={() => navigate(`/reports?scanId=${scan.id}`)}
+                                   className="px-2.5 py-1 rounded bg-[#0e1422] border border-[#1a2336] hover:border-rose-600 text-rose-400 hover:text-rose-300 font-bold transition-all text-[10px] uppercase"
+                                   title="View Intelligence Report"
+                                 >
+                                   Report
+                                 </button>
+                               </div>
+                             ) : (
+                               <span className="text-slate-600 text-[10px] font-semibold select-none">—</span>
+                             )}
+                           </td>
                         </tr>
                       ))
                     ) : (

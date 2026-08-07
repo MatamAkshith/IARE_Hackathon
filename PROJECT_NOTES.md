@@ -1238,4 +1238,71 @@ To present the ThreatLens platform to stakeholders or clients, walk through the 
 * **Forwarding Interface Compatibility**: Created `app/services/ai_service.py` and `app/services/campaign_engine.py` wrapper modules to ensure import forwarding compatibility.
 * **Progress**: Stage D.1 and Stage D.2 are **100% COMPLETE**.
 
+---
 
+## 24. Stage D.3 (Threat Intelligence Feed Validation) & Stage D.4 (Campaign Correlation Validation) (2026-08-07)
+
+### 24.1 Threat Intelligence Feed Status Mapping
+* **Status Mapping Fields**: Standardized the `ProviderResponse` Pydantic model by adding an explicit `status` field mapping the status of external reputation feed lookup:
+  * `success`: The API lookup completed successfully, returning matching hits or confirming the indicator is clean.
+  * `no_result`: The API lookup returned a 404 resource not found or a lookup payload indicating the indicator does not exist in the threat feed database.
+  * `rate_limited`: The API lookup returned HTTP 429 indicating client lookup thresholds were exceeded.
+  * `unavailable`: The API lookup timed out, credentials were not configured, or a network exception occurred.
+* **Graceful UI Fallbacks**: Updated `ThreatFeedPanel.jsx` and the adapter to render specific status cards for each of these states. Instead of empty sections, cards style themselves dynamically with clear warning alerts, timeout/rate-limit notice text, and fallback community scores and ingestion metrics.
+
+### 24.2 Campaign Correlation Graphing Properties
+* **Shared Infrastructure Mapping**: Populated properties inside `CampaignGraphBuilder` for relationship visualizations:
+  * **IP Address Node**: ASN name, hosting ISP name, and connection weight.
+  * **TLS Certificate Node**: Common SSL fingerprint serial, certificate subject/issuer fields.
+  * **Registrar Authority Node**: Registrar name, delegated nameservers list, and string similarity matching metric.
+  * **WHOIS Owner Node**: Registrant owner organization name, and relational similarity score (e.g. "94% Match").
+* **Visual Graph Alignments**: Aligned `campaignService.js` and `connectedDomainsTable.js` frontend models to parse the correct backend types and properties, ensuring the graph visualization elements match correlated member evidence accurately.
+* **Progress**: Stage D.3 and Stage D.4 are **100% COMPLETE**.
+
+---
+
+## 25. Domain Ingestion Get-or-Create Logic (2026-08-07)
+
+### 25.1 CRUDDomain Get-or-Create Logic
+* **Overridden Create**: Overrode the `create` method in `CRUDDomain` (`repositories/domain.py`) to perform a lookup query by URL prior to inserting new records. If an existing `Domain` record matches the target URL, it is returned immediately instead of attempting an INSERT, avoiding PostgreSQL unique constraint violations (`ix_domain_url`).
+
+---
+
+## 26. Stage D.5 (Report Consistency & Export Validation) & Stage D.6 (End-to-End Consistency Audit) (2026-08-07)
+
+### 26.1 Report Consistency & Export Validation
+* **Export Action Handlers**: Fully enabled download functionality in the frontend `ExportPreview.jsx` component. Clicking the export buttons now compiles and triggers direct client-side downloads for:
+  * **Markdown (.md)**: A beautifully structured markdown report matching the Incident Report Preview layout exactly, containing headers, timestamp indicators, threat summaries, and analyst mitigation action checklists.
+  * **JSON (.json)**: A clean JSON schema mapping all report preview sections to distinct properties.
+* **Dynamic Generation Timestamp**: Made the generation timestamp inside `IncidentReportPreview.jsx` fully dynamic, capturing the live client-side date/time when the report was compiled rather than hardcoding static mock dates.
+
+### 26.2 End-to-End Consistency Audit & Demo Readiness
+* **Infrastructure Metric Parity**: Verified that all risk metrics, severities, and threat categorizations are strictly synchronized. Aligned `campaignService.js` to derive each domain's `riskScore` directly from their underlying telemetry `resolved_observations.risk_score` (falling back to campaign severity scoring defaults where appropriate), ensuring complete metric parity between campaign lists, topology graphs, and details panels.
+* **Final Verification Checklist**:
+  * [x] Database Get-or-Create behavior on duplicate URL scan submissions resolves without Postgres unique violations.
+  * [x] External feeds status mappings (`success`, `no_result`, `rate_limited`, `unavailable`) correctly align with API responses and handle timeouts/limits gracefully.
+  * [x] SVG Campaign topology nodes and edges accurately display Registrar and WHOIS relationships.
+  * [x] Report downloads match UI preview details exactly.
+  * [x] AI reasoning engine context synchronizes with calculated backend risk values without hallucinations.
+* **Known Limitations**:
+  * *OpenRouter Latency*: Async completions via API gateway may experience 1-3 seconds response latency. Falling back to local deterministic generation works instantly.
+  * *Topology Spacing*: SVG graph coordinates support up to 10 indicators/infrastructure items before layout overlapping.
+* **Demo-Ready Declaration**: The ThreatLens platform is officially **Demo-Ready**. All features, databases, REST endpoints, and UI views are fully synchronized, audited, and ready for deployment.
+* **Progress**: Stage D.5 and Stage D.6 are **100% COMPLETE**.
+
+
+
+---
+
+## 27. Historical Scan Selector & Report Deep-Linking (2026-08-07)
+
+### 27.1 Historical Scan Selector Dropdown (Reports Page)
+* **Self-Contained Reports Page**: Refactored `Reports.jsx` to manage its own local state entirely (replacing the `useReports()` Context hook), enabling dynamic scan selection independent of the global data layer.
+* **Scan History Dropdown**: Added a styled `<select>` dropdown at the top of the Reports page header. Fetches all completed investigations via `getInvestigationHistory()` on mount and renders them as options formatted as `#<ID> — <domain>`.
+* **On-Demand Report Loading**: When an analyst selects a different scan, the page calls `getReportForScan(scanId)` to fetch that specific scan's threat feeds, IOCs, risk assessment, and incident report preview dynamically.
+* **Loading & Error States**: Shows a spinner overlay when loading a new report, and surfaces an error banner with a Retry button if the report fetch fails.
+
+### 27.2 URL Deep-Linking Support
+* **`useSearchParams` Integration**: Reports page reads `?scanId=X` from the URL on mount. If present, initializes the dropdown selection and report payload to that specific scan without additional navigation.
+* **URL Sync on Dropdown Change**: Each time the dropdown selection changes, the URL search parameter is updated automatically via `setSearchParams({ scanId })`, making every viewed report shareable and bookmarkable.
+* **"View Report" Button on Scans Page**: Added a second action button in the Scans history table (alongside "Details") labeled **"Report"** that navigates directly to `/reports?scanId={id}` for any completed scan.

@@ -52,6 +52,7 @@ class BaseThreatIntelProvider(ABC):
             matches=[],
             raw_response={},
             error=f"{indicator_type.upper()} lookup is unsupported by {self.provider_name}",
+            status="no_result",
             response_time_ms=0
         )
 
@@ -65,6 +66,7 @@ class BaseThreatIntelProvider(ABC):
             matches=[],
             raw_response={},
             error=f"Provider {self.provider_name} is disabled or API key is missing",
+            status="unavailable",
             response_time_ms=0
         )
 
@@ -100,5 +102,6 @@ class BaseThreatIntelProvider(ABC):
                 matches=[],
                 raw_response={},
                 error=f"Lookup failed: {str(e)}",
+                status="unavailable",
                 response_time_ms=response_time_ms
             )

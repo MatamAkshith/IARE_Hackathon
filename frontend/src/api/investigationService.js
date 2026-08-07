@@ -284,7 +284,8 @@ export async function getInvestigationDetails(id) {
     aiSummary: {
       analyst: aiReport,
       executive: aiExecutive
-    }
+    },
+    _raw: { observations: obs, external_evidence: latestEvidence?.external_evidence || {} }
   }
 }
 

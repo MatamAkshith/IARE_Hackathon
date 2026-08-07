@@ -75,16 +75,21 @@ class VirusTotalProvider(BaseThreatIntelProvider):
                         verdict=verdict,
                         matches=matches,
                         raw_response=raw_data,
+                        status="success",
                         response_time_ms=0
                     )
                 elif response.status_code == 401:
                     error_msg = "Invalid API key (401)"
+                    status_code = "unavailable"
                 elif response.status_code == 404:
                     error_msg = "Resource not found (404)"
+                    status_code = "no_result"
                 elif response.status_code == 429:
                     error_msg = "Rate limit exceeded (429)"
+                    status_code = "rate_limited"
                 else:
                     error_msg = f"VirusTotal API returned HTTP {response.status_code}"
+                    status_code = "unavailable"
 
                 return ProviderResponse(
                     provider_name=self.provider_name,
@@ -92,6 +97,7 @@ class VirusTotalProvider(BaseThreatIntelProvider):
                     matches=[],
                     raw_response={},
                     error=error_msg,
+                    status=status_code,
                     response_time_ms=0
                 )
 
@@ -115,16 +121,21 @@ class VirusTotalProvider(BaseThreatIntelProvider):
                         verdict=verdict,
                         matches=matches,
                         raw_response=raw_data,
+                        status="success",
                         response_time_ms=0
                     )
                 elif response.status_code == 401:
                     error_msg = "Invalid API key (401)"
+                    status_code = "unavailable"
                 elif response.status_code == 404:
                     error_msg = "Resource not found (404)"
+                    status_code = "no_result"
                 elif response.status_code == 429:
                     error_msg = "Rate limit exceeded (429)"
+                    status_code = "rate_limited"
                 else:
                     error_msg = f"VirusTotal API returned HTTP {response.status_code}"
+                    status_code = "unavailable"
 
                 return ProviderResponse(
                     provider_name=self.provider_name,
@@ -132,6 +143,7 @@ class VirusTotalProvider(BaseThreatIntelProvider):
                     matches=[],
                     raw_response={},
                     error=error_msg,
+                    status=status_code,
                     response_time_ms=0
                 )
 
