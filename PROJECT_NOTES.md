@@ -1754,3 +1754,18 @@ This section provides a full cross-referenced audit of every commit in the repos
 * This ensures that all 6 metric cards contain exactly two rows of text (the label and value), maintaining perfect vertical and horizontal grid alignment across the top layout.
 * Verified that the project compiles cleanly under Vite.
 * Changes staged, committed, and pushed to branch `main`.
+
+---
+
+## 40. Dynamic Threat Feeds Connectivity Tracking & Routing (2026-08-07)
+
+### 40.1 Operational Feeds Backend Check
+* Updated `DashboardService` (`backend/app/services/dashboard_service.py`) to dynamically compute the number of operational/connected threat feeds.
+* Evaluates the presence of configured API keys for VirusTotal, URLHaus, and AbuseIPDB in `settings` alongside the always-active Local Heuristics Engine.
+* Exposes `active_feeds` and `total_feeds` in the `GET /api/v1/dashboard/stats` response payload (returning `4/5` active operational feeds based on environment credentials).
+
+### 40.2 Frontend Integration & Click Actions
+* Bound the new keys in `dashboardApiService.js` (`frontend/src/api/dashboardApiService.js`) to display `{active_feeds}/{total_feeds}` dynamically on the dashboard.
+* Wired the **Threat Feeds** KPI card to support `cursor-pointer` interactivity and route to `/reports` on click.
+* The hover state remains perfectly consistent with the rest of the standardized SOC dashboard metric cards.
+* Changes committed and pushed to branch `main`.

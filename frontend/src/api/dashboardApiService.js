@@ -122,6 +122,8 @@ export async function getDashboardData() {
   const highRiskCount = stats.high_risk_domains
   const avgRisk = stats.avg_risk_score
   const recentActivityCount = stats.recent_activity_count ?? recentFeed.length
+  const activeFeeds = stats.active_feeds ?? 5
+  const totalFeeds = stats.total_feeds ?? 5
 
   const kpis = [
     {
@@ -155,7 +157,7 @@ export async function getDashboardData() {
     {
       id: 'threat-sources',
       title: 'Threat Feeds',
-      value: '5/5',
+      value: `${activeFeeds}/${totalFeeds}`,
       trend: undefined,
       type: 'success',
       route: '/reports'

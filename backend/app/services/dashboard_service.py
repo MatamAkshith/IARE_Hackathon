@@ -10,6 +10,8 @@ from app.db.models.risk_assessment import RiskAssessmentRecord
 from app.db.models.campaign import CampaignRecord, CampaignMemberRecord
 from app.models.campaign import Campaign as LegacyCampaign
 
+from app.core.config import settings
+
 logger = logging.getLogger("app.services.dashboard_service")
 
 
@@ -71,12 +73,26 @@ class DashboardService:
             Scan.created_at >= cutoff
         ).count()
 
+        # 8. Calculate operational threat feeds (out of 5 possible feeds)
+        total_feeds = 5
+        active_feeds = 1  # Local Heuristics is always operational
+        if settings.VIRUSTOTAL_API_KEY and settings.VIRUSTOTAL_API_KEY.strip():
+            active_feeds += 1
+        if settings.PHISHTANK_API_KEY and settings.PHISHTANK_API_KEY.strip():
+            active_feeds += 1
+        if settings.URLHAUS_API_KEY and settings.URLHAUS_API_KEY.strip():
+            active_feeds += 1
+        if settings.ABUSEIPDB_API_KEY and settings.ABUSEIPDB_API_KEY.strip():
+            active_feeds += 1
+
         return {
             "total_scans": total_scans,
             "high_risk_domains": high_risk_domains,
             "active_campaigns": active_campaigns,
             "avg_risk_score": avg_risk_score,
             "recent_activity_count": recent_activity_count,
+            "total_feeds": total_feeds,
+            "active_feeds": active_feeds,
             "risk_distribution": [
                 {
                     "label": "Safe (0-20)",
