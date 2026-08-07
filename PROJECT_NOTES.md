@@ -1696,3 +1696,19 @@ This section provides a full cross-referenced audit of every commit in the repos
 * Confirmed that `google.com` and `vardhaman.org` (official) score **`0.0` (SAFE)**.
 * Confirmed that phishing pattern matches (like `login.microsoft-auth-verify.com` and `vardhaman-erp-login.com`) evaluate to **`100.0` (CRITICAL)**.
 * Commits successfully pushed to branch `main`.
+
+---
+
+## 37. Elimination of Confidence-Based Scoring Penalty (2026-08-07)
+
+### 37.1 Score Calibration Removal
+* Removed the confidence calibration multipliers (which previously penalized low/unknown confidence indicators by halving/reducing their scores) in `RiskScoringService.calculate_risk` (`backend/app/services/risk_engine/service.py`).
+* The overall score calculation is now determined directly by the raw cumulative technical risk score, clamped strictly to a maximum of `100.0` (`final_score = self._validator.enforce_boundaries(raw_score)`).
+
+### 37.2 Explanation Cleansing
+* Updated the `_build_explanation` function in `service.py` to completely omit the text `(Score calibrated for '...' confidence evidence.)` from the generated explanation block.
+
+### 37.3 Strict Stopping Condition Verification
+* Appended a new verification case `test_google_phishing_no_calibration` in `backend/test_risk_engine.py`.
+* Confirmed that `accounts-google-verify-secure.net` (which evaluates with an "unknown" confidence tier) scores a full **`100.0` (CRITICAL)** instead of getting halved to `50.0/52.5`, fully satisfying the strict stopping conditions.
+* Pushed all commits to the branch `main`.

@@ -170,8 +170,31 @@ def test_college_whitelisting():
         print(f"❌ Official college whitelisting test crashed: {e}")
         raise e
 
+def test_google_phishing_no_calibration():
+    print('\n--- Testing Google Phishing (Without Confidence Calibration Penalty) ---')
+    evidence = UnifiedEvidence(
+        indicator="https://accounts-google-verify-secure.net",
+        indicator_type="url",
+        resolved_observations={}, # Empty telemetry
+        sources=[],
+        overall_confidence="unknown", # Confidence is unknown/low, previously halved the score!
+        metadata=EvidenceMetadata(item_confidences={})
+    )
+    service = RiskScoringService()
+    try:
+        score = service.calculate_risk(evidence)
+        print(f"[+] Indicator: {score.indicator}")
+        print(f"[+] Final Risk Score: {score.overall_score:.1f}/100 (Expected: 90 - 100)")
+        print(f"[+] Assigned Severity: {score.severity.value.upper()}")
+        assert 90.0 <= score.overall_score <= 100.0, "Phishing domain must score 90-100 CRITICAL/HIGH even with unknown confidence"
+        print("[+] Google Phishing without calibration test passed successfully!")
+    except Exception as e:
+        print(f"❌ Google Phishing without calibration test crashed: {e}")
+        raise e
+
 if __name__ == '__main__':
     test_weighted_risk_calculation()
     test_dynamic_telemetry_baseline()
     test_microsoft_brand_impersonation()
     test_college_whitelisting()
+    test_google_phishing_no_calibration()

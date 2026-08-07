@@ -46,8 +46,6 @@ def _build_explanation(
         f"Risk score {score:.1f}/100 — severity {severity.value.upper()}. "
         f"Top contributing factors: {top_names}."
     )
-    if was_calibrated:
-        base += f" (Score calibrated for '{confidence}' confidence evidence.)"
     return base
 
 
@@ -307,12 +305,12 @@ class RiskScoringService:
             ))
             raw_score += 5.0
 
-        # Calibrate raw score by confidence
-        calibrated_score = self._validator.calibrate_score(raw_score, confidence)
-        was_calibrated = calibrated_score != raw_score
+        # Calibrate raw score by confidence (confidence calibration removed)
+        calibrated_score = raw_score
+        was_calibrated = False
 
         # Clamp between 0.0 and 100.0
-        final_score = self._validator.enforce_boundaries(calibrated_score)
+        final_score = self._validator.enforce_boundaries(raw_score)
 
         # Map to severity
         severity = _map_severity(final_score)
