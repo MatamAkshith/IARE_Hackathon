@@ -53,6 +53,7 @@ Every implementation must remain consistent with these sections. Every completed
 | ✅ **LOCKED** | Backend Architecture | All 8 milestones complete. NO new backend endpoints or architectural changes will be introduced. |
 | ✅ **LOCKED** | Frontend Integration | Phase A (Stages A.1 - A.6) fully complete and validated. |
 | ✅ **LOCKED** | Demo Dataset & Validation | Phase B (Stages B.1 - B.4) fully seeded, validated, and demo-playbook compiled. Platform is 100% complete and demo-ready. |
+| ✅ **LOCKED** | Auth & Audit Integration | Authentication login system, protected routing, and post-merge regression validation 100% completed. |
 
 
 ---
@@ -717,8 +718,8 @@ frontend/
 | 2026-08-07 | Pre-generate AI reports on completed scan loads (Stage A.4) | On loading the completed investigation details view, the page queries `/ai/report/analyst` and `/ai/report/executive` in parallel with the latest evidence and risk state. This ensures that pre-computed LLM verdicts are ready immediately when the analyst toggles between the Analyst and Executive views. | Generate AI report only on demand/button click | Approved |
 | 2026-08-07 | Dynamic SVG node position calculator for graph (Stage A.5) | Calculating dynamic node coordinates based on the count of indicators (left side) and infrastructure properties (right side) returned by `GET /campaigns/{id}/graph` prevents visual overlaps and adjusts layouts dynamically when campaigns scale or merge. | Hardcoded node positions | Approved |
 | 2026-08-07 | Tabbed Q&A Chat & Reports Layout (Stage A.6) | Placing both the live LLM Chat interface and the static pre-generated reports side-by-side inside the details panel allows analysts to easily toggle between reading high-level executive conclusions and doing active deep-dive Q&A forensics. | Separate page for AI Assistant chatbot | Approved |
-
-
+| 2026-08-07 | Client-side Mock JWT Auth Flow | To secure operational screens, mock JWT tokens are generated, signed, and validated on the client side with role/permission attributes. Secure paths are guarded via a `<ProtectedRoute>` component intercepting unauthorized access attempts. | Session-based state, Server auth integration | Approved |
+| 2026-08-07 | Campaign ID Persistence in Repository | Assigning `campaign.id = record.id` dynamically after PostgreSQL transaction commit ensures that returned campaign entities retain their primary key database ID, resolving downstream Pydantic `CorrelateResponse` validator requirements. | Cast type to dynamic dict, Remove id field | Approved |
 
 ---
 
@@ -1656,3 +1657,16 @@ This section provides a full cross-referenced audit of every commit in the repos
 * **Removal of remember & recovery session controls**: Deleted the entire row containing the `Remember active session` checkbox and the `Recover Key` forgot-password redirection link. The submit button is now positioned directly beneath the credentials block, leaving no unused layout space.
 * **Removal of the simulation widget**: Completely deleted the `Simulator Safe Credentials` footer container (including its title, `Mock Auth Enabled` status badge, and the three pre-filled credential role trigger buttons) to clean up the login card interface for production.
 * **UI spacing adjustments**: Adjusted layout spacing and balanced margins within the card, ensuring a modern, distraction-free corporate login flow while preserving responsive CSS presentations.
+
+---
+
+## 47. Post-Merge Verification & E2E Regression Testing (2026-08-07)
+
+### 47.1 Full monorepo merge & Dependency audits
+* Verified the successful merge of the teammate's authentication module features into the `main` branch.
+* Ran dependency sync checks (`npm install`) and verified frontend compiles successfully (`npm run build`).
+* Resolved the campaign primary key schema validation crash in `/correlate` by dynamically mapping database IDs inside `save_campaign` repo helper.
+
+### 47.2 End-to-End Regression Workflows
+* Executed end-to-end integration tests (`test_campaign_api_e2e.py` and `test_e2e_m6.py`) confirming that user login simulations, scans submission, risk evaluations, and campaigns clustering attributes function perfectly.
+* Confirmed that all backend APIs and frontend routes compile and load error-free.
