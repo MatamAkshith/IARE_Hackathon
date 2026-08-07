@@ -135,8 +135,16 @@ class DomainIntelEvaluator(BaseRiskEvaluator):
         if isinstance(indicator, str) and indicator:
             ind_lower = indicator.lower()
             host = ind_lower.split("://")[-1].split("/")[0]
-            brands = ["microsoft", "google", "amazon", "paypal", "github", "vardhaman"]
-            suspicious = ["login", "verify", "auth", "secure", "update", "account", "portal"]
+            brands = [
+                "infosys", "tcs", "wipro", "hcl", "techmahindra", "cognizant", "accenture",
+                "icici", "hdfc", "sbi", "axis", "paytm", "phonepe",
+                "microsoft", "google", "amazon", "paypal", "github", "apple", "netflix",
+                "vardhaman"
+            ]
+            suspicious = [
+                "login", "verify", "auth", "secure", "update", "account", "portal",
+                "employee", "benefits", "benefit", "careers", "support", "hr", "jobs"
+            ]
             matched_brand = any(brand in host for brand in brands)
             matched_suspicious = any(kw in host for kw in suspicious)
             if matched_brand and matched_suspicious:

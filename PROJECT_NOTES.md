@@ -1530,3 +1530,18 @@ This section provides a full cross-referenced audit of every commit in the repos
 * **`useNavigate` Integration**: Clicking the button navigates to `/reports?scanId={domain.scanId}`, allowing analysts to seamlessly pivot from the campaign macro-view to the individual domain's full threat intelligence report.
 * **Graceful Fallback**: Rows where `scanId` is `null` (e.g. live-correlated domains not seeded) show a `—` placeholder instead.
 * **`scanId` Propagation**: Updated `campaignService.js` to extract `resolved_observations.scan_id` from each campaign member's observations and expose it as `scanId` in the `connectedDomains` array.
+
+---
+
+## 30. Expanded Brand Dictionary & Lexical Impersonation Rules (2026-08-07)
+
+### 30.1 Brand Dictionary Expansion
+* **New Target Brands**: Updated both the `DomainIntelEvaluator` (`backend/app/services/risk_engine/rules.py`) and the `RiskScoringService` (`backend/app/services/risk_engine/service.py`) brand lists to include top Indian and global enterprise IT/financial/tech brands:
+  * **Tech/IT Services**: `infosys`, `tcs`, `wipro`, `hcl`, `techmahindra`, `cognizant`, `accenture`
+  * **Banking/Fintech**: `icici`, `hdfc`, `sbi`, `axis`, `paytm`, `phonepe`
+  * **Global Tech**: `microsoft`, `google`, `amazon`, `paypal`, `github`, `apple`, `netflix`, `vardhaman`
+* **Suspicious Keywords Expansion**: Added `employee`, `benefits`, `benefit`, `careers`, `support`, `hr`, and `jobs` to the suspicious lexical keywords lists, allowing lookup domains such as `infosys-employee-benefits.net` to properly match the lexical threat heuristics.
+
+### 30.2 Evaluation & Verification
+* **Minimum Base Score Trigger**: Confirmed that any domain match of target brand + suspicious keyword triggers the minimum base score of `85.0` (HIGH severity) regardless of the availability of other evidence.
+* **Test Validation**: Added automated assertions verifying the updated logic in `backend/test_risk_engine.py` for both `login.microsoft-auth-verify.com` and `infosys-employee-benefits.net`. All tests pass successfully.
