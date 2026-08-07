@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import PasswordField from './PasswordField';
-import RememberMe from './RememberMe';
 
 export default function LoginForm() {
   const { login } = useAuth();
@@ -11,7 +10,6 @@ export default function LoginForm() {
   // Form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState({});
   
   // Service loading & error states
@@ -22,9 +20,7 @@ export default function LoginForm() {
   const validateForm = () => {
     const newErrors = {};
     if (!email) {
-      newErrors.email = 'Identifier email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Invalid email structure (e.g. name@domain.com)';
+      newErrors.email = 'Identifier is required';
     }
 
     if (!password) {
@@ -37,14 +33,6 @@ export default function LoginForm() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Quick select credentials for testing mock login flow
-  const autofillCredentials = (roleEmail, rolePassword) => {
-    setEmail(roleEmail);
-    setPassword(rolePassword);
-    setErrors({});
-    setAuthError('');
-  };
-
   // Form submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -54,10 +42,9 @@ export default function LoginForm() {
 
     setIsLoading(true);
     try {
-      await login(email, password, rememberMe);
+      // Pass false for rememberMe parameter as it is removed
+      await login(email, password, false);
       // Redirect on successful authentication to dashboard
-      // Note: we can redirect to /dashboard since we want to follow auth architecture flow.
-      // But we shouldn't modify the existing dashboard. The user will be redirected there.
       navigate('/dashboard');
     } catch (err) {
       setAuthError(err.message || 'Login attempt failed. Please check network logs.');
@@ -86,15 +73,15 @@ export default function LoginForm() {
 
       {/* Input Fields */}
       <div className="space-y-4">
-        {/* Email Field */}
+        {/* User ID Field */}
         <div className="flex flex-col space-y-1.5 w-full">
           <label htmlFor="email" className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-            Identity Email
+            ENTER ID
           </label>
           <div className="relative rounded-lg group">
             <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-cyan-500/20 to-blue-500/20 opacity-0 group-focus-within:opacity-100 transition-opacity duration-300 pointer-events-none" />
             <input
-              type="email"
+              type="text"
               id="email"
               name="email"
               value={email}
@@ -102,7 +89,7 @@ export default function LoginForm() {
                 setEmail(e.target.value);
                 if (errors.email) setErrors(prev => ({ ...prev, email: null }));
               }}
-              placeholder="operator@threatlens.io"
+              placeholder="Enter your ThreatLens ID"
               disabled={isLoading}
               className={`w-full bg-[#0a0f1d] border ${errors.email ? 'border-rose-500/60' : 'border-slate-800 group-hover:border-slate-700'} focus:border-cyan-500/80 rounded-lg px-4 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none transition-all duration-200 relative z-10`}
             />
@@ -124,21 +111,6 @@ export default function LoginForm() {
         />
       </div>
 
-      {/* Utilities: Remember Me & Forgot Password */}
-      <div className="flex items-center justify-between">
-        <RememberMe
-          checked={rememberMe}
-          onChange={(e) => setRememberMe(e.target.checked)}
-          disabled={isLoading}
-        />
-        <Link
-          to="/forgot-password"
-          className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors"
-        >
-          Recover Key
-        </Link>
-      </div>
-
       {/* Submit Button */}
       <button
         type="submit"
@@ -157,40 +129,7 @@ export default function LoginForm() {
           <span>Authorize Access</span>
         )}
       </button>
-
-      {/* Mock Autofill Accounts Widget for testing */}
-      <div className="mt-6 pt-5 border-t border-slate-800/60 space-y-2.5">
-        <div className="flex justify-between items-center">
-          <span className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Simulator Safe Credentials</span>
-          <span className="text-[9px] bg-cyan-950/40 text-cyan-400 border border-cyan-800/30 px-1.5 py-0.5 rounded uppercase font-mono">Mock Auth Enabled</span>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <button
-            type="button"
-            onClick={() => autofillCredentials('admin@threatlens.io', 'adminPassword123!')}
-            className="bg-[#0c1223] border border-slate-800 hover:border-cyan-500/50 rounded p-1.5 text-left transition-colors group"
-          >
-            <span className="block text-[10px] font-bold text-slate-300 group-hover:text-cyan-400">Admin</span>
-            <span className="block text-[8px] font-mono text-slate-500 mt-0.5">admin@threatlens.io</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => autofillCredentials('analyst@threatlens.io', 'analystPassword123!')}
-            className="bg-[#0c1223] border border-slate-800 hover:border-cyan-500/50 rounded p-1.5 text-left transition-colors group"
-          >
-            <span className="block text-[10px] font-bold text-slate-300 group-hover:text-cyan-400">Analyst</span>
-            <span className="block text-[8px] font-mono text-slate-500 mt-0.5">analyst@...</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => autofillCredentials('auditor@threatlens.io', 'auditorPassword123!')}
-            className="bg-[#0c1223] border border-slate-800 hover:border-cyan-500/50 rounded p-1.5 text-left transition-colors group"
-          >
-            <span className="block text-[10px] font-bold text-slate-300 group-hover:text-cyan-400">Auditor</span>
-            <span className="block text-[8px] font-mono text-slate-500 mt-0.5">auditor@...</span>
-          </button>
-        </div>
-      </div>
     </form>
   );
 }
+
