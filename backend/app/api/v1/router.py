@@ -11,6 +11,7 @@ from app.api.v1.endpoints.unified_evidence import router as unified_evidence_rou
 from app.api.v1.endpoints.risk import router as risk_router
 from app.api.v1.endpoints.ai_assistant import router as ai_assistant_router
 from app.api.v1.endpoints.investigations import router as investigations_router
+from app.api.v1.endpoints.dashboard import router as dashboard_router
 
 v1_router = APIRouter()
 v1_router.include_router(health_router, prefix="/health", tags=["Health"])
@@ -26,6 +27,7 @@ v1_router.include_router(unified_evidence_router, prefix="/unified-evidence", ta
 v1_router.include_router(risk_router, prefix="/risk", tags=["Risk Engine"])
 v1_router.include_router(ai_assistant_router, prefix="/ai", tags=["AI Assistant"])
 v1_router.include_router(investigations_router, prefix="/investigations", tags=["Investigations"])
+v1_router.include_router(dashboard_router, prefix="/dashboard", tags=["Dashboard"])
 
 
 

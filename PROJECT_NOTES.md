@@ -1545,3 +1545,31 @@ This section provides a full cross-referenced audit of every commit in the repos
 ### 30.2 Evaluation & Verification
 * **Minimum Base Score Trigger**: Confirmed that any domain match of target brand + suspicious keyword triggers the minimum base score of `85.0` (HIGH severity) regardless of the availability of other evidence.
 * **Test Validation**: Added automated assertions verifying the updated logic in `backend/test_risk_engine.py` for both `login.microsoft-auth-verify.com` and `infosys-employee-benefits.net`. All tests pass successfully.
+
+---
+
+## 31. SOC Dashboard SQL Integration & Synchronization (2026-08-07)
+
+### 31.1 Backend Dashboard Endpoints & Dynamic SQL Aggregation
+* **`GET /api/v1/dashboard/stats`**: Implemented a dynamic SQL statistics aggregation endpoint. Queries `scan` table to get the total number of scans, joins `scan` and `domain` tables to fetch the latest `RiskAssessmentRecord` for each unique domain URL, and calculates:
+  * `total_scans`: Exact count of scans.
+  * `high_risk_domains`: Count of scans with an overall risk score of 71 or higher.
+  * `active_campaigns`: Count of active campaign records in the `campaigns` table.
+  * `avg_risk_score`: Mathematical average of all scan risk scores, rounded to 1 decimal place.
+  * `risk_distribution`: Bucketed array containing exact scan counts and percentages for `Safe (0-20)`, `Medium (21-70)`, `High (71-90)`, and `Critical (91-100)` bands, ensuring the sum of all bucket counts is exactly equal to `total_scans`.
+* **`GET /api/v1/dashboard/recent-feed`**: Implemented a dynamic threat monitoring feed query joining `scan`, `domain`, `campaign_members`, `campaigns`, and `risk_assessment_records`. Returns:
+  * `target_domain`: The actual domain URL string instead of placeholder fallback strings.
+  * `risk_score`: The latest calculated numerical score.
+  * `risk_rating`: The mapped severity band string matching the Risk Engine.
+  * `pipeline_status`: Ingestion pipeline status in upper case.
+  * `campaign_attribution`: Campaign name or `"Unattributed"`.
+  * `date_time`: Ingestion date and time in ISO format.
+
+### 31.2 Frontend Integration & Drill-Down Navigation
+* **`dashboardApiService.js` Refactoring**: Updated the API service layer to query `/api/v1/dashboard/stats` and `/api/v1/dashboard/recent-feed` instead of executing client-side stitching of multiple paginated lists.
+* **Badges Alignment**: Updated the `RiskScoreBadge` component thresholds to match the unified Risk Engine bands:
+  * `0-20`: Safe (Green/Emerald)
+  * `21-70`: Medium (Yellow/Amber)
+  * `71-90`: High (Orange/Orange)
+  * `91-100`: Critical (Red/Rose)
+* **Drill-Down Links**: Integrated `useNavigate` into the `RecentScansTable` component, making all rows in the threat monitoring feed clickable and deep-linking directly to `/scans/{id}` to view full telemetry details.

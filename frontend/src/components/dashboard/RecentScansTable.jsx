@@ -1,14 +1,17 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 import RiskScoreBadge from '../RiskScoreBadge'
 import StatusPill from '../StatusPill'
 
 /**
- * Recent Domain scans log list component.
+ * Recent Domain scans log list component with row deep-linking.
  * 
  * @param {Object} props
  * @param {Array} props.scans Domain threat scans list from dataset
  */
 export default function RecentScansTable({ scans = [] }) {
+  const navigate = useNavigate()
+
   return (
     <div className="border border-[#1a2336] bg-[#090d16] rounded-xl overflow-hidden shadow-md">
       {/* Header */}
@@ -36,7 +39,9 @@ export default function RecentScansTable({ scans = [] }) {
               scans.map((scan) => (
                 <tr
                   key={scan.id}
-                  className="border-b border-[#151d2c] last:border-b-0 hover:bg-[#101726]/40 transition-colors"
+                  onClick={() => navigate(`/scans/${scan.id}`)}
+                  className="border-b border-[#151d2c] last:border-b-0 hover:bg-[#101726]/60 transition-colors cursor-pointer"
+                  title="Click to view detailed investigation workspace"
                 >
                   <td className="py-3.5 px-5 font-mono text-[11px] font-semibold text-slate-300 select-all truncate max-w-[200px]" title={scan.domain}>
                     {scan.domain}
@@ -48,7 +53,7 @@ export default function RecentScansTable({ scans = [] }) {
                     <StatusPill status={scan.status} />
                   </td>
                   <td className="py-3.5 px-5">
-                    {scan.campaign !== 'Uncorrelated / Individual Threat' ? (
+                    {scan.campaign !== 'Unattributed' && scan.campaign !== 'Uncorrelated / Individual Threat' ? (
                       <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-brand-900/35 text-brand-300 border border-brand-800/40">
                         {scan.campaign}
                       </span>
