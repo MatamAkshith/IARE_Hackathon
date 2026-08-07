@@ -1,3 +1,21 @@
+/**
+ * Investigation Workspace Page — ThreatLens Frontend
+ *
+ * **Stage A.3 / A.4**: Wired to the live backend investigation pipeline.
+ *
+ * The URL submission triggers the full 9-step backend pipeline:
+ *   Domain registration → Scan record → Feature extraction → Unified evidence
+ *   → Risk evaluation → AI report → Result display
+ *
+ * UI state machine:
+ *   idle      → URL input rendered, waiting for submission
+ *   queued    → Scan queued, ScanStatus spinner starts
+ *   scanning  → Backend pipeline actively running (5-30s for real URLs)
+ *   completed → Results rendered: RiskSummary, BadgeGroup, ExplanationPanel, EvidenceAccordion
+ *
+ * Components are untouched — only data source changed from mock to live API.
+ */
+
 import React, { useState } from 'react'
 import useScans from '../hooks/useScans'
 import URLInputCard from '../components/investigation/URLInputCard'
@@ -22,6 +40,8 @@ export default function Investigation() {
     clearScan()
   }
 
+  const isProcessing = status === 'queued' || status === 'scanning'
+
   return (
     <div className="space-y-6">
       {/* Header Info */}
@@ -41,23 +61,56 @@ export default function Investigation() {
             onChange={setUrl}
             onScan={handleScan}
             onClear={handleClear}
-            disabled={status !== 'idle' && status !== 'completed'}
+            disabled={isProcessing}
           />
 
           {status !== 'idle' && (
             <ScanStatus status={status} />
+          )}
+
+          {/* Backend pipeline latency notice during scan */}
+          {status === 'scanning' && (
+            <div className="border border-brand-900/40 bg-brand-950/10 rounded-xl p-4 text-xs text-brand-300 space-y-1">
+              <div className="font-semibold uppercase tracking-wider text-brand-400 text-[10px]">
+                ⚡ Live Pipeline Active
+              </div>
+              <p className="text-slate-400 leading-relaxed">
+                Running WHOIS lookup, DNS resolution, TLS inspection, HTML analysis,
+                and threat intelligence feeds. This may take 10–30 seconds for external URLs.
+              </p>
+            </div>
           )}
         </div>
 
         {/* Right Side Panel: Threat Reports (Visible when scan completes) */}
         <div className="lg:col-span-2">
           {error ? (
-            <div className="border border-rose-900 bg-rose-950/10 p-6 rounded-xl text-center text-rose-400 text-xs shadow-md">
-              <span className="block font-bold uppercase tracking-wider mb-1">Scan Pipeline Error</span>
-              {error}
+            <div className="border border-rose-900 bg-rose-950/10 p-6 rounded-xl shadow-md space-y-3">
+              <div className="flex items-center gap-2 text-rose-400">
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="font-bold uppercase tracking-wider text-xs">Scan Pipeline Error</span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">{error}</p>
+              <button
+                type="button"
+                onClick={handleClear}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-colors"
+              >
+                Try Again
+              </button>
             </div>
           ) : result && status === 'completed' ? (
             <div className="space-y-6 animate-fade-in">
+              {/* Live data badge */}
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-950/20 border border-emerald-900/30 rounded-lg w-fit">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+                  Live Backend Result
+                </span>
+              </div>
+
               {/* Risk Summary and Findings Tags */}
               <div className="space-y-4">
                 <RiskSummary risk={result.risk} />
@@ -80,6 +133,9 @@ export default function Investigation() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <span>Submit a target URL in the workspace dashboard to extract telemetry metrics.</span>
+              <span className="text-[10px] text-slate-600">
+                Results are fetched live from the ThreatLens backend pipeline.
+              </span>
             </div>
           )}
         </div>
