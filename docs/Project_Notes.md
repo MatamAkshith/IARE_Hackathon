@@ -40,7 +40,7 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Threat Intelligence Integration | Integrations with VirusTotal, PhishTank, URLHaus, AbuseIPDB, and AlienVault OTX feeds with concurrent aggregation engine and lookups REST APIs. |
 | **Completed** | Unified Evidence Engine | Merge, normalization, confidence scoring, DB persistence, REST API, audit trail, traceability & final refactor — Milestone 5 100% Complete (Stage 5.6). |
 | **Completed** | Risk Scoring Engine | Explainable rules, recommendations, validation & calibration, DB persistence, REST API & final refactor — Milestone 6 100% Complete (Stage 6.6). |
-| **Current** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints — Campaign Clustering (Stage 7.3) COMPLETE. |
+| **Current** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints — Graph & Timeline (Stage 7.4) COMPLETE. |
 | **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
 | **Remaining** | Dashboard UI | Analyst control panel and queue dashboard. |
@@ -252,6 +252,20 @@ The `CampaignClusterer` (`clustering.py`) orchestrates indicator rehoming, campa
 - **Attribution Methodology**: Matches are tracked via detailed `CorrelationEvidence` lists stored in `shared_infrastructure`. Individual members record their specific match justification in `added_reason`.
 - **Heuristic Drift Splits**: Periodically/post-eval, `check_for_split()` builds an undirected graph of campaign members using pairwise similarity. If the graph drifts into disconnected components, the campaign splits, spawning new campaigns with recalculated first/last seen metadata and re-extracted infrastructure arrays.
 
+### Campaign Timeline & Relationship Graph (Stage 7.4)
+To assist analysts in pivot investigations, Stage 7.4 constructs chronological timelines and node-link relationship graphs mapping the campaign topology.
+
+1. **Relationship Graph Model (`graph_models.py` & `graph_builder.py`)**:
+   - `GraphNode` models nodes for indicators (e.g. domains/URLs), resolving IP addresses, TLS Certificates, WHOIS details (Owner Org, Registrar), and HTML artifacts (Page Titles, DOM hashes).
+   - `GraphEdge` links nodes with directional relationships (`resolves_to`, `hosted_on`, `presents_cert`, `registered_with`, `shares_layout_hash`).
+   - Deduplicates matching vertices, allowing analysts to visualize shared infrastructure footprints instantly.
+2. **Chronological Timeline Model (`timeline.py`)**:
+   - Compiles point-in-time milestones from the campaign's lifecycle:
+     * `campaign_creation`: Timestamp when the campaign was seeded.
+     * `domain_registration`: Parsed WHOIS registration timestamps of associated indicator domains.
+     * `indicator_association`: Log events marking when indicators were matched and joined to the campaign (with attribution reasoning).
+   - Orders all milestones chronologically (oldest first) to map attacker setup patterns.
+
 ---
 
 ## 8. Project Vision & Problem Statement
@@ -450,6 +464,12 @@ The data layer and RESTful API layer are decoupled using four core patterns:
     - **Similarity Drift Splitting**: Heuristic BFS component checking in `check_for_split()` evaluates members cohesiveness. Disconnected components are split off, updating original campaign bounds and spawning fresh campaign clusters safely without mutation list index out of range bugs.
     - **Service Integration** (`service.py`): Exposed lifecycle actions through `CampaignCorrelationService.process_investigation(...)` and `check_campaign_drift(...)`.
 
+35. **Campaign Timeline & Relationship Graph (Stage 7.4)**:
+    - **Relationship Graph Representation** (`graph_models.py` & `graph_builder.py`): Declared Pydantic models for graph mapping (`GraphNode`, `GraphEdge`, `CampaignGraph`). Created `CampaignGraphBuilder` that traverses campaign members and builds indicator-to-attribute nodes and relationship edges.
+    - **Chronological Timeline Generation** (`timeline.py`): Designed `CampaignTimelineService` extracting registration, creation, and association timestamps from campaign metadata, sorting them oldest-to-newest.
+    - **Service Integration** (`service.py`): Exposed `get_campaign_graph()` and `get_campaign_timeline()`.
+
+
 
 
 
@@ -531,15 +551,18 @@ backend/app/
 │   ├── risk_score.py
 │   └── scan.py
 ├── services/               # Modular business logic services
-│   ├── campaign_engine/    # Campaign Correlation Engine (Stage 7.3)
+│   ├── campaign_engine/    # Campaign Correlation Engine (Stage 7.4)
 │   │   ├── __init__.py     # Exports models, schemas, strategies, service
 │   │   ├── base.py         # BaseCorrelationStrategy interface class
 │   │   ├── clustering.py   # Stage 7.3 CampaignClusterer engine
 │   │   ├── correlators.py  # Stage 7.2 concrete correlator strategies
+│   │   ├── graph_builder.py# Stage 7.4 Relationship Graph Builder
+│   │   ├── graph_models.py # Stage 7.4 Graph & Timeline schemas
 │   │   ├── models.py       # Domain enums & Pydantic models
 │   │   ├── schemas.py      # Ingress validation schemas
 │   │   ├── service.py      # CampaignCorrelationService orchestrator
-│   │   └── similarity.py   # Stage 7.2 SimilarityEngine scorer
+│   │   ├── similarity.py   # Stage 7.2 SimilarityEngine scorer
+│   │   └── timeline.py     # Stage 7.4 Timeline Generation Service
 │   ├── risk_engine/        # Explainable Risk Engine
 │   │   ├── __init__.py
 │   │   ├── base.py
@@ -628,6 +651,8 @@ backend/app/
 - **2026-08-07 (Sprint 1 - Task 34 - 06:10):** **Task 34 (Campaign Correlation Foundation - Stage 7.1):** Created modular campaign engine directory structure under `services/campaign_engine/`. Defined core Pydantic domain models (`Campaign`, `CampaignMember`, `CorrelationEvidence`, `CorrelationResult`, `CampaignSummary`) and severity/status enums. Formulated Pydantic ingress/egress validation schemas. Drafted strategy pattern interface (`BaseCorrelationStrategy`). Coded `CampaignCorrelationService` orchestrating stubs for campaign resolution, creation, and indicator allocation. Verification test script validated all structures import, load, and serialize cleanly. Stage 7.1 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 35 - 06:15):** **Task 35 (Core Campaign Similarity Matcher - Stage 7.2):** Implemented core pairwise correlators (`InfrastructureCorrelator`, `TlsCorrelator`, `WhoisCorrelator`, and `HtmlCorrelator`) in `correlators.py`. Created `SimilarityEngine` (`similarity.py`) registering all strategies, executing pairwise scans, summing weights (IP=25, DNS=10, ASN=5, TLS Serial=20, TLS Subject=5, TLS Issuer=5, Registrant Org=8, Registrar=4, Creation Date=3, Page Title=8, HTML Hash=5, Forms Count=2), and classifying correlation if match_score >= 0.40. Integrated similarity scoring inside `CampaignCorrelationService.evaluate_link()`. Verification test script validated all pairwise matches and scoring calculations correctly. Stage 7.2 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 36 - 06:20):** **Task 36 (Campaign Clustering & Attribution - Stage 7.3):** Coded `CampaignClusterer` (`clustering.py`) with `cluster_indicator()` evaluating incoming observations against active campaigns. Programmed actions logic (CREATE for unmatched, JOIN for single match, MERGE for multi-matches), tracking attribution and re-homing indicators, summaries, and tags. Implemented BFS component graph partitioning inside `check_for_split()` resolving similarity drift/splitting. Integrated methods inside `service.py`. Stage 7.3 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 37 - 06:25):** **Task 37 (Campaign Timeline & Graph Engines - Stage 7.4):** Created `graph_models.py` (declaring `GraphNode`, `GraphEdge`, `CampaignGraph`, `TimelineEvent`, `CampaignTimeline`), `graph_builder.py` (`CampaignGraphBuilder` generating bipartite node-edge mapping indicators to IPs/certificates/registrars/layout hashes), and `timeline.py` (`CampaignTimelineService` extracting WHOIS, association, and campaign start datetimes and sorting them oldest-to-newest). Mounted methods on `CampaignCorrelationService`. Stage 7.4 100% COMPLETE.
+
 
 
 
@@ -636,14 +661,17 @@ backend/app/
 
 ## 15. Milestone 7 Readiness — Campaign Correlation
 
-Milestone 6 (Risk Scoring Engine) and Stage 7.1–7.3 are fully complete. The system is ready to begin Stage 7.4 (Campaign Database Persistence & APIs).
+Milestone 6 (Risk Scoring Engine) and Stage 7.1–7.4 are fully complete. The system is ready to begin Stage 7.5 (Campaign Database Persistence & APIs).
 
-**Prerequisite state at Stage 7.4 entry:**
+**Prerequisite state at Stage 7.5 entry:**
 - Clustering engine (`CampaignClusterer`) groups related indicators, merges overlapping campaigns, and detects drift/splits.
+- Bipartite graph builder (`CampaignGraphBuilder`) constructs relationship models.
+- Chronological service (`CampaignTimelineService`) generates event timelines.
 - `RiskAssessmentRecord` is populated with scored assessments per indicator.
 - `UnifiedEvidenceRecord` provides full normalized evidence per indicator.
 - Both tables are indexed on `indicator` for fast cross-table joining.
 - DB models for Domain and Scan are ready to be linked to campaign persistence.
+
 
 
 **Planned architecture for Milestone 7:**

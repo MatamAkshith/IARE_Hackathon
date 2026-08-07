@@ -22,6 +22,9 @@ from app.services.campaign_engine.models import (
 )
 from app.services.campaign_engine.similarity import SimilarityEngine
 from app.services.campaign_engine.clustering import CampaignClusterer
+from app.services.campaign_engine.graph_models import CampaignGraph, CampaignTimeline
+from app.services.campaign_engine.graph_builder import CampaignGraphBuilder
+from app.services.campaign_engine.timeline import CampaignTimelineService
 
 logger = logging.getLogger("app.services.campaign_engine.service")
 
@@ -35,8 +38,11 @@ class CampaignCorrelationService:
     def __init__(self) -> None:
         self._similarity_engine = SimilarityEngine()
         self._clusterer = CampaignClusterer(similarity_threshold=self._similarity_engine.threshold)
+        self._graph_builder = CampaignGraphBuilder()
+        self._timeline_service = CampaignTimelineService()
         logger.info(
-            "[CampaignCorrelationService] Initializing Campaign Correlation Service with SimilarityEngine & CampaignClusterer."
+            "[CampaignCorrelationService] Initializing Campaign Correlation Service with SimilarityEngine, "
+            "CampaignClusterer, CampaignGraphBuilder, and CampaignTimelineService."
         )
 
     def evaluate_link(
@@ -234,3 +240,21 @@ class CampaignCorrelationService:
         if required.
         """
         return self._clusterer.check_for_split(campaign)
+
+    def get_campaign_graph(
+        self,
+        campaign: Campaign,
+    ) -> CampaignGraph:
+        """
+        Generates the relationship graph connecting campaign members and shared infrastructure.
+        """
+        return self._graph_builder.build_graph(campaign)
+
+    def get_campaign_timeline(
+        self,
+        campaign: Campaign,
+    ) -> CampaignTimeline:
+        """
+        Generates the chronological timeline of events for a campaign.
+        """
+        return self._timeline_service.generate_timeline(campaign)
