@@ -156,12 +156,12 @@ class RiskScoringService:
         if ssl_valid is False or is_self_signed or ssl_valid is None:
             tls_factors.append(RiskFactor(
                 name="Invalid or Missing TLS Certificate",
-                score_contribution=30.0,
+                score_contribution=25.0,
                 description="The site's TLS certificate is invalid, missing, or self-signed.",
-                weight=30.0,
+                weight=25.0,
                 evidence_key="ssl_valid"
             ))
-            raw_score += 30.0
+            raw_score += 25.0
         elif "let's encrypt" in tls_issuer or "zerossl" in tls_issuer or "buypass" in tls_issuer:
             tls_factors.append(RiskFactor(
                 name="Free / Automated CA Certificate",
@@ -187,12 +187,12 @@ class RiskScoringService:
         if not has_mx and contains_sensitive_kw:
             dns_factors.append(RiskFactor(
                 name="Missing MX Records on Sensitive Target",
-                score_contribution=30.0,
+                score_contribution=25.0,
                 description="Domain name contains sensitive authentication keywords but lacks MX email server records.",
-                weight=30.0,
+                weight=25.0,
                 evidence_key="mx_records"
             ))
-            raw_score += 30.0
+            raw_score += 25.0
         elif not has_mx:
             dns_factors.append(RiskFactor(
                 name="No MX Records",

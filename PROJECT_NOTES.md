@@ -1643,3 +1643,28 @@ This section provides a full cross-referenced audit of every commit in the repos
   * Official domains (like `google.com`) register `0.0` (SAFE).
   * Spoofed/Phishing domains (like `vardhaman-erp-login.com` and `login.microsoft-auth-verify.com`) accumulate factors and score `100.0` (CRITICAL), satisfying the strict stopping conditions.
 * Commits pushed to the remote repository.
+
+---
+
+## 35. Fine-Tuning Penalty Weights & Severity Thresholds (2026-08-07)
+
+### 35.1 Adjusted Penalty Weights
+* Recalibrated the cumulative scoring weights in `RiskScoringService` (`backend/app/services/risk_engine/service.py`):
+  * **Target Brand Impersonation**: `+40` points.
+  * **Missing MX records + sensitive keywords**: `+25` points.
+  * **Invalid or Missing TLS Certificate**: `+25` points.
+  * **Suspicious Domain structure (keyword stacking/hyphenation)**: `+20` points.
+  * **Threat Intel Match**: `+50` points.
+  * **WHOIS Domain Age < 30 days**: `+20` points.
+
+### 35.2 Standardized Severity Thresholds
+* Updated `SEVERITY_THRESHOLDS` in `backend/app/services/risk_engine/config.py` to match the Task 2 request:
+  * `0 – 15`: **SAFE** (threshold >= 0.0)
+  * `16 – 40`: **LOW** (threshold >= 16.0)
+  * `41 – 65`: **MEDIUM** (threshold >= 41.0)
+  * `66 – 85`: **HIGH** (threshold >= 66.0)
+  * `86 – 100`: **CRITICAL** (threshold >= 86.0)
+
+### 35.3 Strict Stopping Condition Verification
+* Confirmed that `login.microsoft-auth-verify.com` scores `100.0` (CRITICAL) via the combination of Brand Impersonation (`+40`), Invalid TLS (`+25`), and Missing MX (`+25`), satisfying the strict stopping conditions.
+* Official properties (such as `google.com` and `vardhaman.org`) evaluate correctly to `0.0` (SAFE).
