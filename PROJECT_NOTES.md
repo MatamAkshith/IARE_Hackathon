@@ -1668,3 +1668,31 @@ This section provides a full cross-referenced audit of every commit in the repos
 ### 35.3 Strict Stopping Condition Verification
 * Confirmed that `login.microsoft-auth-verify.com` scores `100.0` (CRITICAL) via the combination of Brand Impersonation (`+40`), Invalid TLS (`+25`), and Missing MX (`+25`), satisfying the strict stopping conditions.
 * Official properties (such as `google.com` and `vardhaman.org`) evaluate correctly to `0.0` (SAFE).
+
+---
+
+## 36. Generalized Phishing Evaluation Engine & Pattern Detection (2026-08-07)
+
+### 36.1 Dynamic Brand & Intent Heuristics
+* Refactored brand matching to evaluate **combinations** of monitored brands and intent keywords (`'login', 'verify', 'auth', 'update', 'secure', 'account', 'banking', 'portal', 'signin', 'support'`).
+* If a domain contains a brand keyword and intent keywords but is not verified on the official whitelist for that brand, it receives a **`+40`** points **Generalized Phishing Impersonation Penalty**.
+
+### 36.2 Infrastructure Penalty Stacking
+* Restructured technical risk indicators to use generalized patterns:
+  * **Missing MX Records** on any intent-matched domain: `+25` points.
+  * **Invalid/Missing TLS certificate OR WHOIS Domain Age < 30 days**: `+25` points (combined OR check).
+  * **High entropy or double-hyphen domain structures**: `+15` points.
+  * **Active Threat Feed match**: `+30` points **per match** (VirusTotal, PhishTank, URLHaus matches stack).
+
+### 36.3 Normalized Threshold Mapping
+* Configured severity boundaries in `backend/app/services/risk_engine/config.py`:
+  * `0 – 20`: **SAFE**
+  * `21 – 50`: **LOW**
+  * `51 – 70`: **MEDIUM**
+  * `71 – 88`: **HIGH**
+  * `89 – 100`: **CRITICAL**
+
+### 36.4 Verification Results
+* Confirmed that `google.com` and `vardhaman.org` (official) score **`0.0` (SAFE)**.
+* Confirmed that phishing pattern matches (like `login.microsoft-auth-verify.com` and `vardhaman-erp-login.com`) evaluate to **`100.0` (CRITICAL)**.
+* Commits successfully pushed to branch `main`.
