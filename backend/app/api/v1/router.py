@@ -14,6 +14,7 @@ v1_router = APIRouter()
 v1_router.include_router(health_router, prefix="/health", tags=["Health"])
 v1_router.include_router(domains_router, prefix="/domains", tags=["Domains"])
 v1_router.include_router(scans_router, prefix="/scans", tags=["Scans"])
+# Campaign Correlation Engine
 v1_router.include_router(campaigns_router, prefix="/campaigns", tags=["Campaigns"])
 v1_router.include_router(features_router, prefix="/features", tags=["Features"])
 v1_router.include_router(risk_scores_router, prefix="/risk-scores", tags=["Risk Scores"])

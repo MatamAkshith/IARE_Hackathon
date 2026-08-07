@@ -10,7 +10,7 @@ import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
-
+from sqlalchemy.orm import Session
 from app.services.campaign_engine.models import (
     Campaign,
     CampaignMember,
@@ -25,6 +25,8 @@ from app.services.campaign_engine.clustering import CampaignClusterer
 from app.services.campaign_engine.graph_models import CampaignGraph, CampaignTimeline
 from app.services.campaign_engine.graph_builder import CampaignGraphBuilder
 from app.services.campaign_engine.timeline import CampaignTimelineService
+from app.services.campaign_engine.repository import CampaignRepository
+from app.db.models.campaign import CampaignRecord
 
 logger = logging.getLogger("app.services.campaign_engine.service")
 
@@ -40,9 +42,10 @@ class CampaignCorrelationService:
         self._clusterer = CampaignClusterer(similarity_threshold=self._similarity_engine.threshold)
         self._graph_builder = CampaignGraphBuilder()
         self._timeline_service = CampaignTimelineService()
+        self._repository = CampaignRepository()
         logger.info(
             "[CampaignCorrelationService] Initializing Campaign Correlation Service with SimilarityEngine, "
-            "CampaignClusterer, CampaignGraphBuilder, and CampaignTimelineService."
+            "CampaignClusterer, CampaignGraphBuilder, CampaignTimelineService, and CampaignRepository."
         )
 
     def evaluate_link(
@@ -214,19 +217,47 @@ class CampaignCorrelationService:
     def process_investigation(
         self,
         new_evidence: Dict[str, Any],
-        active_campaigns: List[Campaign],
+        active_campaigns: Optional[List[Campaign]] = None,
+        db: Optional[Session] = None,
     ) -> Tuple[Campaign, str]:
         """
         Processes a newly generated investigation evidence block, grouping it
         into a campaign (created, joined, or merged) using the CampaignClusterer.
+        If a DB session is provided, automatically fetches active campaigns from the DB,
+        performs clustering, handles merge deactivations, and persists the result.
         """
-        logger.info(
-            f"[process_investigation] Processing clustering for indicator: "
-            f"'{new_evidence.get('indicator', 'unknown')}'"
-        )
+        indicator = new_evidence.get("indicator", "unknown")
+        logger.info(f"[process_investigation] Processing clustering for indicator: '{indicator}'")
+
+        if active_campaigns is None:
+            if db:
+                active_campaigns = self._repository.get_active_campaigns(db)
+                logger.info(f"[process_investigation] Fetched {len(active_campaigns)} active campaigns from database.")
+            else:
+                active_campaigns = []
+                logger.info("[process_investigation] No active campaigns or DB session provided. Defaulting to empty list.")
+
         campaign, action = self._clusterer.cluster_indicator(new_evidence, active_campaigns)
+
+        if db:
+            if action == "merged":
+                # Deactivate merged secondary campaigns
+                primary_indicators = {m.indicator for m in campaign.members}
+                db_active_records = db.query(CampaignRecord).filter(
+                    CampaignRecord.status == "active",
+                    CampaignRecord.campaign_id != campaign.campaign_id
+                ).all()
+                for r in db_active_records:
+                    record_indicators = {m.indicator for m in r.members}
+                    if record_indicators and record_indicators.issubset(primary_indicators):
+                        logger.info(f"[process_investigation] Deactivating merged secondary campaign '{r.campaign_id}' (status='merged')")
+                        r.status = "merged"
+            
+            # Persist resulting campaign (insert or update)
+            self._repository.save_campaign(campaign, db)
+
         logger.info(
-            f"[process_investigation] Finished processing. "
+            f"[process_investigation] Finished processing indicator '{indicator}'. "
             f"Campaign ID: '{campaign.campaign_id}' | Action: '{action}'."
         )
         return campaign, action
@@ -234,12 +265,18 @@ class CampaignCorrelationService:
     def check_campaign_drift(
         self,
         campaign: Campaign,
+        db: Optional[Session] = None,
     ) -> List[Campaign]:
         """
         Checks a campaign for similarity drift among its members and splits it
-        if required.
+        if required. If a DB session is provided, persists the split campaigns to the DB.
         """
-        return self._clusterer.check_for_split(campaign)
+        split_campaigns = self._clusterer.check_for_split(campaign)
+        if db and len(split_campaigns) > 1:
+            logger.info(f"[check_campaign_drift] Mutated campaign split. Persisting {len(split_campaigns)} campaigns to DB.")
+            for camp in split_campaigns:
+                self._repository.save_campaign(camp, db)
+        return split_campaigns
 
     def get_campaign_graph(
         self,

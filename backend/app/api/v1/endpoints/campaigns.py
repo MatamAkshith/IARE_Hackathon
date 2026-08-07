@@ -1,68 +1,163 @@
-from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException, status
+"""
+Campaign Correlation REST APIs — Stage 7.5
+
+Exposes API endpoints to trigger evidence correlation clustering and retrieve
+campaign details, relationship graphs, and event timelines.
+"""
+
+from typing import Any, Dict, List
+import logging
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
-from app.api.deps import get_db, campaign_repo
-from app.schemas.campaign import CampaignCreate, CampaignUpdate, CampaignResponse
+from pydantic import BaseModel, Field
+
+from app.api.deps import get_db
+from app.services.campaign_engine.service import CampaignCorrelationService
+from app.services.campaign_engine.repository import CampaignRepository
+from app.services.campaign_engine.schemas import CampaignResponse
+from app.services.campaign_engine.graph_models import CampaignGraph, CampaignTimeline
+
+logger = logging.getLogger("app.api.v1.endpoints.campaigns")
 
 router = APIRouter()
+campaign_service = CampaignCorrelationService()
+campaign_repo = CampaignRepository()
+
+
+class CorrelateResponse(BaseModel):
+    """API payload response for correlation clustering action."""
+    campaign: CampaignResponse = Field(description="The Campaign cluster result.")
+    action: str = Field(description="Action executed: 'created' | 'joined' | 'merged'.")
+
+
+@router.post("/correlate", response_model=CorrelateResponse, status_code=status.HTTP_200_OK)
+def correlate_indicator(
+    *,
+    db: Session = Depends(get_db),
+    evidence: Dict[str, Any] = Body(
+        ...,
+        example={
+            "indicator": "https://secure-update-login.com",
+            "indicator_type": "url",
+            "ip_address": "192.168.1.100",
+            "cert_serial": "03A1B2C3D4E5F67890",
+            "page_title": "Secure Customer Portal Verification"
+        }
+    )
+) -> Any:
+    """
+    Submits an indicator's resolved evidence observations to evaluate link correlation
+    against active campaigns. Merges overlapping campaigns, creates new ones, or joins existing ones.
+    """
+    logger.info(
+        f"[correlate_indicator] Correlation request received for indicator: "
+        f"'{evidence.get('indicator', 'unknown')}'"
+    )
+    
+    if not evidence.get("indicator"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Indicator field is required within resolved evidence observations."
+        )
+
+    try:
+        # Runs the service which queries active, evaluates matching, merges or joins, and persists to DB.
+        campaign, action = campaign_service.process_investigation(new_evidence=evidence, db=db)
+        return CorrelateResponse(campaign=campaign, action=action)
+    except Exception as exc:
+        logger.error(f"[correlate_indicator] Core clustering processing failed: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while clustering this indicator: {str(exc)}"
+        )
+
 
 @router.get("", response_model=List[CampaignResponse])
-def read_campaigns(
+def list_campaigns(
     db: Session = Depends(get_db),
     skip: int = 0,
-    limit: int = 100
+    limit: int = 50
 ) -> Any:
-    campaigns = campaign_repo.get_multi(db, skip=skip, limit=limit)
-    return campaigns
+    """
+    Retrieves all campaigns, paginated, sorted by latest updates first.
+    """
+    logger.info(f"[list_campaigns] Listing campaigns with skip={skip}, limit={limit}")
+    try:
+        campaigns = campaign_repo.list_campaigns(db, skip=skip, limit=limit)
+        return campaigns
+    except Exception as exc:
+        logger.error(f"[list_campaigns] Database query failed: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve campaigns list."
+        )
 
-@router.post("", response_model=CampaignResponse, status_code=status.HTTP_201_CREATED)
-def create_campaign(
-    *,
-    db: Session = Depends(get_db),
-    campaign_in: CampaignCreate
-) -> Any:
-    db_obj = campaign_repo.create(db, obj_in=campaign_in)
-    return db_obj
 
-@router.get("/{id}", response_model=CampaignResponse)
-def read_campaign(
-    id: int,
+@router.get("/{campaign_id}", response_model=CampaignResponse)
+def get_campaign(
+    campaign_id: str,
     db: Session = Depends(get_db)
 ) -> Any:
-    campaign = campaign_repo.get(db, id=id)
+    """
+    Retrieves a specific campaign configuration by its unique Campaign ID (e.g. CAMP-YYYYMMDD-XXXX).
+    """
+    logger.info(f"[get_campaign] Fetching campaign_id='{campaign_id}'")
+    campaign = campaign_repo.get_campaign_by_id(campaign_id=campaign_id, db=db)
     if not campaign:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign not found"
+            detail=f"Campaign with ID '{campaign_id}' not found."
         )
     return campaign
 
-@router.put("/{id}", response_model=CampaignResponse)
-def update_campaign(
-    *,
-    id: int,
-    db: Session = Depends(get_db),
-    campaign_in: CampaignUpdate
-) -> Any:
-    campaign = campaign_repo.get(db, id=id)
-    if not campaign:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign not found"
-        )
-    campaign = campaign_repo.update(db, db_obj=campaign, obj_in=campaign_in)
-    return campaign
 
-@router.delete("/{id}", response_model=CampaignResponse)
-def delete_campaign(
-    id: int,
+@router.get("/{campaign_id}/timeline", response_model=CampaignTimeline)
+def get_campaign_timeline(
+    campaign_id: str,
     db: Session = Depends(get_db)
 ) -> Any:
-    campaign = campaign_repo.get(db, id=id)
+    """
+    Constructs and returns the chronological timeline history of events for a specific campaign.
+    """
+    logger.info(f"[get_campaign_timeline] Building timeline for campaign_id='{campaign_id}'")
+    campaign = campaign_repo.get_campaign_by_id(campaign_id=campaign_id, db=db)
     if not campaign:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign not found"
+            detail=f"Campaign with ID '{campaign_id}' not found."
         )
-    campaign = campaign_repo.remove(db, id=id)
-    return campaign
+    try:
+        timeline = campaign_service.get_campaign_timeline(campaign)
+        return timeline
+    except Exception as exc:
+        logger.error(f"[get_campaign_timeline] Failed to build timeline: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate campaign timeline."
+        )
+
+
+@router.get("/{campaign_id}/graph", response_model=CampaignGraph)
+def get_campaign_graph(
+    campaign_id: str,
+    db: Session = Depends(get_db)
+) -> Any:
+    """
+    Constructs and returns the node-link relationship graph topology representing the campaign footprint.
+    """
+    logger.info(f"[get_campaign_graph] Building relationship graph for campaign_id='{campaign_id}'")
+    campaign = campaign_repo.get_campaign_by_id(campaign_id=campaign_id, db=db)
+    if not campaign:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Campaign with ID '{campaign_id}' not found."
+        )
+    try:
+        graph = campaign_service.get_campaign_graph(campaign)
+        return graph
+    except Exception as exc:
+        logger.error(f"[get_campaign_graph] Failed to build graph: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate campaign relationship graph."
+        )

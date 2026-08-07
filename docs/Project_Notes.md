@@ -40,7 +40,7 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Threat Intelligence Integration | Integrations with VirusTotal, PhishTank, URLHaus, AbuseIPDB, and AlienVault OTX feeds with concurrent aggregation engine and lookups REST APIs. |
 | **Completed** | Unified Evidence Engine | Merge, normalization, confidence scoring, DB persistence, REST API, audit trail, traceability & final refactor — Milestone 5 100% Complete (Stage 5.6). |
 | **Completed** | Risk Scoring Engine | Explainable rules, recommendations, validation & calibration, DB persistence, REST API & final refactor — Milestone 6 100% Complete (Stage 6.6). |
-| **Current** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints — Graph & Timeline (Stage 7.4) COMPLETE. |
+| **Completed** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints — Milestone 7 100% Complete (Stage 7.6). |
 | **Remaining** | Brand Intelligence | Favicon hash, page template text similarity, visual logo detection. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
 | **Remaining** | Dashboard UI | Analyst control panel and queue dashboard. |
@@ -469,6 +469,16 @@ The data layer and RESTful API layer are decoupled using four core patterns:
     - **Chronological Timeline Generation** (`timeline.py`): Designed `CampaignTimelineService` extracting registration, creation, and association timestamps from campaign metadata, sorting them oldest-to-newest.
     - **Service Integration** (`service.py`): Exposed `get_campaign_graph()` and `get_campaign_timeline()`.
 
+36. **Campaign Database Persistence (Stage 7.5)**:
+    - **SQLAlchemy Models** (`db/models/campaign.py`): Created `CampaignRecord` (`campaigns` table) and `CampaignMemberRecord` (`campaign_members` table) ORM models linked with index fields and foreign key cascade rules. Registered tables inside `db/base.py` for automated creation.
+    - **Persistence Repository** (`repository.py`): Implemented `CampaignRepository` managing transactional reads and writes: `save_campaign()`, `get_active_campaigns()`, `get_campaign_by_id()`, and `list_campaigns()`. Reconstructs Pydantic domain models dynamically.
+    - **Service Integration** (`service.py`): Integrated repository inside `CampaignCorrelationService`. Wired `process_investigation()` and `check_campaign_drift()` to read active records, run clustering and splitting graphs, deactivate merged assets, and persist results.
+
+37. **Campaign REST APIs & E2E Validation (Stage 7.6)**:
+    - **FastAPI Endpoints** (`endpoints/campaigns.py`): Created routes for indicator correlation clustering (`POST /api/v1/campaigns/correlate`), listing paginated campaigns (`GET /api/v1/campaigns`), fetching campaign details (`GET /api/v1/campaigns/{campaign_id}`), fetching chronological timeline (`GET /api/v1/campaigns/{campaign_id}/timeline`), and fetching relationship node-link graphs (`GET /api/v1/campaigns/{campaign_id}/graph`). Mounted under versioned router.
+    - **E2E Integration Testing** (`test_campaign_e2e.py`): Verified E2E REST API endpoints using FastAPI TestClient; validated A (CREATE) -> B (JOIN) -> list → details → timeline → graph E2E lifecycle runs successfully.
+
+
 
 
 
@@ -524,6 +534,11 @@ backend/app/
 │   ├── base.py             # Migration registry index
 │   ├── engine.py           # Core engine setup
 │   ├── init_db.py          # Table initialization logic
+│   ├── models/             # Database ORM models
+│   │   ├── __init__.py     # Exports model records
+│   │   ├── campaign.py     # Stage 7.5 CampaignRecord and CampaignMemberRecord
+│   │   ├── risk_assessment.py # Stage 6.4 RiskScore ORM Persistence
+│   │   └── unified_evidence.py# Stage 5.4 UnifiedEvidence ORM Persistence
 │   └── session.py          # SessionLocal database sessionmaker factory
 ├── middleware/
 │   ├── logging_middleware.py
@@ -551,7 +566,7 @@ backend/app/
 │   ├── risk_score.py
 │   └── scan.py
 ├── services/               # Modular business logic services
-│   ├── campaign_engine/    # Campaign Correlation Engine (Stage 7.4)
+│   ├── campaign_engine/    # Campaign Correlation Engine (Stage 7.5/7.6)
 │   │   ├── __init__.py     # Exports models, schemas, strategies, service
 │   │   ├── base.py         # BaseCorrelationStrategy interface class
 │   │   ├── clustering.py   # Stage 7.3 CampaignClusterer engine
@@ -559,6 +574,7 @@ backend/app/
 │   │   ├── graph_builder.py# Stage 7.4 Relationship Graph Builder
 │   │   ├── graph_models.py # Stage 7.4 Graph & Timeline schemas
 │   │   ├── models.py       # Domain enums & Pydantic models
+│   │   ├── repository.py   # Stage 7.5 Campaign SQL Database Repository
 │   │   ├── schemas.py      # Ingress validation schemas
 │   │   ├── service.py      # CampaignCorrelationService orchestrator
 │   │   ├── similarity.py   # Stage 7.2 SimilarityEngine scorer
@@ -652,6 +668,9 @@ backend/app/
 - **2026-08-07 (Sprint 1 - Task 35 - 06:15):** **Task 35 (Core Campaign Similarity Matcher - Stage 7.2):** Implemented core pairwise correlators (`InfrastructureCorrelator`, `TlsCorrelator`, `WhoisCorrelator`, and `HtmlCorrelator`) in `correlators.py`. Created `SimilarityEngine` (`similarity.py`) registering all strategies, executing pairwise scans, summing weights (IP=25, DNS=10, ASN=5, TLS Serial=20, TLS Subject=5, TLS Issuer=5, Registrant Org=8, Registrar=4, Creation Date=3, Page Title=8, HTML Hash=5, Forms Count=2), and classifying correlation if match_score >= 0.40. Integrated similarity scoring inside `CampaignCorrelationService.evaluate_link()`. Verification test script validated all pairwise matches and scoring calculations correctly. Stage 7.2 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 36 - 06:20):** **Task 36 (Campaign Clustering & Attribution - Stage 7.3):** Coded `CampaignClusterer` (`clustering.py`) with `cluster_indicator()` evaluating incoming observations against active campaigns. Programmed actions logic (CREATE for unmatched, JOIN for single match, MERGE for multi-matches), tracking attribution and re-homing indicators, summaries, and tags. Implemented BFS component graph partitioning inside `check_for_split()` resolving similarity drift/splitting. Integrated methods inside `service.py`. Stage 7.3 100% COMPLETE.
 - **2026-08-07 (Sprint 1 - Task 37 - 06:25):** **Task 37 (Campaign Timeline & Graph Engines - Stage 7.4):** Created `graph_models.py` (declaring `GraphNode`, `GraphEdge`, `CampaignGraph`, `TimelineEvent`, `CampaignTimeline`), `graph_builder.py` (`CampaignGraphBuilder` generating bipartite node-edge mapping indicators to IPs/certificates/registrars/layout hashes), and `timeline.py` (`CampaignTimelineService` extracting WHOIS, association, and campaign start datetimes and sorting them oldest-to-newest). Mounted methods on `CampaignCorrelationService`. Stage 7.4 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 38 - 06:30):** **Task 38 (Campaign Persistence Schema & Repository - Stage 7.5):** Created ORM tables `campaigns` and `campaign_members` (`db/models/campaign.py`) linked with cascades. Registered in `db/base.py`. Created `CampaignRepository` (`repository.py`) managing transactional CRUD operations (`save_campaign`, `get_active_campaigns`, `get_campaign_by_id`, `list_campaigns`) converting SQLAlchemy records to Pydantic objects. Integrated repository into `CampaignCorrelationService.process_investigation()` and `check_campaign_drift()`. Stage 7.5 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 39 - 06:35):** **Task 39 (Campaign REST APIs & E2E Validation - Stage 7.6 | Milestone 7 COMPLETE):** Created REST API endpoints in `endpoints/campaigns.py` mounting POST `/correlate` and GET listing, detail, timeline, and graph routes. Registered router in v1 router. E2E integration test script verified full correlate CREATE/JOIN flow and retrieve list/detail/graph/timeline responses successfully via TestClient. Milestone 7 fully COMPLETE.
+
 
 
 

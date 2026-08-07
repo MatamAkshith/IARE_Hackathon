@@ -8,5 +8,6 @@ from app.models.feature import Feature  # noqa
 from app.models.risk_score import RiskScore  # noqa
 from app.db.models.unified_evidence import UnifiedEvidenceRecord  # noqa
 from app.db.models.risk_assessment import RiskAssessmentRecord  # noqa
+from app.db.models.campaign import CampaignRecord, CampaignMemberRecord  # noqa
 
 
