@@ -1621,3 +1621,25 @@ This section provides a full cross-referenced audit of every commit in the repos
   * Legitimate, healthy targets (e.g. `google.com`) evaluate within `0-15` (SAFE).
   * Spoofed/Suspicious targets (e.g. `vardhaman-erp-login.com` with typical telemetry anomalies) evaluate dynamically to `90.0` (HIGH) or higher.
 * All backend validation, calibration, and API tests executed and passed successfully.
+
+---
+
+## 34. Recalibration of Penalty Weights & Brand Impersonation Rules (2026-08-07)
+
+### 34.1 Recalibrated Penalty Weights
+* Refactored the technical anomaly penalty weights in `RiskScoringService` (`backend/app/services/risk_engine/service.py`) to be more aggressive, ensuring suspicious phishing targets accumulate high scores:
+  * **Invalid, missing, or self-signed TLS Certificate**: `+30` points (up from `25`).
+  * **Missing MX records + sensitive keywords**: `+30` points (up from `20`).
+  * **High entropy or suspicious domain structures / keyword stacking**: `+20` points.
+  * **Positive threat intelligence feed matches**: `+50` points.
+
+### 34.2 Targeted Brand Impersonation Protection
+* **Heuristic Check**: Re-introduced the unauthorized brand mention checks.
+* **Official Brand Verification**: Implemented an official brand domain validation mapping (`google.com`, `microsoft.com`, `amazon.com`, `paypal.com`, `infosys.com`, `vardhaman.org` and their verified subdomains/properties).
+* **Impersonation Penalty**: If a domain matches a targeted brand keyword BUT is not verified on the official whitelist (e.g. `login.microsoft-auth-verify.com`), it triggers a massive `+40` points penalty with factor name `"Target Brand Impersonation Detected"`.
+
+### 34.3 Validation & Strict Stopping Condition
+* Overwrote the test suite in `backend/test_risk_engine.py` to add testing for official properties whitelisting, spoofed domains, and the strict stopping condition target:
+  * Official domains (like `google.com`) register `0.0` (SAFE).
+  * Spoofed/Phishing domains (like `vardhaman-erp-login.com` and `login.microsoft-auth-verify.com`) accumulate factors and score `100.0` (CRITICAL), satisfying the strict stopping conditions.
+* Commits pushed to the remote repository.
