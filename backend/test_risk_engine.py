@@ -111,6 +111,48 @@ def test_brand_impersonation_lexical_rule():
         print(f"❌ Infosys Brand Impersonation test crashed: {e}")
         raise e
 
+    # Test case 3: Official whitelisted college domain
+    evidence_whitelisted = UnifiedEvidence(
+        indicator="https://vardhaman.org",
+        indicator_type="url",
+        resolved_observations={},
+        sources=[],
+        overall_confidence="high",
+        metadata=EvidenceMetadata(item_confidences={})
+    )
+    try:
+        score_whitelisted = service.calculate_risk(evidence_whitelisted)
+        print(f"[+] Indicator: {score_whitelisted.indicator}")
+        print(f"[+] Final Risk Score: {score_whitelisted.overall_score:.1f}/100 (Expected: 0.0)")
+        print(f"[+] Assigned Severity: {score_whitelisted.severity.value.upper()}")
+        assert score_whitelisted.overall_score == 0.0, "Whitelisted domain must score 0.0"
+        assert score_whitelisted.severity.value == "safe", "Whitelisted domain must be SAFE"
+        print("[+] Whitelisting test case passed successfully!")
+    except Exception as e:
+        print(f"❌ Whitelisting test crashed: {e}")
+        raise e
+
+    # Test case 4: Spoofed college ERP target
+    evidence_spoofed = UnifiedEvidence(
+        indicator="https://vardhaman-erp-login.com",
+        indicator_type="url",
+        resolved_observations={},
+        sources=[],
+        overall_confidence="high",
+        metadata=EvidenceMetadata(item_confidences={})
+    )
+    try:
+        score_spoofed = service.calculate_risk(evidence_spoofed)
+        print(f"[+] Indicator: {score_spoofed.indicator}")
+        print(f"[+] Final Risk Score: {score_spoofed.overall_score:.1f}/100 (Expected: >= 85.0)")
+        print(f"[+] Assigned Severity: {score_spoofed.severity.value.upper()}")
+        assert score_spoofed.overall_score >= 85.0, "Spoofed ERP domain must score >= 85.0"
+        assert score_spoofed.severity.value == "high", "Spoofed ERP domain must be HIGH"
+        print("[+] Spoofed college ERP test case passed successfully!")
+    except Exception as e:
+        print(f"❌ Spoofed college ERP test crashed: {e}")
+        raise e
+
 if __name__ == '__main__':
     test_weighted_risk_calculation()
     test_brand_impersonation_lexical_rule()

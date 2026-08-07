@@ -1573,3 +1573,22 @@ This section provides a full cross-referenced audit of every commit in the repos
   * `71-90`: High (Orange/Orange)
   * `91-100`: Critical (Red/Rose)
 * **Drill-Down Links**: Integrated `useNavigate` into the `RecentScansTable` component, making all rows in the threat monitoring feed clickable and deep-linking directly to `/scans/{id}` to view full telemetry details.
+
+---
+
+## 32. College Domain Whitelisting & Impersonation Protection (2026-08-07)
+
+### 32.1 Official Domain Whitelisting
+* **Whitelist Mechanism**: Refactored the core calculation pipeline in `RiskScoringService` (`backend/app/services/risk_engine/service.py`) to check for the official college domain. If a target matches `vardhaman.org` or any of its subdomains (e.g. `*.vardhaman.org`), the system immediately short-circuits and returns a `0.0` overall risk score mapped to the `SAFE` severity level.
+* **Heuristic Bypass**: The whitelisted targets bypass all other evaluators (including lexical check rules) to ensure zero false positives for official properties.
+
+### 32.2 Impersonation Rules for College Portals & ERPs
+* **College Brand Keywords**: Added `vardhaman` and `vmeg` as target brands in the dictionaries of `rules.py` and `service.py`.
+* **Portal and ERP Keywords**: Expanded the monitored lexical keyword set to include `erp`, `student`, `portal`, `gradebook`, and `results`.
+* **Risk Score Elevation**: Any domain name containing a college brand keyword combined with a portal/impersonation term that is not on the official domain whitelist (e.g., `vardhaman-erp-login.com`) triggers the lexical heuristic, mapping directly to a minimum base score of `85.0` (HIGH severity).
+
+### 32.3 Test Suite Execution
+* **Coverage**: Added Test Cases 3 and 4 to the lexical engine test suite in `backend/test_risk_engine.py`:
+  * Case 3 verifies `https://vardhaman.org` evaluates to `0.0` (SAFE).
+  * Case 4 verifies `https://vardhaman-erp-login.com` evaluates to `>= 85.0` (HIGH).
+* **Validation**: Executed the test suite successfully with all assertions passing.

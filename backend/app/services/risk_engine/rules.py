@@ -135,26 +135,29 @@ class DomainIntelEvaluator(BaseRiskEvaluator):
         if isinstance(indicator, str) and indicator:
             ind_lower = indicator.lower()
             host = ind_lower.split("://")[-1].split("/")[0]
-            brands = [
-                "infosys", "tcs", "wipro", "hcl", "techmahindra", "cognizant", "accenture",
-                "icici", "hdfc", "sbi", "axis", "paytm", "phonepe",
-                "microsoft", "google", "amazon", "paypal", "github", "apple", "netflix",
-                "vardhaman"
-            ]
-            suspicious = [
-                "login", "verify", "auth", "secure", "update", "account", "portal",
-                "employee", "benefits", "benefit", "careers", "support", "hr", "jobs"
-            ]
-            matched_brand = any(brand in host for brand in brands)
-            matched_suspicious = any(kw in host for kw in suspicious)
-            if matched_brand and matched_suspicious:
-                factors.append(_factor(
-                    name="Target Brand Impersonation via Lexical Heuristics",
-                    score=25.0,
-                    description="Domain name contains a targeted enterprise brand combined with suspicious phishing keywords.",
-                    weight=25.0,
-                    key="indicator",
-                ))
+            is_whitelisted = host == "vardhaman.org" or host.endswith(".vardhaman.org")
+            if not is_whitelisted:
+                brands = [
+                    "infosys", "tcs", "wipro", "hcl", "techmahindra", "cognizant", "accenture",
+                    "icici", "hdfc", "sbi", "axis", "paytm", "phonepe",
+                    "microsoft", "google", "amazon", "paypal", "github", "apple", "netflix",
+                    "vardhaman", "vmeg"
+                ]
+                suspicious = [
+                    "login", "verify", "auth", "secure", "update", "account", "portal",
+                    "employee", "benefits", "benefit", "careers", "support", "hr", "jobs",
+                    "erp", "student", "gradebook", "results"
+                ]
+                matched_brand = any(brand in host for brand in brands)
+                matched_suspicious = any(kw in host for kw in suspicious)
+                if matched_brand and matched_suspicious:
+                    factors.append(_factor(
+                        name="Target Brand Impersonation via Lexical Heuristics",
+                        score=25.0,
+                        description="Domain name contains a targeted enterprise brand combined with suspicious phishing keywords.",
+                        weight=25.0,
+                        key="indicator",
+                    ))
 
         logger.debug(f"DomainIntelEvaluator: {len(factors)} factor(s) fired.")
         return factors

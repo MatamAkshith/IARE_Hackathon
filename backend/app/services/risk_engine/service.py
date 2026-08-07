@@ -122,6 +122,23 @@ class RiskScoringService:
         logger.info(f"[calculate_risk] Starting risk evaluation for indicator: '{indicator}'")
 
         # ── Step 0: Validate evidence ─────────────────────────────────────── #
+        # Whitelist the official college domain (evaluates as SAFE / Legitimate)
+        if indicator:
+            ind_lower = indicator.lower()
+            host = ind_lower.split("://")[-1].split("/")[0]
+            if host == "vardhaman.org" or host.endswith(".vardhaman.org"):
+                logger.info(f"[calculate_risk] Whitelisted domain '{indicator}' — returning SAFE/0.0.")
+                return RiskScore(
+                    indicator=indicator,
+                    overall_score=0.0,
+                    severity=RiskSeverity.SAFE,
+                    breakdown=RiskBreakdown(),
+                    recommendations=self._recommendation_engine.generate([], RiskSeverity.SAFE),
+                    factor_count=0,
+                    timestamp=datetime.now(timezone.utc),
+                    explanation="Official whitelisted college domain.",
+                )
+
         # Check lexical brand impersonation first to allow empty evidence bypass
         lexical_match = False
         if indicator:
@@ -131,11 +148,12 @@ class RiskScoringService:
                 "infosys", "tcs", "wipro", "hcl", "techmahindra", "cognizant", "accenture",
                 "icici", "hdfc", "sbi", "axis", "paytm", "phonepe",
                 "microsoft", "google", "amazon", "paypal", "github", "apple", "netflix",
-                "vardhaman"
+                "vardhaman", "vmeg"
             ]
             suspicious = [
                 "login", "verify", "auth", "secure", "update", "account", "portal",
-                "employee", "benefits", "benefit", "careers", "support", "hr", "jobs"
+                "employee", "benefits", "benefit", "careers", "support", "hr", "jobs",
+                "erp", "student", "gradebook", "results"
             ]
             matched_brand = any(brand in host for brand in brands)
             matched_suspicious = any(kw in host for kw in suspicious)
