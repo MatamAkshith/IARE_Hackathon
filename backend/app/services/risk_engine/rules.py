@@ -3,18 +3,9 @@ Concrete risk evaluator implementations — one per evidence category.
 
 Weight configuration guide
 --------------------------
-Each rule has a base_score (max raw points it can add).  The service
-normalizes all raw contributions relative to the total possible maximum,
-so adjusting weights here automatically re-scales the final 0-100 score.
-
-Category max contributions (sum = 100 possible raw points):
-  Domain Intelligence  : 25
-  DNS / WHOIS          : 15
-  TLS Certificate      : 15
-  HTML / Content       : 20
-  Threat Intelligence  : 25
-  ─────────────────────────
-  TOTAL                : 100
+All category max-contribution weights are imported from config.py.
+Adjusting RISK_WEIGHTS in config.py automatically re-scales the final
+0-100 score across the entire engine.
 
 When evidence for a category is entirely absent, its max_contribution is
 excluded from the denominator so the score remains correctly scaled.
@@ -24,6 +15,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from app.services.risk_engine.base import BaseRiskEvaluator
+from app.services.risk_engine.config import RISK_WEIGHTS, TOTAL_WEIGHT
 from app.services.risk_engine.models import RiskFactor
 
 logger = logging.getLogger("app.services.risk_engine.rules")
@@ -68,7 +60,7 @@ class DomainIntelEvaluator(BaseRiskEvaluator):
     """
 
     category = "domain_intelligence"
-    max_contribution = 25.0
+    max_contribution = RISK_WEIGHTS["domain_intelligence"]
 
     # Score weights
     _W_VERY_YOUNG_DOMAIN  = 12.0   # < 30 days old
@@ -156,7 +148,7 @@ class DnsWhoisEvaluator(BaseRiskEvaluator):
     """
 
     category = "dns_whois"
-    max_contribution = 15.0
+    max_contribution = RISK_WEIGHTS["dns_whois"]
 
     _W_NO_MX      = 6.0
     _W_NO_NS      = 5.0
@@ -218,7 +210,7 @@ class TlsCertificateEvaluator(BaseRiskEvaluator):
     """
 
     category = "tls_certificate"
-    max_contribution = 15.0
+    max_contribution = RISK_WEIGHTS["tls_certificate"]
 
     _W_INVALID_TLS    = 10.0
     _W_FREE_CA        =  3.0
@@ -292,7 +284,7 @@ class HtmlContentEvaluator(BaseRiskEvaluator):
     """
 
     category = "html_content"
-    max_contribution = 20.0
+    max_contribution = RISK_WEIGHTS["html_content"]
 
     _W_LOGIN_FORM    = 10.0
     _W_PASSWORD_INP  =  5.0
@@ -385,7 +377,7 @@ class ThreatIntelEvaluator(BaseRiskEvaluator):
     """
 
     category = "threat_intelligence"
-    max_contribution = 25.0
+    max_contribution = RISK_WEIGHTS["threat_intelligence"]
 
     _W_VT_MALICIOUS      = 15.0
     _W_VT_SUSPICIOUS     =  8.0
@@ -500,4 +492,5 @@ ALL_EVALUATORS: List[BaseRiskEvaluator] = [
 ]
 
 # Total maximum raw contribution (denominator for 0-100 normalization)
-TOTAL_MAX_CONTRIBUTION: float = sum(e.max_contribution for e in ALL_EVALUATORS)
+# Sourced from config.py TOTAL_WEIGHT for consistency
+TOTAL_MAX_CONTRIBUTION: float = TOTAL_WEIGHT

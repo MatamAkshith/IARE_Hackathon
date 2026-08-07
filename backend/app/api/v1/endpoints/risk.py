@@ -45,6 +45,7 @@ class EvaluateRiskRequest(BaseModel):
     resolved_observations: Optional[Dict[str, Any]] = None
     internal_evidence: Optional[Dict[str, Any]] = None
     external_evidence: Optional[Dict[str, Any]] = None
+    overall_confidence: Optional[str] = "unknown"
     save_to_db: bool = True
 
 
@@ -121,6 +122,8 @@ def evaluate_risk(
     try:
         # Build a flat evidence dict from the request fields
         evidence: Dict[str, Any] = {"indicator": request.indicator}
+        if request.overall_confidence:
+            evidence["overall_confidence"] = request.overall_confidence
 
         # Merge resolved_observations first
         if request.resolved_observations:

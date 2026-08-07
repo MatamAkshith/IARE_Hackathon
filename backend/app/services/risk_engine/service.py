@@ -2,13 +2,16 @@
 RiskScoringService — Core orchestrator for the Explainable Risk Engine.
 
 Pipeline (per request):
+  0. Validate evidence (short-circuit to SAFE if empty/malformed).
   1. Extract evidence dict from UnifiedEvidence or accept a plain dict.
   2. Run each registered evaluator via safe_evaluate() (never crashes).
   3. Sum raw contributions; track which categories were present (dynamic denominator).
   4. Normalize to 0-100 scale using the adjusted denominator.
-  5. Map score to RiskSeverity tier.
-  6. Generate prioritized analyst recommendations via RecommendationEngine.
-  7. Assemble RiskScore with full RiskBreakdown and explainability.
+  5. Calibrate score by evidence confidence level.
+  6. Enforce strict 0-100 boundaries.
+  7. Map score to RiskSeverity tier.
+  8. Generate prioritized analyst recommendations via RecommendationEngine.
+  9. Assemble RiskScore with full RiskBreakdown and explainability.
 """
 
 from __future__ import annotations
@@ -17,6 +20,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Union
 
+from app.services.risk_engine.config import (
+    CATEGORY_EVIDENCE_KEYS,
+    SEVERITY_THRESHOLDS,
+)
 from app.services.risk_engine.models import (
     RiskBreakdown,
     RiskFactor,
@@ -34,31 +41,33 @@ from app.services.risk_engine.rules import (
     HtmlContentEvaluator,
     ThreatIntelEvaluator,
 )
+from app.services.risk_engine.validator import RiskValidator
 
 logger = logging.getLogger("app.services.risk_engine.service")
 
+
 # ─────────────────────────────────────────────────────────────────────────── #
-# Severity mapping thresholds                                                 #
+# Severity mapping (driven by config.py thresholds)                            #
 # ─────────────────────────────────────────────────────────────────────────── #
 
-_SEVERITY_THRESHOLDS = [
-    (90.0, RiskSeverity.CRITICAL),
-    (71.0, RiskSeverity.HIGH),
-    (41.0, RiskSeverity.MEDIUM),
-    (21.0, RiskSeverity.LOW),
-    ( 0.0, RiskSeverity.SAFE),
-]
+_SEVERITY_MAP = {s: RiskSeverity(s) for _, s in SEVERITY_THRESHOLDS}
 
 
 def _map_severity(score: float) -> RiskSeverity:
-    """Maps a 0-100 score to a RiskSeverity tier."""
-    for threshold, severity in _SEVERITY_THRESHOLDS:
+    """Maps a 0-100 score to a RiskSeverity tier using config thresholds."""
+    for threshold, severity_str in SEVERITY_THRESHOLDS:
         if score >= threshold:
-            return severity
+            return RiskSeverity(severity_str)
     return RiskSeverity.SAFE
 
 
-def _build_explanation(score: float, severity: RiskSeverity, factors: List[RiskFactor]) -> str:
+def _build_explanation(
+    score: float,
+    severity: RiskSeverity,
+    factors: List[RiskFactor],
+    confidence: str,
+    was_calibrated: bool,
+) -> str:
     """Generates a concise top-level human-readable summary."""
     if not factors:
         return (
@@ -66,15 +75,18 @@ def _build_explanation(score: float, severity: RiskSeverity, factors: List[RiskF
         )
     top = sorted(factors, key=lambda f: f.score_contribution, reverse=True)
     top_names = ", ".join(f.name for f in top[:3])
-    return (
+    base = (
         f"Risk score {score:.1f}/100 — severity {severity.value.upper()}. "
         f"Top contributing factors: {top_names}."
     )
+    if was_calibrated:
+        base += f" (Score calibrated for '{confidence}' confidence evidence.)"
+    return base
 
 
 class RiskScoringService:
     """
-    Orchestrates the full risk scoring pipeline.
+    Orchestrates the full risk scoring pipeline with validation and calibration.
 
     Usage:
         service = RiskScoringService()
@@ -85,6 +97,7 @@ class RiskScoringService:
     def __init__(self) -> None:
         self._evaluators = ALL_EVALUATORS
         self._recommendation_engine = RecommendationEngine()
+        self._validator = RiskValidator()
         logger.info(
             f"RiskScoringService initialized with {len(self._evaluators)} evaluator(s). "
             f"Total max raw contribution: {TOTAL_MAX_CONTRIBUTION:.1f}."
@@ -105,11 +118,28 @@ class RiskScoringService:
 
         Returns
         -------
-        RiskScore with overall_score, severity, breakdown, and explanation.
+        RiskScore with overall_score, severity, breakdown, recommendations, and explanation.
         """
         evidence, indicator = self._extract_evidence(unified_evidence)
+        confidence = self._extract_confidence(unified_evidence)
 
         logger.info(f"[calculate_risk] Starting risk evaluation for indicator: '{indicator}'")
+
+        # ── Step 0: Validate evidence ─────────────────────────────────────── #
+        if not self._validator.validate_evidence(evidence):
+            logger.info(
+                f"[calculate_risk] Empty/invalid evidence for '{indicator}' — returning SAFE/0.0."
+            )
+            return RiskScore(
+                indicator=indicator,
+                overall_score=0.0,
+                severity=RiskSeverity.SAFE,
+                breakdown=RiskBreakdown(),
+                recommendations=self._recommendation_engine.generate([], RiskSeverity.SAFE),
+                factor_count=0,
+                timestamp=datetime.now(timezone.utc),
+                explanation="No risk signals detected. Evidence was empty or malformed.",
+            )
 
         # ── Step 1: Run all evaluators ────────────────────────────────────── #
         domain_factors:  List[RiskFactor] = []
@@ -157,13 +187,22 @@ class RiskScoringService:
         normalized_score = min(100.0, (raw_total / denominator) * 100.0)
         normalized_score = round(normalized_score, 2)
 
-        # ── Step 4: Map to severity ───────────────────────────────────────── #
-        severity = _map_severity(normalized_score)
+        # ── Step 4: Calibrate by evidence confidence ──────────────────────── #
+        calibrated_score = self._validator.calibrate_score(normalized_score, confidence)
+        was_calibrated = calibrated_score != normalized_score
 
-        # ── Step 5: Build explanation ─────────────────────────────────────── #
-        explanation = _build_explanation(normalized_score, severity, all_factors)
+        # ── Step 5: Enforce strict boundaries ─────────────────────────────── #
+        final_score = self._validator.enforce_boundaries(calibrated_score)
 
-        # ── Step 6: Generate analyst recommendations ──────────────────────── #
+        # ── Step 6: Map to severity ───────────────────────────────────────── #
+        severity = _map_severity(final_score)
+
+        # ── Step 7: Build explanation ─────────────────────────────────────── #
+        explanation = _build_explanation(
+            final_score, severity, all_factors, confidence, was_calibrated,
+        )
+
+        # ── Step 8: Generate analyst recommendations ──────────────────────── #
         recommendations = self._recommendation_engine.generate(
             factors=all_factors,
             severity=severity,
@@ -171,14 +210,15 @@ class RiskScoringService:
 
         logger.info(
             f"[calculate_risk] Evaluation complete for '{indicator}': "
-            f"score={normalized_score:.2f}, severity={severity.value}, "
+            f"raw={normalized_score:.2f}, calibrated={calibrated_score:.2f}, "
+            f"final={final_score:.2f}, severity={severity.value}, confidence='{confidence}', "
             f"factors={len(all_factors)}, recommendations={len(recommendations)}, "
-            f"raw_total={raw_total:.2f}, denominator={denominator:.2f}."
+            f"denominator={denominator:.2f}."
         )
 
         return RiskScore(
             indicator=indicator,
-            overall_score=normalized_score,
+            overall_score=final_score,
             severity=severity,
             breakdown=breakdown,
             recommendations=recommendations,
@@ -186,7 +226,6 @@ class RiskScoringService:
             timestamp=datetime.now(timezone.utc),
             explanation=explanation,
         )
-
 
     # ── Private helpers ───────────────────────────────────────────────────── #
 
@@ -228,21 +267,20 @@ class RiskScoringService:
             return {}, "unknown"
 
     @staticmethod
+    def _extract_confidence(unified_evidence: Union[Dict[str, Any], Any]) -> str:
+        """
+        Extracts the overall confidence level from the evidence payload.
+        Returns 'unknown' if not found.
+        """
+        if isinstance(unified_evidence, dict):
+            return str(unified_evidence.get("overall_confidence", "unknown"))
+        return str(getattr(unified_evidence, "overall_confidence", "unknown"))
+
+    @staticmethod
     def _category_has_evidence(category: str, evidence: Dict[str, Any]) -> bool:
         """
         Determines whether any evidence keys relevant to a category are present.
-        Used to compute the dynamic denominator — if an entire category has
-        no relevant keys, its max_contribution is excluded from scaling.
+        Uses the centralized CATEGORY_EVIDENCE_KEYS from config.py.
         """
-        _CATEGORY_KEYS: Dict[str, frozenset] = {
-            "domain_intelligence": frozenset({"domain_age_days", "ip_address", "indicator", "url"}),
-            "dns_whois": frozenset({"mx_records", "ns_records", "whois_privacy", "registrant_redacted"}),
-            "tls_certificate": frozenset({"ssl_valid", "tls_issuer", "cert_issuer", "cert_days_remaining"}),
-            "html_content": frozenset({"has_login_form", "password_inputs", "forms_count", "page_title", "title"}),
-            "threat_intelligence": frozenset({
-                "virustotal_verdict", "phishtank_verdict", "urlhaus_verdict",
-                "abuse_confidence_score", "pulse_count", "overall_verdict",
-            }),
-        }
-        keys = _CATEGORY_KEYS.get(category, frozenset())
+        keys = CATEGORY_EVIDENCE_KEYS.get(category, frozenset())
         return any(k in evidence for k in keys)

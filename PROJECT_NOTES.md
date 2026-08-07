@@ -39,7 +39,7 @@ Every implementation must remain consistent with these sections. Every completed
 | **Completed** | Aggregation Pipeline | Unified feature extraction scheduler, failing gracefully, storing JSON. |
 | **Completed** | Threat Intelligence Integration | Integrations with VirusTotal, PhishTank, URLHaus, AbuseIPDB, and AlienVault OTX feeds with concurrent aggregation engine and lookups REST APIs. |
 | **Completed** | Unified Evidence Engine | Merge, normalization, confidence scoring, DB persistence, REST API, audit trail, traceability & final refactor — Milestone 5 100% Complete (Stage 5.6). |
-| **Completed** | Risk Scoring Engine | Explainable rules, recommendations engine, DB persistence & REST API — Milestone 6 100% Complete (Stages 6.1–6.4). |
+| **Completed** | Risk Scoring Engine | Explainable rules, recommendations, validation & calibration, DB persistence & REST API — Milestone 6 100% Complete (Stages 6.1–6.5). |
 | **Current** | Campaign Correlation | Attacker attribution and clustering based on shared infrastructure footprints (Milestone 7 - Next). |
 | **Remaining** | Campaign Correlation | Attacker attribution and clustering based on shared footprints. |
 | **Remaining** | Explainable AI | Heuristics extraction summaries for SOC analysts. |
@@ -338,6 +338,24 @@ The data layer and RESTful API layer are decoupled using four core patterns:
     - `GET /api/v1/risk/{indicator:path}` — Returns `List[RiskAssessmentResponse]` for history retrieval, ordered by timestamp desc. Returns 404 if no records found.
     - Router registered under prefix `/risk` with tag `"Risk Engine"` in `v1_router`.
 
+28. **Risk Engine Validation & Calibration (Stage 6.5)**:
+    - **Centralized Config** (`config.py`): Extracted all category weights (`RISK_WEIGHTS`), confidence multipliers (`CONFIDENCE_MULTIPLIERS`), severity thresholds (`SEVERITY_THRESHOLDS`), and category key maps (`CATEGORY_EVIDENCE_KEYS`) into a single calibration file. Adjusting `RISK_WEIGHTS` automatically re-scales all evaluators.
+    - **RiskValidator** (`validator.py`): Three safety gates integrated into the pipeline:
+        1. `validate_evidence(evidence)` — Rejects empty, None, non-dict, indicator-only, or all-null evidence. Returns `False` to trigger an immediate SAFE/0.0 short-circuit.
+        2. `calibrate_score(raw_score, confidence)` — Applies confidence multiplier: HIGH=1.0×, MEDIUM=0.85×, LOW=0.60×, UNKNOWN=0.50×. Default fallback=0.75×.
+        3. `enforce_boundaries(score)` — Clamps to `[0.0, 100.0]`, handles NaN/infinity → 0.0.
+    - **Pipeline Integration** (`service.py`): Steps renumbered 0–9. Step 0 = validation gate, Step 4 = confidence calibration, Step 5 = boundary enforcement. Explanation notes when calibration was applied.
+    - **Weight Sourcing** (`rules.py`): All 5 evaluator `max_contribution` values now read from `config.RISK_WEIGHTS[category]` instead of hardcoded floats. `TOTAL_MAX_CONTRIBUTION` sourced from `config.TOTAL_WEIGHT`.
+
+29. **Confidence Calibration Methodology**:
+    | Confidence Level | Multiplier | Effect on Score | Rationale |
+    |---|---|---|---|
+    | HIGH | 1.00× | Unchanged | Full trust — external TI confirmed, multiple sources agree |
+    | MEDIUM | 0.85× | −15% | Moderate trust — heuristic signals without external validation |
+    | LOW | 0.60× | −40% | Low trust — incomplete data, prevents false alarm escalation |
+    | UNKNOWN | 0.50× | −50% | No confidence signal — aggressive dampening |
+    | (fallback) | 0.75× | −25% | Unrecognized confidence string |
+
 | Provider | URL Lookup | Domain Lookup | IP Lookup | Normalization Logic |
 | :--- | :--- | :--- | :--- | :--- |
 | **VirusTotal** | Supported | Supported | Unsupported | `malicious` > 0 -> Malicious; `suspicious` > 0 -> Suspicious; `harmless`/`undetected` -> Clean |
@@ -470,7 +488,8 @@ backend/app/
 - **2026-08-07 (Sprint 1 - Task 28 - 00:25):** **Task 28 (Evidence Timeline & Traceability - Stage 5.5):** Created `EvidenceTimelineBuilder` (`timeline.py`) generating four-phase audit trails (collection → conflict resolution → normalization → confidence scoring). Added `EvidenceEvent` and `AuditTrail` Pydantic models. Integrated timeline builder into `UnifiedEvidenceService.process_evidence` as Step 5; serialized `audit_trail` into `metadata_json` on DB persist. Exposed `GET /api/v1/unified-evidence/timeline?indicator=<…>` endpoint for audit trail retrieval. Stage 5.5 100% complete.
 - **2026-08-07 (Sprint 1 - Task 29 - 00:35):** **Task 29 (Unified Evidence Engine Finalization & Refactoring - Stage 5.6 | Milestone 5 FINAL):** Performed end-to-end refactoring of all 5 module files. Standardized logging (INFO for lifecycle events, DEBUG for granular detail) across `strategy.py`, `normalizer.py`, `confidence.py`, `timeline.py`, and `service.py`. Added outer try/except pipeline guard in `service.py`. Fixed Python <3.10 type union syntax in `timeline.py`. Extracted private helpers to eliminate code duplication. Replaced list-based key lookups with frozensets. Stage 5.6 and Milestone 5 (Unified Evidence Engine) 100% FINAL.
 - **2026-08-07 (Sprint 1 - Task 30 - 05:30):** **Task 30 (Risk Scoring Engine Foundation + Core Logic - Stages 6.1 & 6.2):** Created `app/services/risk_engine/` package. Defined `RiskSeverity`, `RiskFactor`, `RiskBreakdown`, `RiskScore` Pydantic models. Built `BaseRiskEvaluator` ABC with `safe_evaluate()` wrapper. Implemented 5 weighted evaluators (`DomainIntelEvaluator`, `DnsWhoisEvaluator`, `TlsCertificateEvaluator`, `HtmlContentEvaluator`, `ThreatIntelEvaluator`) with total 100-pt weight budget. Built `RiskScoringService` with dynamic denominator, 0-100 normalization, severity mapping, and explainability. Verified 3 test scenarios: HIGH (75/100), SAFE (0/100), MEDIUM (45/100). Stages 6.1 & 6.2 100% COMPLETE.
-- **2026-08-07 (Sprint 1 - Task 31 - 05:40):** **Task 31 (Risk Engine Recommendations, Persistence & API - Stages 6.3 & 6.4 | Milestone 6 FINAL):** Added `Recommendation` Pydantic model to `models.py`; extended `RiskScore.recommendations` field. Created `RecommendationEngine` (`recommendations.py`) with 20 factor-level rules + severity catch-alls, deduplication, and priority sorting. Integrated as Step 6 in `RiskScoringService.calculate_risk()`. Created `RiskAssessmentRecord` SQLAlchemy ORM model with JSON breakdown/recommendations columns and composite index. Registered in `db/base.py`. Exposed `POST /api/v1/risk/evaluate` and `GET /api/v1/risk/{indicator:path}` endpoints; registered router in v1. Verified pipeline end-to-end: 4 factors fired, 5 recommendations generated (1×immediate, 3×high, 1×medium). Stages 6.3 & 6.4 and Milestone 6 (Risk Scoring Engine) 100% FINAL.
+- **2026-08-07 (Sprint 1 - Task 31 - 05:40):** **Task 31 (Risk Engine Recommendations, Persistence & API - Stages 6.3 & 6.4 | Milestone 6 FINAL):** Added `Recommendation` Pydantic model to `models.py`; extended `RiskScore.recommendations` field. Created `RecommendationEngine` (`recommendations.py`) with 20 factor-level rules + severity catch-alls, deduplication, and priority sorting. Integrated as Step 6 in `RiskScoringService.calculate_risk()`. Created `RiskAssessmentRecord` SQLAlchemy ORM model with JSON breakdown/recommendations columns and composite index. Registered in `db/base.py`. Exposed `POST /api/v1/risk/evaluate` and `GET /api/v1/risk/{indicator:path}` endpoints; registered router in v1. Verified pipeline end-to-end: 4 factors fired, 5 recommendations generated (1×immediate, 3×high, 1×medium). Stages 6.3 & 6.4 100% COMPLETE.
+- **2026-08-07 (Sprint 1 - Task 32 - 05:45):** **Task 32 (Risk Engine Validation & Calibration - Stage 6.5):** Created `config.py` extracting all weights, confidence multipliers, severity thresholds, and category key maps into centralized config. Created `RiskValidator` (`validator.py`) with `validate_evidence()` (empty/null guard), `calibrate_score()` (confidence multiplier), and `enforce_boundaries()` (NaN/clamp). Updated `rules.py` to import weights from `config.RISK_WEIGHTS`. Updated `service.py` with 10-step pipeline (Steps 0/4/5 = validation/calibration/boundaries). Verified 5 edge-case scenarios: HIGH→63.5, LOW→38.1 (calibrated), empty→0.0, all-null→0.0, MEDIUM→51.0 (calibrated). Stage 6.5 100% COMPLETE.
 
 
 ---
