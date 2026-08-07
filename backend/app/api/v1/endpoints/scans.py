@@ -1,8 +1,9 @@
 from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.api.deps import get_db, scan_repo
+from app.api.deps import get_db, scan_repo, get_current_user
 from app.schemas.scan import ScanCreate, ScanUpdate, ScanResponse
+from app.db.models.employee import EmployeeRecord
 
 router = APIRouter()
 
@@ -51,6 +52,7 @@ def _populate_scan_campaign(db: Session, scan: Any) -> Any:
 @router.get("", response_model=List[ScanResponse])
 def read_scans(
     db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(get_current_user),
     skip: int = 0,
     limit: int = 100
 ) -> Any:
@@ -64,8 +66,10 @@ def read_scans(
 def create_scan(
     *,
     db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(get_current_user),
     scan_in: ScanCreate
 ) -> Any:
+    scan_in.initiated_by = current_user.user_id
     db_obj = scan_repo.create(db, obj_in=scan_in)
     return _populate_scan_campaign(db, db_obj)
 
@@ -73,7 +77,8 @@ def create_scan(
 @router.get("/{id}", response_model=ScanResponse)
 def read_scan(
     id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(get_current_user)
 ) -> Any:
     scan = scan_repo.get(db, id=id)
     if not scan:
@@ -89,6 +94,7 @@ def update_scan(
     *,
     id: int,
     db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(get_current_user),
     scan_in: ScanUpdate
 ) -> Any:
     scan = scan_repo.get(db, id=id)
@@ -103,7 +109,8 @@ def update_scan(
 @router.delete("/{id}", response_model=ScanResponse)
 def delete_scan(
     id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(get_current_user)
 ) -> Any:
     scan = scan_repo.get(db, id=id)
     if not scan:

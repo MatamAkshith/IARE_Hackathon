@@ -6,6 +6,8 @@ class Scan(Base):
     domain_id = Column(Integer, ForeignKey("domain.id", ondelete="CASCADE"), nullable=False, index=True)
     campaign_id = Column(Integer, ForeignKey("campaign.id", ondelete="SET NULL"), nullable=True, index=True)
     status = Column(String(50), default="pending", nullable=False)
+    # E.2: Track which employee initiated this investigation (nullable for legacy rows)
+    initiated_by = Column(String(64), nullable=True, index=True)
 
     # Relationships
     domain = relationship("Domain", back_populates="scans")

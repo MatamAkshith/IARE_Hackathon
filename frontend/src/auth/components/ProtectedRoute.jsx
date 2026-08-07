@@ -10,12 +10,18 @@ import { useAuth } from '../hooks/useAuth';
  * @param {string} requiredRole - Optional role requirement (e.g., admin)
  * @param {string} requiredPermission - Optional specific permission requirement (e.g., run:scans)
  */
+/**
+ * Route protection wrapper. Ensures that only authorized operators with 
+ * necessary permissions can access child routes.
+ * 
+ * @param {React.ReactNode} children - Component to render if authenticated and permitted
+ * @param {string[]} allowedRoles - Optional list of permitted role strings
+ */
 export default function ProtectedRoute({ 
   children, 
-  requiredRole, 
-  requiredPermission 
+  allowedRoles
 }) {
-  const { user, isAuthenticated, loading, hasPermission } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
   // If session is still being decoded, show a themed terminal scanning state
@@ -45,12 +51,7 @@ export default function ProtectedRoute({
   }
 
   // Check role requirement
-  if (requiredRole && user.role !== requiredRole) {
-    return <Navigate to="/unauthorized" replace />;
-  }
-
-  // Check specific permission requirement
-  if (requiredPermission && !hasPermission(requiredPermission)) {
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/unauthorized" replace />;
   }
 

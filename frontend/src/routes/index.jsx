@@ -33,9 +33,22 @@ export default function AppRoutes() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/scans" element={<Scans />} />
         <Route path="/scans/:id" element={<InvestigationDetails />} />
-        <Route path="/campaigns" element={<Campaigns />} />
+        
+        {/* Campaigns: Admin, SOC Lead, Threat Intel, Security Manager */}
+        <Route path="/campaigns" element={
+          <ProtectedRoute allowedRoles={['admin', 'soc_lead', 'threat_intel', 'security_manager']}>
+            <Campaigns />
+          </ProtectedRoute>
+        } />
+        
         <Route path="/reports" element={<Reports />} />
-        <Route path="/settings" element={<Settings />} />
+        
+        {/* Settings: Admin, SOC Lead, Security Manager */}
+        <Route path="/settings" element={
+          <ProtectedRoute allowedRoles={['admin', 'soc_lead', 'security_manager']}>
+            <Settings />
+          </ProtectedRoute>
+        } />
       </Route>
 
       {/* Wildcard redirect back to secure dashboard or login */}

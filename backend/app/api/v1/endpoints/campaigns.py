@@ -11,17 +11,22 @@ from fastapi import APIRouter, Depends, HTTPException, status, Body
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Field
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_current_user
 from app.services.campaign_engine.service import CampaignCorrelationService
 from app.services.campaign_engine.repository import CampaignRepository
 from app.services.campaign_engine.schemas import CampaignResponse
 from app.services.campaign_engine.graph_models import CampaignGraph, CampaignTimeline
+from app.core.security import RoleChecker
+from app.db.models.employee import EmployeeRecord
 
 logger = logging.getLogger("app.api.v1.endpoints.campaigns")
 
 router = APIRouter()
 campaign_service = CampaignCorrelationService()
 campaign_repo = CampaignRepository()
+
+# Define checkers
+allowed_write_roles = RoleChecker(["admin", "soc_lead", "threat_intel", "security_manager"])
 
 
 class CorrelateResponse(BaseModel):
@@ -34,6 +39,7 @@ class CorrelateResponse(BaseModel):
 def correlate_indicator(
     *,
     db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(allowed_write_roles),
     evidence: Dict[str, Any] = Body(
         ...,
         example={
@@ -75,6 +81,7 @@ def correlate_indicator(
 @router.get("", response_model=List[CampaignResponse])
 def list_campaigns(
     db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(get_current_user),
     skip: int = 0,
     limit: int = 50
 ) -> Any:
@@ -96,7 +103,8 @@ def list_campaigns(
 @router.get("/{campaign_id}", response_model=CampaignResponse)
 def get_campaign(
     campaign_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(get_current_user)
 ) -> Any:
     """
     Retrieves a specific campaign configuration by its unique Campaign ID (e.g. CAMP-YYYYMMDD-XXXX).
@@ -114,7 +122,8 @@ def get_campaign(
 @router.get("/{campaign_id}/timeline", response_model=CampaignTimeline)
 def get_campaign_timeline(
     campaign_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(get_current_user)
 ) -> Any:
     """
     Constructs and returns the chronological timeline history of events for a specific campaign.
@@ -140,7 +149,8 @@ def get_campaign_timeline(
 @router.get("/{campaign_id}/graph", response_model=CampaignGraph)
 def get_campaign_graph(
     campaign_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(get_current_user)
 ) -> Any:
     """
     Constructs and returns the node-link relationship graph topology representing the campaign footprint.

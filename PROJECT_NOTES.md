@@ -54,6 +54,7 @@ Every implementation must remain consistent with these sections. Every completed
 | ✅ **LOCKED** | Frontend Integration | Phase A (Stages A.1 - A.6) fully complete and validated. |
 | ✅ **LOCKED** | Demo Dataset & Validation | Phase B (Stages B.1 - B.4) fully seeded, validated, and demo-playbook compiled. Platform is 100% complete and demo-ready. |
 | ✅ **LOCKED** | Auth & Audit Integration | Authentication login system, protected routing, and post-merge regression validation 100% completed. |
+| ✅ **LOCKED** | Role-Based Access Control | Organziational RBAC controls, brute-force locking, account security, and token lifecycles fully implemented. |
 
 
 ---
@@ -1670,3 +1671,37 @@ This section provides a full cross-referenced audit of every commit in the repos
 ### 47.2 End-to-End Regression Workflows
 * Executed end-to-end integration tests (`test_campaign_api_e2e.py` and `test_e2e_m6.py`) confirming that user login simulations, scans submission, risk evaluations, and campaigns clustering attributes function perfectly.
 * Confirmed that all backend APIs and frontend routes compile and load error-free.
+
+---
+
+## 48. Stage E.1 & E.2 Enterprise Authentication & Audit Logging Integration (2026-08-07)
+
+### 48.1 Enterprise Authentication & Database Seeding (E.1)
+* **Backend JWT Authentication**: Replaced mock authentication with a server-side JWT authentication pipeline. The backend issues signed tokens using `python-jose` (HS256) and stores them in client storage.
+* **Pre-Provisioned Accounts Table**: Defined `EmployeeRecord` ORM representing pre-provisioned enterprise operator credentials.
+* **lifespan Database Seeding**: Integrated automatic database seeding on startup, provisioning all 7 required credentials: `admin`, `soclead`, `analyst01`, `analyst02`, `threatintel`, `incident01`, `securitymgr` with bcrypt hashes.
+* **Enterprise Restriction**: Disabled all public registration, self-service signups, and email recoveries.
+
+### 48.2 Audit Logging & Authentication Guards (E.2)
+* **AuditLogRecord ORM**: Created `auth_audit_logs` database table tracking all auth events: `login_success`, `login_failed`, `logout`, and `invalid_token` with IP addresses and User Agents.
+* **JWT Guard Dependency**: Added `get_current_user` FastAPI dependency validating HTTP Bearer token signatures and logging invalid tokens.
+* **Scan Attribution**: Added `initiated_by` to the `Scan` ORM and validated Pydantic schemas, tying manual URL submissions to the authenticated operator's User ID.
+* **Frontend Headers & Session Display**: Refactored `apiClient` Axios interceptors to automatically attach the `Authorization` header, and wired the Topbar header to display the active operator's User ID, Role, and a fully functional logout modal.
+* **Build Verification**: Run `npm run build` to confirm 100% clean frontend builds, and restarted backend verifying clean startup, model sync, and seeder execution. All systems ready for next phase.
+
+---
+
+## 49. Stage E.3 & E.4 Role-Based Access Control (RBAC) & Enterprise Security Hardening (2026-08-07)
+
+### 49.1 Role-Based Access Control (E.3)
+* **API Route Protection**: Implemented a reusable `RoleChecker` dependency class in `security.py` that checks the role embedded in the request's JWT payload and raises a 403 Forbidden on authorization mismatch.
+* **Protected Write Access**: Restricted campaigns clustering `/correlate` and settings write routes to only high-clearance roles (`admin`, `soc_lead`, `threat_intel`, `security_manager`).
+* **Frontend Role Guards**: Applied client-side authorization routing inside `routes/index.jsx` using the `allowedRoles` filter on protected routes.
+* **Dynamic Navigation**: Configured `Sidebar.jsx` to filter navigation links and hide unauthorized pages (e.g. Campaigns or Settings) if the user's role lacks access.
+
+### 49.2 Enterprise Hardening & Lockout (E.4)
+* **Brute-Force Protection**: Added `failed_login_attempts` counter and `locked_until` datetime fields to `EmployeeRecord` ORM.
+* **Temporary Lockout**: Automatically locks user accounts temporarily for 15 minutes after 5 consecutive failed login attempts, recording `account_locked` in the authentication audit log.
+* **Session Lifecycle Redirects**: Handled 401 Unauthorized API failures (due to expired or modified tokens) in the Axios `apiClient` interceptor by wiping the token from `localStorage` and redirecting users to `/login?session=expired`.
+* **Session Info UI**: Updated the header and sidebar components to output the active user ID and their role designation.
+

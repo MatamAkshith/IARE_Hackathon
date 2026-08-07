@@ -21,6 +21,12 @@ async def lifespan(app: FastAPI):
         init_models()
     except Exception as e:
         logger.error(f"Error initializing database models: {e}")
+    # Seed pre-provisioned enterprise employee accounts (idempotent)
+    try:
+        from seed_employees import seed_enterprise_employees
+        seed_enterprise_employees()
+    except Exception as e:
+        logger.error(f"Error seeding enterprise employees: {e}")
     yield
     logger.info("Shutting down ThreatLens API framework...")
 

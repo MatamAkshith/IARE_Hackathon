@@ -1,5 +1,6 @@
 import React from 'react'
 import { NavLink } from 'react-router-dom'
+import { useAuth } from '../auth/hooks/useAuth'
 
 /**
  * Sidebar navigation component for threat logs and intelligence metrics.
@@ -8,6 +9,8 @@ import { NavLink } from 'react-router-dom'
  * @param {Function} [props.onItemClick] Optional callback executed when clicking navigation links (used to dismiss mobile overlays)
  */
 export default function Sidebar({ onItemClick }) {
+  const { user } = useAuth()
+
   // Navigation item configurations
   const menuItems = [
     {
@@ -31,6 +34,7 @@ export default function Sidebar({ onItemClick }) {
     {
       label: 'Campaigns',
       path: '/campaigns',
+      allowedRoles: ['admin', 'soc_lead', 'threat_intel', 'security_manager'],
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -49,6 +53,7 @@ export default function Sidebar({ onItemClick }) {
     {
       label: 'Settings',
       path: '/settings',
+      allowedRoles: ['admin', 'soc_lead', 'security_manager'],
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -57,6 +62,13 @@ export default function Sidebar({ onItemClick }) {
       )
     }
   ]
+
+  // Filter items based on active user role
+  const visibleItems = menuItems.filter(
+    (item) => !item.allowedRoles || (user && item.allowedRoles.includes(user.role))
+  )
+
+  const userInitial = user?.user_id ? user.user_id.substring(0, 2).toUpperCase() : 'OP'
 
   return (
     <div className="flex flex-col h-full bg-[#090d16] border-r border-[#1a2336]">
@@ -75,7 +87,7 @@ export default function Sidebar({ onItemClick }) {
 
       {/* Nav Menu */}
       <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-        {menuItems.map((item) => (
+        {visibleItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
@@ -96,12 +108,16 @@ export default function Sidebar({ onItemClick }) {
 
       {/* Analyst Session Profile footer */}
       <div className="p-4 border-t border-[#1a2336] bg-[#0c121e] flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-300">
-          AN
+        <div className="w-8 h-8 rounded-full bg-cyan-950/40 border border-cyan-800/60 flex items-center justify-center text-xs font-bold text-cyan-400">
+          {userInitial}
         </div>
         <div className="truncate flex-1">
-          <span className="block text-xs font-bold text-slate-200 truncate">Analyst Mode</span>
-          <span className="block text-[10px] text-slate-500 truncate">Console ID: SOC-402</span>
+          <span className="block text-xs font-bold text-slate-200 truncate">
+            {user?.user_id || 'Operator Session'}
+          </span>
+          <span className="block text-[10px] text-slate-500 truncate">
+            ROLE: {(user?.role || 'operator').toUpperCase()}
+          </span>
         </div>
       </div>
     </div>

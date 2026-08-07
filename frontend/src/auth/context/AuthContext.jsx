@@ -1,7 +1,16 @@
+/**
+ * AuthContext — Stage E.1
+ *
+ * Manages enterprise authentication state. Reads real JWTs issued by the
+ * backend (/api/v1/auth/login) and calls /api/v1/auth/logout on sign-out.
+ *
+ * Token payload shape (backend-issued):
+ *   { sub: "user_id", role: "analyst", iat: ..., exp: ... }
+ */
+
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { getToken, setToken, removeToken, decodeMockToken, isTokenExpired } from '../utils/jwt';
+import { getToken, setToken, removeToken, isTokenExpired, decodeToken } from '../utils/jwt';
 import { authService } from '../services/authService';
-import { hasPermission as checkPermission } from '../utils/permissions';
 
 export const AuthContext = createContext(null);
 
@@ -11,29 +20,26 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Initialize and check token on load
+  // ── Initialize from stored token ───────────────────────────────────────
   useEffect(() => {
     const initializeAuth = () => {
       try {
         const savedToken = getToken();
         if (savedToken) {
           if (isTokenExpired(savedToken)) {
-            // Token expired, log user out
             removeToken();
           } else {
-            // Token is valid, decode and set user session
-            const decoded = decodeMockToken(savedToken);
+            const decoded = decodeToken(savedToken);
             setTokenState(savedToken);
             setUser({
-              email: decoded.email,
-              name: decoded.name,
+              user_id: decoded.sub,
               role: decoded.role,
-              title: decoded.title
             });
           }
         }
       } catch (err) {
-        console.error('Error initializing authentication:', err);
+        console.error('[AuthContext] Error initializing authentication:', err);
+        removeToken();
       } finally {
         setLoading(false);
       }
@@ -42,43 +48,47 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
-  const login = async (email, password, rememberMe = false) => {
+  // ── Login ──────────────────────────────────────────────────────────────
+  /**
+   * @param {string} userId
+   * @param {string} passkey
+   */
+  const login = async (userId, passkey) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await authService.login(email, password);
-      
+      const response = await authService.login(userId, passkey);
+
       setTokenState(response.token);
-      setUser(response.user);
-      
-      // If remember me is checked, save to localStorage (handled by setToken)
-      // Note: in a real implementation we could configure token TTLs or session storage,
-      // here we simplify to always setting token in localStorage for session persistency.
       setToken(response.token);
-      
+      setUser(response.user);
+
       return response.user;
     } catch (err) {
-      setError(err.message || 'Authentication failed');
-      throw err;
+      const message = err?.message || 'Authentication failed';
+      setError(message);
+      throw new Error(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const logout = () => {
+  // ── Logout ─────────────────────────────────────────────────────────────
+  const logout = async () => {
+    const currentToken = token;
+    // Clear local state immediately so UI reflects logout
     removeToken();
     setTokenState(null);
     setUser(null);
     setError(null);
+    // Best-effort server-side audit log
+    if (currentToken) {
+      await authService.logout(currentToken).catch(() => {});
+    }
   };
 
-  const hasRole = (role) => {
-    return user && user.role === role;
-  };
-
-  const hasPermission = (permission) => {
-    return user && checkPermission(user.role, permission);
-  };
+  // ── Helpers ────────────────────────────────────────────────────────────
+  const hasRole = (role) => user && user.role === role;
 
   const value = {
     user,
@@ -88,8 +98,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     hasRole,
-    hasPermission,
-    isAuthenticated: !!user
+    isAuthenticated: !!user,
   };
 
   return (

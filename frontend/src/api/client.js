@@ -47,6 +47,12 @@ const apiClient = axios.create({
  */
 apiClient.interceptors.request.use(
   (config) => {
+    // Stage E.1: Attach Bearer token if stored
+    const token = localStorage.getItem('threatlens_auth_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+
     if (IS_DEV) {
       console.debug(
         `[ThreatLens API] ▶ ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`,
@@ -89,6 +95,15 @@ apiClient.interceptors.response.use(
   },
   (error) => {
     const apiError = normalizeError(error)
+
+    if (apiError.status === 401) {
+      console.warn('[ThreatLens API] Unauthorized or expired session detected. Redirecting to login.')
+      localStorage.removeItem('threatlens_auth_token')
+      // Only redirect if not already on the login page to avoid infinite redirect loops
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login?session=expired'
+      }
+    }
 
     if (IS_DEV) {
       console.error(

@@ -9,5 +9,5 @@ from app.models.risk_score import RiskScore  # noqa
 from app.db.models.unified_evidence import UnifiedEvidenceRecord  # noqa
 from app.db.models.risk_assessment import RiskAssessmentRecord  # noqa
 from app.db.models.campaign import CampaignRecord, CampaignMemberRecord  # noqa
-
-
+from app.db.models.employee import EmployeeRecord  # noqa
+from app.db.models.audit_log import AuditLogRecord  # noqa

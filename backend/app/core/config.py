@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     OPENROUTER_DEFAULT_MODEL: str = "meta-llama/llama-3-8b-instruct"
     OPENROUTER_FALLBACK_MODEL: str = "meta-llama/llama-3-8b-instruct"
 
+    # JWT Authentication
+    JWT_SECRET_KEY: str = "threatlens-super-secret-key-change-in-production-2026"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_MINUTES: int = 480  # 8 hours
 
 
    # 4 spaces indentation for the decorator

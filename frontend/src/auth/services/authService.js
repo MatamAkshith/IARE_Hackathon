@@ -1,104 +1,53 @@
-import { encodeMockToken } from '../utils/jwt';
-import { ROLES } from '../utils/roles';
-
-// Mock database users
-const MOCK_USERS = [
-  {
-    email: 'admin@threatlens.io',
-    password: 'adminPassword123!',
-    name: 'Sarah Connor',
-    role: ROLES.ADMIN,
-    title: 'Chief Security Officer'
-  },
-  {
-    email: 'analyst@threatlens.io',
-    password: 'analystPassword123!',
-    name: 'John Connor',
-    role: ROLES.ANALYST,
-    title: 'Senior SOC Analyst'
-  },
-  {
-    email: 'auditor@threatlens.io',
-    password: 'auditorPassword123!',
-    name: 'Marcus Wright',
-    role: ROLES.AUDITOR,
-    title: 'External Auditor'
-  }
-];
-
-// Simulated network delay helper
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
 /**
- * Authentication service simulating backend endpoints
+ * Authentication Service — Stage E.1
+ *
+ * Replaces the mock user lookup with real calls to the ThreatLens backend:
+ *   POST /api/v1/auth/login   → returns { access_token, token_type, user_id, role }
+ *   POST /api/v1/auth/logout  → writes server-side audit log entry
+ *
+ * All sensitive credential verification is now performed on the backend.
+ * No mock users, no client-side password checks.
  */
+
+import apiClient from '../../api/client';
+
 export const authService = {
   /**
-   * Log in a user with email and password
-   * @param {string} email 
-   * @param {string} password 
-   * @returns {Promise<Object>} Response with token and user data
+   * Authenticate an enterprise employee with user_id + passkey.
+   * @param {string} userId  — ThreatLens employee ID (e.g. "analyst01")
+   * @param {string} passkey — Passkey string
+   * @returns {Promise<{ token: string, user: { user_id, role } }>}
    */
-  login: async (email, password) => {
-    await delay(1200); // Simulate API latency
-    
-    const formattedEmail = email.toLowerCase().trim();
-    const user = MOCK_USERS.find(u => u.email === formattedEmail);
-    
-    if (!user) {
-      throw new Error('Access Denied: Invalid credentials or account does not exist.');
-    }
-    
-    if (user.password !== password) {
-      throw new Error('Access Denied: Invalid credentials.');
-    }
-    
-    // Generate a mock JWT token
-    const tokenPayload = {
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      title: user.title
-    };
-    
-    const token = encodeMockToken(tokenPayload);
-    
+  login: async (userId, passkey) => {
+    const data = await apiClient.post('/auth/login', {
+      user_id: userId,
+      passkey: passkey,
+    });
+
     return {
-      token,
+      token: data.access_token,
       user: {
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        title: user.title
-      }
+        user_id: data.user_id,
+        role: data.role,
+      },
     };
   },
 
   /**
-   * Request password reset code
-   * @param {string} email 
-   * @returns {Promise<boolean>}
+   * Terminate the authenticated session server-side (audit log).
+   * The caller should remove the token from localStorage afterwards.
+   * @param {string} token — current Bearer token
+   * @returns {Promise<void>}
    */
-  forgotPassword: async (email) => {
-    await delay(1000); // Simulate latency
-    
-    const formattedEmail = email.toLowerCase().trim();
-    const userExists = MOCK_USERS.some(u => u.email === formattedEmail);
-    
-    if (!userExists) {
-      throw new Error('No account associated with this email address.');
+  logout: async (token) => {
+    try {
+      await apiClient.post(
+        '/auth/logout',
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch {
+      // Swallow logout errors — we clear the local token regardless
     }
-    
-    return true; // Return true to signify check and process succeeded
   },
-
-  /**
-   * Get current authenticated user details from token
-   * @param {string} token 
-   * @returns {Promise<Object>}
-   */
-  getCurrentUser: async (token) => {
-    await delay(300); // Mock instant verification
-    return tokenPayload;
-  }
 };

@@ -3,8 +3,9 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_db, get_current_user
 from app.services.dashboard_service import DashboardService
+from app.db.models.employee import EmployeeRecord
 
 logger = logging.getLogger("app.api.v1.endpoints.dashboard")
 router = APIRouter()
@@ -12,7 +13,10 @@ dashboard_service = DashboardService()
 
 
 @router.get("/stats", response_model=Dict[str, Any])
-def get_dashboard_stats(db: Session = Depends(get_db)) -> Any:
+def get_dashboard_stats(
+    db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(get_current_user)
+) -> Any:
     """
     Retrieves live SQL aggregation statistics for the SOC Dashboard KPIs and Risk Distribution.
     """
@@ -31,6 +35,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)) -> Any:
 @router.get("/recent-feed", response_model=List[Dict[str, Any]])
 def get_recent_feed(
     db: Session = Depends(get_db),
+    current_user: EmployeeRecord = Depends(get_current_user),
     limit: int = 10
 ) -> Any:
     """

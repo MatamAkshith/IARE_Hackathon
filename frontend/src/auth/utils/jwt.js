@@ -1,81 +1,55 @@
 /**
- * Mock JWT Token helper utility for ThreatLens.
- * Simulates encoding, decoding, and managing JSON Web Tokens in local storage.
+ * JWT Utility — Stage E.1
+ *
+ * Handles storage of the server-issued JWT (localStorage) and safe
+ * decoding of the base64url payload.  Encoding is no longer done
+ * client-side; tokens are issued exclusively by the backend.
  */
 
 const TOKEN_KEY = 'threatlens_auth_token';
 
-/**
- * Encodes mock user data into a simulated JWT string format
- * @param {Object} payload - User data (email, role, name, etc)
- * @returns {string} Simulated JWT token
- */
-export const encodeMockToken = (payload) => {
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  
-  // Add issue and expiration time (1 hour from now)
-  const exp = Math.floor(Date.now() / 1000) + 3600;
-  const iat = Math.floor(Date.now() / 1000);
-  const fullPayload = { ...payload, exp, iat };
-  
-  const encodedPayload = btoa(JSON.stringify(fullPayload));
-  const signature = btoa('threatlens_mock_signature');
-  
-  return `${header}.${encodedPayload}.${signature}`;
-};
+// ── Storage helpers ──────────────────────────────────────────────────────────
+
+/** Retrieve the stored JWT from localStorage. */
+export const getToken = () => localStorage.getItem(TOKEN_KEY);
+
+/** Persist a JWT to localStorage. */
+export const setToken = (token) => localStorage.setItem(TOKEN_KEY, token);
+
+/** Remove the stored JWT from localStorage. */
+export const removeToken = () => localStorage.removeItem(TOKEN_KEY);
+
+// ── Token decoding ───────────────────────────────────────────────────────────
 
 /**
- * Decodes a simulated JWT token back into JSON payload
- * @param {string} token 
- * @returns {Object|null} Decoded payload or null if invalid
+ * Decode the base64url payload of a JWT without verifying the signature.
+ * Signature verification is the backend's responsibility.
+ *
+ * @param {string} token
+ * @returns {Object|null} Decoded payload or null on error
  */
-export const decodeMockToken = (token) => {
+export const decodeToken = (token) => {
   if (!token) return null;
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    
-    // Decode base64 payload
-    const decodedPayload = JSON.parse(atob(parts[1]));
-    return decodedPayload;
-  } catch (error) {
-    console.error('Failed to decode mock JWT token:', error);
+    // base64url → base64 → JSON
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = atob(base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '='));
+    return JSON.parse(json);
+  } catch {
     return null;
   }
 };
 
 /**
- * Retrieves the token from local storage
- * @returns {string|null}
- */
-export const getToken = () => {
-  return localStorage.getItem(TOKEN_KEY);
-};
-
-/**
- * Saves the token to local storage
- * @param {string} token 
- */
-export const setToken = (token) => {
-  localStorage.setItem(TOKEN_KEY, token);
-};
-
-/**
- * Removes the token from local storage
- */
-export const removeToken = () => {
-  localStorage.removeItem(TOKEN_KEY);
-};
-
-/**
- * Checks if a token is expired
- * @param {string} token 
+ * Check whether a JWT has expired based on its `exp` claim.
+ *
+ * @param {string} token
  * @returns {boolean} True if expired or invalid
  */
 export const isTokenExpired = (token) => {
-  const payload = decodeMockToken(token);
+  const payload = decodeToken(token);
   if (!payload || !payload.exp) return true;
-  
-  const currentTime = Math.floor(Date.now() / 1000);
-  return payload.exp < currentTime;
+  return payload.exp < Math.floor(Date.now() / 1000);
 };

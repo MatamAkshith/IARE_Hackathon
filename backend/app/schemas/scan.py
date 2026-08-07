@@ -6,6 +6,7 @@ class ScanBase(BaseModel):
     domain_id: int
     campaign_id: Optional[int] = None
     status: str = "pending"
+    initiated_by: Optional[str] = None  # E.2: authenticated employee user_id
 
 class ScanCreate(ScanBase):
     pass
@@ -14,6 +15,7 @@ class ScanUpdate(BaseModel):
     domain_id: Optional[int] = None
     campaign_id: Optional[int] = None
     status: Optional[str] = None
+    initiated_by: Optional[str] = None
 
 class ScanResponse(ScanBase):
     id: int

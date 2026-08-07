@@ -10,3 +10,5 @@ requests==2.31.0
 cryptography==42.0.5
 beautifulsoup4==4.12.3
 httpx==0.28.1
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4

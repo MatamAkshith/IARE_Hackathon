@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import PasswordField from './PasswordField';
 
 export default function LoginForm() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Form states
   const [email, setEmail] = useState('');
@@ -15,6 +16,13 @@ export default function LoginForm() {
   // Service loading & error states
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('session') === 'expired') {
+      setAuthError('Session Expired: Please authorize access again.');
+    }
+  }, [location]);
 
   // Validate form entries
   const validateForm = () => {
