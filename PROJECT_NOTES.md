@@ -60,6 +60,7 @@ Every implementation must remain consistent with these sections. Every completed
 | ✅ **LOCKED** | E2E Validation & Polish | End-to-end investigation pipeline validated, raw placeholders purged, UI components standardized, and platform demo-ready. |
 | ✅ **LOCKED** | Final Demo Readiness | Dynamic metrics synchronized, debug logs purged, and production stability audited. Phase F 100% COMPLETE. |
 | ✅ **LOCKED** | Session & Queue Hotfixes | Hotfixes G.1 and G.2 (Session tab close auto-logout and stale pending scans recovery) completed and verified. |
+| ✅ **LOCKED** | Campaign Attribution Hotfix | Hotfixes G.3 and G.4 (Automatic campaign correlation engine and synchronized UI badges) completed and verified. |
 
 
 ---
@@ -1801,8 +1802,22 @@ This section provides a full cross-referenced audit of every commit in the repos
 
 ### 55.2 Pending Scan Recovery & UI Sync (Hotfix G.2)
 * **Stale Scan Recovery Mechanism**: Programmed `recover_stale_scans` inside a new helper module `investigation_service.py` that queries scans stuck in `pending`, `scanning`, or `processing` states for more than 3 minutes, and automatically transitions them to `failed`.
-* **Database Healing Trigger**: Integrated the recovery helper directly inside the GET `/scans` API endpoint, ensuring that stale scans are healed whenever the operator loads the ingestion log.
 * **UI Ingestion Log Redesign**: Modified the Scans queue table in `Scans.jsx` to render a themed `FAILED` status badge, fixed table layout column spanning (`colSpan="6"`), and added a one-click `Retry` action trigger.
+
+---
+
+## 56. Hotfix G.3 & G.4 Automatic Campaign Attribution Engine, Scan Attribution Synchronization (2026-08-08)
+
+### 56.1 Automatic Campaign Attribution Engine (Hotfix G.3)
+* **Automatic Attribution Trigger**: Connected `run_campaign_correlation` directly inside the backend `update_scan` PUT API route. When an investigation transitions to `"completed"`, the correlation engine evaluates it.
+* **Intelligent Clustering Engine**: Interfaced the database with the `CampaignCorrelationService.process_investigation` algorithm, evaluating indicators based on IP, SSL, title, and registrar details against active campaigns.
+* **Auto-Generation & Database Alignment**: When a scan matches an existing campaign, it adds the scan. If not, it creates a new campaign formatted as `CAMP-YYYYMMDD-XXXX` and links it, updating both `campaign_members` and the legacy `campaign` table for full compatibility.
+
+### 56.2 Scan Attribution Synchronization (Hotfix G.4)
+* **Modularity Refactor**: Extracted the scans queue table into a dedicated reusable component `ScanTable.jsx` under `components/scans/`.
+* **Color-Coded Badges**: Programmed a deterministic hashing function in `ScanTable.jsx` to assign custom colors (brand-teal, purple, amber, teal) to Campaign badges, linking directly to `/campaigns?campaignId={uid}`.
+* **Immediate Response Sync**: Refactored `_populate_scan_campaign` and the API payload mapping to return the newly calculated `campaign_name` and `campaign_uid` immediately on status update, guaranteeing the frontend receives it without needing page refreshes.
+
 
 
 

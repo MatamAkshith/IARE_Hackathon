@@ -119,6 +119,16 @@ def update_scan(
             detail="Scan not found"
         )
     scan = scan_repo.update(db, db_obj=scan, obj_in=scan_in)
+    
+    # Stage G.3: If scan has completed, trigger the attribution engine
+    if scan.status == "completed":
+        try:
+            from app.services.campaign_service import run_campaign_correlation
+            run_campaign_correlation(scan.id, db)
+            db.refresh(scan)
+        except Exception as exc:
+            logger.error(f"[update_scan] Automatic campaign correlation failed: {exc}", exc_info=True)
+            
     return _populate_scan_campaign(db, scan)
 
 @router.delete("/{id}", response_model=ScanResponse)

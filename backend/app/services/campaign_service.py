@@ -1,164 +1,86 @@
-import uuid
-from typing import Any, Dict
-from datetime import datetime, timezone
-from sqlalchemy.orm import Session
-from sqlalchemy import func
+"""
+Automatic Campaign Correlation Engine — Stage G.3
 
+Orchestrates automated scan attribution and campaign clustering.
+"""
+import logging
+from sqlalchemy.orm import Session
 from app.models.scan import Scan
 from app.models.domain import Domain
+from app.db.models.unified_evidence import UnifiedEvidenceRecord
 from app.models.campaign import Campaign as LegacyCampaign
-from app.db.models.campaign import CampaignRecord, CampaignMemberRecord
+from app.services.campaign_engine.service import CampaignCorrelationService
 
+logger = logging.getLogger("app.services.campaign_service")
+correlation_service = CampaignCorrelationService()
 
-def attribute_scan_to_campaign(
-    db: Session,
-    scan_id: int,
-    telemetry_data: Dict[str, Any],
-    overall_score: float
-) -> None:
+def run_campaign_correlation(investigation_id: int, db: Session) -> None:
     """
-    Correlates high-risk manual investigations to campaigns based on brand name or
-    shared infrastructure (IP/ASN), updating both the Scan record and the clustering engine tables.
+    Kicks off campaign correlation for the completed investigation.
+    Extracts features from UnifiedEvidence, queries the clustering engine,
+    associates the scan to the resulting campaign, and updates the DB.
     """
-    # Rule 1: If Risk Score < 71 (SAFE/MEDIUM): Leave campaign_id as NULL (Unattributed)
-    if overall_score < 71:
-        return
-
-    # Find the scan record
-    scan = db.query(Scan).filter(Scan.id == scan_id).first()
+    logger.info(f"[run_campaign_correlation] Starting correlation for scan ID {investigation_id}")
+    
+    # 1. Fetch scan
+    scan = db.query(Scan).filter(Scan.id == investigation_id).first()
     if not scan:
+        logger.error(f"[run_campaign_correlation] Scan #{investigation_id} not found.")
         return
-
+        
+    # 2. Fetch domain
     domain = db.query(Domain).filter(Domain.id == scan.domain_id).first()
     if not domain:
+        logger.error(f"[run_campaign_correlation] Domain for Scan #{investigation_id} not found.")
         return
-    url = domain.url
-
-    # Extract indicators from telemetry_data
-    ip_address = telemetry_data.get("ip_address")
-    asn = telemetry_data.get("asn")
-
-    # Extract brand from url/domain
-    brand = None
-    url_lower = url.lower()
-    brands = [
-        "microsoft", "google", "amazon", "paypal", "github", "apple", "netflix",
-        "infosys", "tcs", "wipro", "hcl", "techmahindra", "cognizant", "accenture",
-        "icici", "hdfc", "sbi", "axis", "paytm", "phonepe", "vardhaman", "vmeg"
-    ]
-    for b in brands:
-        if b in url_lower:
-            if b == "vmeg":
-                brand = "VMEG"
-            elif b == "tcs":
-                brand = "TCS"
-            elif b == "hcl":
-                brand = "HCL"
-            elif b == "sbi":
-                brand = "SBI"
-            elif b == "hdfc":
-                brand = "HDFC"
-            elif b == "icici":
-                brand = "ICICI"
-            else:
-                brand = b.capitalize()
-            break
-
-    # Look for matching active CampaignRecord
-    matched_campaign = None
-    active_campaigns = db.query(CampaignRecord).filter(
-        func.lower(CampaignRecord.status) == "active"
-    ).all()
-
-    for camp in active_campaigns:
-        # Check by brand name match
-        if brand and brand.lower() in camp.name.lower():
-            matched_campaign = camp
-            break
-        # Check by shared infrastructure (IP/ASN)
-        for member in camp.members:
-            obs = member.resolved_observations_json or {}
-            if (ip_address and obs.get("ip_address") == ip_address) or (asn and obs.get("asn") == asn):
-                matched_campaign = camp
-                break
-        if matched_campaign:
-            break
-
-    # If matching Campaign exists, update scan & members
-    if matched_campaign:
-        # Update Scan record campaign_id (legacy campaign lookup)
-        legacy_camp = db.query(LegacyCampaign).filter(LegacyCampaign.name == matched_campaign.name).first()
+        
+    target_domain = domain.url
+    
+    # 3. Fetch latest unified evidence
+    evidence_rec = db.query(UnifiedEvidenceRecord).filter(
+        UnifiedEvidenceRecord.indicator == target_domain
+    ).order_by(UnifiedEvidenceRecord.timestamp.desc()).first()
+    
+    # Build resolved observations payload
+    if evidence_rec and evidence_rec.resolved_observations:
+        evidence_payload = dict(evidence_rec.resolved_observations)
+    else:
+        # Fallback if no unified evidence record exists yet
+        evidence_payload = {
+            "indicator": target_domain,
+            "indicator_type": "url",
+            "ip_address": "",
+            "cert_serial": "",
+            "page_title": ""
+        }
+        
+    # Standardize indicators
+    evidence_payload["indicator"] = target_domain
+    evidence_payload["indicator_type"] = "url"
+    
+    try:
+        # 4. Trigger Campaign Clustering Engine
+        campaign, action = correlation_service.process_investigation(new_evidence=evidence_payload, db=db)
+        logger.info(
+            f"[run_campaign_correlation] Scan #{investigation_id} clustered. "
+            f"Campaign ID: '{campaign.campaign_id}' (name='{campaign.name}') | Action: '{action}'"
+        )
+        
+        # 5. Link with LegacyCampaign model for full compatibility
+        legacy_camp = db.query(LegacyCampaign).filter(LegacyCampaign.name == campaign.name).first()
         if not legacy_camp:
-            legacy_camp = LegacyCampaign(name=matched_campaign.name, status="active")
+            legacy_camp = LegacyCampaign(
+                name=campaign.name, 
+                description=f"Automated Campaign Group ({campaign.campaign_id})"
+            )
             db.add(legacy_camp)
             db.commit()
             db.refresh(legacy_camp)
-
+            
         scan.campaign_id = legacy_camp.id
-
-        # Add a CampaignMemberRecord if it doesn't already exist
-        existing_member = db.query(CampaignMemberRecord).filter(
-            CampaignMemberRecord.campaign_id == matched_campaign.campaign_id,
-            CampaignMemberRecord.indicator == url
-        ).first()
-        if not existing_member:
-            new_member = CampaignMemberRecord(
-                campaign_id=matched_campaign.campaign_id,
-                indicator=url,
-                indicator_type="url",
-                added_reason="Coordinated infrastructure/behavior overlap",
-                resolved_observations_json={**telemetry_data, "scan_id": scan.id}
-            )
-            db.add(new_member)
+        db.add(scan)
         db.commit()
-    else:
-        # If no matching campaign exists, create a new Campaign
-        camp_name = f"Auto-Generated {brand or 'Generic'} Campaign"
-        campaign_uid = f"CAMP-{datetime.now().strftime('%Y')}-{uuid.uuid4().hex[:6].upper()}"
-
-        # Create Legacy Campaign
-        legacy_camp = LegacyCampaign(name=camp_name, status="active")
-        db.add(legacy_camp)
-        db.commit()
-        db.refresh(legacy_camp)
-
-        scan.campaign_id = legacy_camp.id
-
-        # Create CampaignRecord
-        now = datetime.now(timezone.utc)
-        new_camp_rec = CampaignRecord(
-            campaign_id=campaign_uid,
-            name=camp_name,
-            status="active",
-            severity="high" if overall_score < 86 else "critical",
-            summary_json={
-                "campaignName": camp_name,
-                "campaignId": campaign_uid,
-                "status": "Active",
-                "riskLevel": "High" if overall_score < 86 else "Critical",
-                "confidence": "90%",
-                "totalIndicators": 1,
-                "first_seen": now.isoformat(),
-                "last_seen": now.isoformat(),
-                "firstSeen": now.isoformat(),
-                "lastSeen": now.isoformat(),
-                "primary_ttp_tags": [brand.lower()] if brand else ["generic"],
-                "primaryTtpTags": [brand.lower()] if brand else ["generic"]
-            },
-            shared_infrastructure_json=[
-                {"type": "ip", "value": ip_address}
-            ] if ip_address else []
-        )
-        db.add(new_camp_rec)
-        db.commit()
-
-        # Create CampaignMemberRecord
-        new_member = CampaignMemberRecord(
-            campaign_id=campaign_uid,
-            indicator=url,
-            indicator_type="url",
-            added_reason="Initial high-risk indicator seeding campaign",
-            resolved_observations_json={**telemetry_data, "scan_id": scan.id}
-        )
-        db.add(new_member)
-        db.commit()
+        
+        logger.info(f"[run_campaign_correlation] Scan #{investigation_id} linked to Campaign ID {legacy_camp.id} (UUID: {campaign.campaign_id}).")
+    except Exception as e:
+        logger.error(f"[run_campaign_correlation] Error running correlation engine: {e}", exc_info=True)
