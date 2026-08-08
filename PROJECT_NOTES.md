@@ -1722,4 +1722,14 @@ This section provides a full cross-referenced audit of every commit in the repos
 * **RBAC Enforcement**: Confirmed that when an account with the role `analyst` attempts to trigger correlation at `/correlate` or accessSettings, the backend returns a 403 Forbidden, and the frontend dynamically hides these links.
 * **E2E Workflow Validation**: Successfully ran the complete SOC workflow from logging in, viewing stats, submitting indicators, obtaining AI breakdowns, exporting analyst reports, and logging out. All actions verified inside database activity tables.
 
+---
+
+## 51. Hotfix H.1 — Restore Campaigns & Settings Navigation (2026-08-08)
+
+### 51.1 Restore Sidebar Links & Routing
+* **Sidebar Link Restoration**: Restored the main sidebar menu items array to include Campaigns and Settings unconditionally. Links are rendered in the exact original order: Dashboard, Scans, Campaigns, Reports, Settings.
+* **Frontend Routing Restoration**: Reconnected `Campaigns` and `Settings` page components under the main protected `/campaigns` and `/settings` routes, wrapped in standard authentication checks.
+* **RBAC Preservation**: Kept all existing token parsing and JWT authentication logic fully intact on both the frontend and backend.
+
+
 
