@@ -1,4 +1,5 @@
 import React from 'react'
+import { getSeverityDetails } from '../utils/severityUtils'
 
 /**
  * Visual badge for 0-100 risk scores matching the Risk Engine bands.
@@ -17,28 +18,12 @@ export default function RiskScoreBadge({ score }) {
   }
 
   const numericScore = Number(score)
-
-  let colorClasses = 'bg-slate-800 text-slate-400 border-slate-700'
-  let label = 'Unknown'
-
-  if (numericScore <= 20) {
-    colorClasses = 'bg-emerald-950/20 text-emerald-400 border-emerald-800/40'
-    label = 'Safe'
-  } else if (numericScore <= 70) {
-    colorClasses = 'bg-amber-950/20 text-amber-400 border-amber-800/40'
-    label = 'Medium'
-  } else if (numericScore <= 90) {
-    colorClasses = 'bg-orange-950/20 text-orange-400 border-orange-800/40'
-    label = 'High'
-  } else {
-    colorClasses = 'bg-rose-950/20 text-rose-400 border-rose-800/40'
-    label = 'Critical'
-  }
+  const details = getSeverityDetails(numericScore)
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded border text-[11px] font-semibold font-mono tracking-wide ${colorClasses}`}>
+    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded border text-[11px] font-semibold font-mono tracking-wide ${details.badgeClass}`}>
       <span>{numericScore}</span>
-      <span className="opacity-50 text-[9px] uppercase font-sans font-bold">&bull; {label}</span>
+      <span className="opacity-50 text-[9px] uppercase font-sans font-bold">&bull; {details.label}</span>
     </span>
   )
 }

@@ -1,4 +1,5 @@
 import React from 'react'
+import { getSeverityDetails } from '../../utils/severityUtils'
 
 /**
  * Indicators of Compromise (IOC) telemetry table.
@@ -8,16 +9,7 @@ import React from 'react'
  */
 export default function IOCTable({ iocs = [] }) {
   const getSeverityStyle = (severity) => {
-    switch (severity.toLowerCase()) {
-      case 'critical':
-        return 'text-rose-400 bg-rose-950/20 border-rose-900/30'
-      case 'high':
-        return 'text-orange-400 bg-orange-950/20 border-orange-900/30'
-      case 'medium':
-        return 'text-amber-400 bg-amber-950/20 border-amber-900/30'
-      default:
-        return 'text-emerald-400 bg-emerald-950/20 border-emerald-900/30'
-    }
+    return getSeverityDetails(severity).badgeClass
   }
 
   return (

@@ -2,6 +2,7 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import StatusPill from '../StatusPill'
 import SkeletonLoader from '../SkeletonLoader'
+import { getSeverityDetails } from '../../utils/severityUtils'
 
 const getCampaignBadgeColor = (name) => {
   if (!name) return 'bg-slate-900/30 text-slate-400 border-slate-800';
@@ -41,25 +42,11 @@ export default function ScanTable({ scans = [], loading = false, onRetry }) {
     if (scan.overall_score === null || scan.overall_score === undefined) {
       return <span className="text-slate-500 font-mono text-[10px]">—</span>
     }
-    const scoreVal = Number(scan.overall_score)
-    let colorClass = ''
-    let label = ''
-    if (scoreVal <= 20) {
-      colorClass = 'bg-emerald-950/30 text-emerald-400 border-emerald-800/40'
-      label = 'SAFE'
-    } else if (scoreVal <= 70) {
-      colorClass = 'bg-amber-950/30 text-amber-400 border-amber-800/40'
-      label = 'MEDIUM'
-    } else if (scoreVal <= 90) {
-      colorClass = 'bg-orange-950/30 text-orange-400 border-orange-800/40'
-      label = 'HIGH'
-    } else {
-      colorClass = 'bg-rose-950/30 text-rose-400 border-rose-800/40'
-      label = 'CRITICAL'
-    }
+    
+    const details = getSeverityDetails(scan.overall_score)
     return (
-      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${colorClass}`}>
-        {Math.round(scoreVal)} {label}
+      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${details.badgeClass}`}>
+        {Math.round(Number(scan.overall_score))} {details.label}
       </span>
     )
   }

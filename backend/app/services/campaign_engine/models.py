@@ -79,3 +79,7 @@ class Campaign(BaseModel):
     shared_infrastructure: List[CorrelationEvidence] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    confidence: Optional[int] = None
+    unique_iocs_count: Optional[int] = None
+    max_score: Optional[float] = None
+

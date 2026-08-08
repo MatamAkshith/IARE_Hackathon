@@ -1,4 +1,4 @@
-import React from 'react'
+import { getSeverityDetails } from '../../utils/severityUtils'
 
 /**
  * Chronological SOC Threat Activity log timeline.
@@ -8,18 +8,17 @@ import React from 'react'
  */
 export default function ThreatTimeline({ events = [] }) {
   const dotColor = (type) => {
-    switch (type) {
-      case 'critical':
-        return 'bg-rose-500 ring-rose-500/20'
-      case 'high':
-        return 'bg-orange-500 ring-orange-500/20'
-      case 'medium':
-        return 'bg-amber-500 ring-amber-500/20'
-      case 'error':
-        return 'bg-red-600 ring-red-500/20'
-      default:
-        return 'bg-sky-500 ring-sky-500/20'
+    const details = getSeverityDetails(type)
+    if (details.label === 'SAFE') {
+      return 'bg-emerald-500 ring-emerald-500/20'
     }
+    if (details.label === 'MEDIUM') {
+      return 'bg-amber-500 ring-amber-500/20'
+    }
+    if (details.label === 'HIGH' || details.label === 'CRITICAL') {
+      return 'bg-rose-500 ring-rose-500/20'
+    }
+    return 'bg-sky-500 ring-sky-500/20'
   }
 
   return (

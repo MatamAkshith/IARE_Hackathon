@@ -62,6 +62,7 @@ Every implementation must remain consistent with these sections. Every completed
 | ✅ **LOCKED** | Session & Queue Hotfixes | Hotfixes G.1 and G.2 (Session tab close auto-logout and stale pending scans recovery) completed and verified. |
 | ✅ **LOCKED** | Campaign Attribution Hotfix | Hotfixes G.3 and G.4 (Automatic campaign correlation engine and synchronized UI badges) completed and verified. |
 | ✅ **LOCKED** | Bootstrap & Queue Sync Hotfixes | Hotfixes G.5 and G.6 (Auth context load ordering, stale queue database recovery, and UI count sync) completed and verified. |
+| ✅ **LOCKED** | Severity & Metrics Hotfixes | Hotfixes G.7 and G.8 (Unified Green/Yellow/Red severity mapping and dynamic backend campaign calculations) completed and verified. |
 
 
 ---
@@ -1830,8 +1831,22 @@ This section provides a full cross-referenced audit of every commit in the repos
 * **Session Redirects**: Cleanly redirected invalid/expired token users to `/login?session=expired` without triggering layout error banners.
 
 ### 57.2 Investigation State Synchronization & Queue Cleanup (Hotfix G.6)
-* **Scan Recovery Synchronization**: Configured `DashboardService.get_stats` and `get_recent_feed` to run stale scan recovery checks synchronously on database fetch.
 * **Stale Scan Database Healing**: Ensured scans stuck in PENDING or PROCESSING states beyond 3 minutes are automatically marked as FAILED, updating metric counts across both the Dashboard and the Scan Table.
+
+---
+
+## 58. Hotfix G.7 & G.8 Unified Risk Severity Theme, Dynamic Campaign Attribution Metrics (2026-08-08)
+
+### 58.1 Unified Risk Severity Theme (Hotfix G.7)
+* **Severity Utility Integration**: Created a shared helper `severityUtils.js` to map threat risk scores and labels to strict color codes (Green for Safe/Low, Yellow for Medium, Red for High/Critical).
+* **Frontend Severity Alignment**: Cleaned up hardcoded color bands across the frontend (Dashboard timelines, Scans ingestion queue tables, Campaign overview cards, Verdict alerts, and IOC tables), standardizing severity rendering via the helper.
+* **Orange/Yellow Standardisation**: Purged all intermediate or mixed warning color definitions to maintain a clean three-tiered threat spectrum.
+
+### 58.2 Dynamic Campaign Attribution Metrics (Hotfix G.8)
+* **Backend Calculations**: Created `calculate_dynamic_metrics` in `campaign_service.py` to aggregate correlated domains, unique IOC overlaps, dynamic confidence scores (capped at 100%), and highest member threat severity scores.
+* **Dynamic Serialization**: Extended the `CampaignResponse` schema and endpoints to return these dynamic attributes, eliminating hardcoded placeholder metrics from responses.
+* **Refreshed Visualizations**: Configured `Campaigns.jsx` and API connectors to trigger fresh queries when switching campaigns in the dropdown, forcing immediate reloads of topology graphs and timeline details.
+
 
 
 

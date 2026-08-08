@@ -9,14 +9,7 @@ import EvidenceTable from '../components/campaign/EvidenceTable'
 import ConfidenceCard from '../components/campaign/ConfidenceCard'
 import CampaignTimeline from '../components/campaign/CampaignTimeline'
 import { getCampaignsList, getCampaignDetails } from '../api/campaignService.js'
-
-const SEVERITY_COLOR = {
-  critical: 'text-rose-400 bg-rose-950/20 border-rose-800/40',
-  high: 'text-amber-400 bg-amber-950/20 border-amber-800/40',
-  medium: 'text-yellow-400 bg-yellow-950/20 border-yellow-800/40',
-  low: 'text-emerald-400 bg-emerald-950/20 border-emerald-800/40',
-  safe: 'text-slate-400 bg-slate-800/20 border-slate-700/40',
-}
+import { getSeverityDetails } from '../utils/severityUtils'
 
 export default function Campaigns() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -140,7 +133,7 @@ export default function Campaigns() {
             </div>
             {selectedMeta && (
               <div className="flex items-center gap-2">
-                <span className={`px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wider ${SEVERITY_COLOR[selectedMeta.severity] || SEVERITY_COLOR.low}`}>
+                <span className={`px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wider ${getSeverityDetails(selectedMeta.severity).badgeClass}`}>
                   {selectedMeta.severity}
                 </span>
                 <span className="text-[9px] text-slate-600 font-mono">
@@ -148,6 +141,7 @@ export default function Campaigns() {
                 </span>
               </div>
             )}
+
           </div>
         </div>
       </div>

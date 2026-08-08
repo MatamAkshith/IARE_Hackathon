@@ -56,6 +56,9 @@ class CampaignResponse(BaseModel):
     shared_infrastructure: List[CorrelationEvidence]
     created_at: datetime
     updated_at: datetime
+    confidence: Optional[int] = None
+    unique_iocs_count: Optional[int] = None
+    max_score: Optional[float] = None
 
     class Config:
         from_attributes = True

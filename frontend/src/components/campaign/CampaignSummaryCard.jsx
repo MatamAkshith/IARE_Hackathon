@@ -6,7 +6,11 @@ import React from 'react'
  * @param {Object} props
  * @param {Object} props.summary Campaign summary details from dataset
  */
+import { getSeverityDetails } from '../../utils/severityUtils'
+
 export default function CampaignSummaryCard({ summary = {} }) {
+  const details = getSeverityDetails(summary.riskLevel || 'HIGH')
+  
   return (
     <div className="border border-[#1a2336] bg-[#090d16] p-5 rounded-xl shadow-md space-y-4">
       {/* Title bar */}
@@ -26,11 +30,12 @@ export default function CampaignSummaryCard({ summary = {} }) {
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             {summary.status}
           </span>
-          <span className="text-[10px] font-mono font-bold uppercase text-rose-400 bg-rose-950/20 px-2 py-0.5 border border-rose-850/30 rounded mt-1">
+          <span className={`text-[10px] font-mono font-bold uppercase border px-2 py-0.5 rounded mt-1 ${details.badgeClass}`}>
             {summary.riskLevel}
           </span>
         </div>
       </div>
+
 
       {/* Grid details */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">

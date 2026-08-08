@@ -93,6 +93,12 @@ def list_campaigns(
     log_activity(db, current_user.user_id, "campaign_view", req_obj)
     try:
         campaigns = campaign_repo.list_campaigns(db, skip=skip, limit=limit)
+        from app.services.campaign_service import calculate_dynamic_metrics
+        for c in campaigns:
+            metrics = calculate_dynamic_metrics(c, db)
+            c.confidence = metrics["confidence"]
+            c.unique_iocs_count = metrics["unique_iocs_count"]
+            c.max_score = metrics["max_score"]
         return campaigns
     except Exception as exc:
         logger.error(f"[list_campaigns] Database query failed: {exc}", exc_info=True)
@@ -120,6 +126,11 @@ def get_campaign(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Campaign with ID '{campaign_id}' not found."
         )
+    from app.services.campaign_service import calculate_dynamic_metrics
+    metrics = calculate_dynamic_metrics(campaign, db)
+    campaign.confidence = metrics["confidence"]
+    campaign.unique_iocs_count = metrics["unique_iocs_count"]
+    campaign.max_score = metrics["max_score"]
     return campaign
 
 

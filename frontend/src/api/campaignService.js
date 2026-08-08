@@ -74,7 +74,7 @@ export async function getCampaignDetails(id) {
     campaignId: campaign.campaign_id,
     status: campaign.status,
     riskLevel: campaign.severity === 'critical' || campaign.severity === 'high' ? 'Critical' : 'High',
-    confidence: '95%',
+    confidence: `${campaign.confidence || 85}%`,
     firstSeen: new Date(campaign.created_at).toISOString().replace('T', ' ').substring(0, 16),
     lastSeen: new Date(campaign.updated_at).toISOString().replace('T', ' ').substring(0, 16),
     totalDomains: campaign.members?.length || 0,
@@ -103,15 +103,16 @@ export async function getCampaignDetails(id) {
     infrastructure,
     sharedEvidence,
     confidence: {
-      score: 95,
+      score: campaign.confidence || 85,
       severity: campaign.severity,
-      sharedIndicators: graph.edges?.length || 0,
+      sharedIndicators: campaign.unique_iocs_count || graph.edges?.length || 0,
       correlatedDomains: campaign.members?.length || 0,
       recommendation: 'Block associated domains and monitor DNS queries.'
     },
     timeline: presentationTimeline
   })
 }
+
 
 /**
  * Fetches relationship graph data for a campaign.

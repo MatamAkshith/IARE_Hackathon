@@ -84,3 +84,57 @@ def run_campaign_correlation(investigation_id: int, db: Session) -> None:
         logger.info(f"[run_campaign_correlation] Scan #{investigation_id} linked to Campaign ID {legacy_camp.id} (UUID: {campaign.campaign_id}).")
     except Exception as e:
         logger.error(f"[run_campaign_correlation] Error running correlation engine: {e}", exc_info=True)
+
+
+def calculate_dynamic_metrics(campaign: any, db: Session) -> dict:
+    """
+    Computes dynamic metrics for a campaign cluster:
+    - Correlated Domains Count
+    - Shared Infrastructure & Unique IOCs Count
+    - Dynamic Confidence Score based on evidence volume
+    - Aggregated Maximum Severity Score
+    """
+    members = getattr(campaign, "members", [])
+    correlated_domains_count = len(members)
+    
+    unique_iocs = set()
+    max_score = 0.0
+    
+    from app.db.models.risk_assessment import RiskAssessmentRecord
+    
+    for member in members:
+        # Collect IOCs from observations
+        obs = getattr(member, "resolved_observations", {}) or {}
+        # Support both Pydantic models and ORM JSON records
+        if hasattr(member, "resolved_observations_json"):
+            obs = member.resolved_observations_json or {}
+        
+        if isinstance(obs, dict):
+            for field in ["ip_address", "asn", "registrar", "nameservers", "ssl_cert_serial", "cert_serial"]:
+                val = obs.get(field)
+                if val:
+                    if isinstance(val, list):
+                        for v in val:
+                            unique_iocs.add(str(v).strip())
+                    else:
+                        unique_iocs.add(str(val).strip())
+                        
+        # Get max score from risk assessment
+        indicator = getattr(member, "indicator", "")
+        if indicator:
+            latest_risk = db.query(RiskAssessmentRecord).filter(
+                RiskAssessmentRecord.indicator == indicator
+            ).order_by(RiskAssessmentRecord.timestamp.desc()).first()
+            if latest_risk and latest_risk.overall_score is not None:
+                max_score = max(max_score, latest_risk.overall_score)
+                
+    # Confidence Score formula: base 50 + (domains * 10) + (iocs * 5), capped at 100
+    confidence = min(50 + (correlated_domains_count * 10) + (len(unique_iocs) * 5), 100)
+    
+    return {
+        "confidence": confidence,
+        "unique_iocs_count": len(unique_iocs),
+        "max_score": max_score,
+        "correlated_domains_count": correlated_domains_count
+    }
+

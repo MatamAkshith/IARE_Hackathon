@@ -1,4 +1,5 @@
 import React from 'react'
+import { getSeverityDetails } from '../../utils/severityUtils'
 
 /**
  * Attribution Confidence & Severity dashboard panel.
@@ -7,14 +8,18 @@ import React from 'react'
  * @param {Object} props.confidence Confidence stats object from dataset
  */
 export default function ConfidenceCard({ confidence = {} }) {
+  const details = getSeverityDetails(confidence.severity || 'HIGH')
+  const borderClass = details.label === 'SAFE' ? 'border-emerald-900/60 bg-emerald-950/10' : details.label === 'MEDIUM' ? 'border-amber-900/60 bg-amber-950/10' : 'border-rose-900/60 bg-rose-950/10'
+  const textClass = details.label === 'SAFE' ? 'text-emerald-400' : details.label === 'MEDIUM' ? 'text-amber-400' : 'text-rose-400'
+
   return (
-    <div className="border border-rose-900 bg-rose-950/10 p-5 rounded-xl shadow-md flex items-center justify-between gap-6 transition-all duration-300">
+    <div className={`border p-5 rounded-xl shadow-md flex items-center justify-between gap-6 transition-all duration-300 ${borderClass}`}>
       <div className="space-y-3.5 min-w-0 flex-1">
         <div className="space-y-1">
           <span className="block text-[9px] uppercase font-extrabold tracking-widest text-slate-500">
             Attribution Engine Verdict
           </span>
-          <h3 className="text-xl font-black text-rose-400 uppercase tracking-tight truncate">
+          <h3 className={`text-xl font-black uppercase tracking-tight truncate ${textClass}`}>
             {confidence.severity} Severity Alert
           </h3>
         </div>
@@ -48,18 +53,18 @@ export default function ConfidenceCard({ confidence = {} }) {
             cy="40"
           />
           <circle
-            className="text-rose-500"
             strokeWidth="5"
             strokeDasharray={2 * Math.PI * 32}
             strokeDashoffset={2 * Math.PI * 32 * (1 - confidence.score / 100)}
             strokeLinecap="round"
-            stroke="currentColor"
+            stroke={details.color}
             fill="transparent"
             r="32"
             cx="40"
             cy="40"
           />
         </svg>
+
         <div className="absolute text-center">
           <span className="text-xl font-black font-mono tracking-tighter text-slate-100">
             {confidence.score}%

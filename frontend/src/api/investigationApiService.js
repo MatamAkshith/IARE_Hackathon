@@ -168,6 +168,8 @@ function findCampaignForIndicator(indicator, campaigns) {
 
 // ── Evidence normalizer ───────────────────────────────────────────────────────
 
+import { getSeverityDetails } from '../utils/severityUtils'
+
 /**
  * Maps a severity string to the badgeColor class expected by RiskSummary.
  *
@@ -175,12 +177,9 @@ function findCampaignForIndicator(indicator, campaigns) {
  * @returns {string}
  */
 function severityToStyle(severity) {
-  const s = (severity || '').toLowerCase()
-  if (s === 'critical') return 'bg-rose-950/20 text-rose-400 border-rose-800/40 shadow-rose-500/10'
-  if (s === 'high') return 'bg-amber-950/20 text-amber-400 border-amber-800/40 shadow-amber-500/10'
-  if (s === 'medium') return 'bg-orange-950/20 text-orange-400 border-orange-800/40'
-  return 'bg-emerald-950/20 text-emerald-400 border-emerald-800/40'
+  return getSeverityDetails(severity).badgeClass
 }
+
 
 /**
  * Capitalizes first character of a string.
