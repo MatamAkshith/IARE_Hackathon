@@ -12,6 +12,7 @@ export default function RelationshipGraph({ campaignId }) {
   const [graphData, setGraphData] = useState({ nodes: [], edges: [] })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [hoveredNodeId, setHoveredNodeId] = useState(null)
 
   useEffect(() => {
     async function loadGraph() {
@@ -95,9 +96,8 @@ export default function RelationshipGraph({ campaignId }) {
   mappedIndicatorNodes.forEach(n => allNodesMap.set(n.id, n))
   mappedInfraNodes.forEach(n => allNodesMap.set(n.id, n))
 
-  const [hoveredNodeId, setHoveredNodeId] = useState(null)
-
   return (
+
     <div className="border border-[#1a2336] bg-[#090d16] p-5 rounded-xl shadow-md space-y-4">
       <div className="flex items-center gap-2 border-b border-[#1a2336]/60 pb-3">
         <svg className="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
