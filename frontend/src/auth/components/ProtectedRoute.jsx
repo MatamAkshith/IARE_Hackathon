@@ -21,11 +21,11 @@ export default function ProtectedRoute({
   children, 
   allowedRoles
 }) {
-  const { user, isAuthenticated, loading } = useAuth();
+  const { user, isAuthenticated, isInitialized } = useAuth();
   const location = useLocation();
 
   // If session is still being decoded, show a themed terminal scanning state
-  if (loading) {
+  if (!isInitialized) {
     return (
       <div className="min-h-screen bg-[#030712] flex flex-col items-center justify-center space-y-4">
         <div className="relative w-16 h-16">
@@ -44,6 +44,7 @@ export default function ProtectedRoute({
       </div>
     );
   }
+
 
   // Not authenticated? Redirect to /login
   if (!isAuthenticated) {

@@ -98,6 +98,7 @@ def list_campaigns(
             metrics = calculate_dynamic_metrics(c, db)
             c.confidence = metrics["confidence"]
             c.unique_iocs_count = metrics["unique_iocs_count"]
+            c.infra_nodes_count = metrics["infra_nodes_count"]
             c.max_score = metrics["max_score"]
         return campaigns
     except Exception as exc:
@@ -130,8 +131,10 @@ def get_campaign(
     metrics = calculate_dynamic_metrics(campaign, db)
     campaign.confidence = metrics["confidence"]
     campaign.unique_iocs_count = metrics["unique_iocs_count"]
+    campaign.infra_nodes_count = metrics["infra_nodes_count"]
     campaign.max_score = metrics["max_score"]
     return campaign
+
 
 
 @router.get("/{campaign_id}/timeline", response_model=CampaignTimeline)

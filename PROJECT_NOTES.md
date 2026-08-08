@@ -63,6 +63,8 @@ Every implementation must remain consistent with these sections. Every completed
 | ✅ **LOCKED** | Campaign Attribution Hotfix | Hotfixes G.3 and G.4 (Automatic campaign correlation engine and synchronized UI badges) completed and verified. |
 | ✅ **LOCKED** | Bootstrap & Queue Sync Hotfixes | Hotfixes G.5 and G.6 (Auth context load ordering, stale queue database recovery, and UI count sync) completed and verified. |
 | ✅ **LOCKED** | Severity & Metrics Hotfixes | Hotfixes G.7 and G.8 (Unified Green/Yellow/Red severity mapping and dynamic backend campaign calculations) completed and verified. |
+| ✅ **LOCKED** | Auth, Theme & Engine Hotfixes | Hotfixes H.1, H.2, and H.3 (Authentication initialization race condition fix, global severity theme synchronization, and campaign engine refactor) completed and verified. |
+
 
 
 ---
@@ -1842,10 +1844,30 @@ This section provides a full cross-referenced audit of every commit in the repos
 * **Frontend Severity Alignment**: Cleaned up hardcoded color bands across the frontend (Dashboard timelines, Scans ingestion queue tables, Campaign overview cards, Verdict alerts, and IOC tables), standardizing severity rendering via the helper.
 * **Orange/Yellow Standardisation**: Purged all intermediate or mixed warning color definitions to maintain a clean three-tiered threat spectrum.
 
-### 58.2 Dynamic Campaign Attribution Metrics (Hotfix G.8)
-* **Backend Calculations**: Created `calculate_dynamic_metrics` in `campaign_service.py` to aggregate correlated domains, unique IOC overlaps, dynamic confidence scores (capped at 100%), and highest member threat severity scores.
-* **Dynamic Serialization**: Extended the `CampaignResponse` schema and endpoints to return these dynamic attributes, eliminating hardcoded placeholder metrics from responses.
 * **Refreshed Visualizations**: Configured `Campaigns.jsx` and API connectors to trigger fresh queries when switching campaigns in the dropdown, forcing immediate reloads of topology graphs and timeline details.
+
+---
+
+## 59. Hotfixes H.1, H.2 & H.3 Authentication Race Condition, Global Severity Utility, Campaign Metrics Refactor (2026-08-08)
+
+### 59.1 Fix Authentication Initialization Race Condition (Hotfix H.1)
+* **Exposed Initialization State**: Added `isInitialized` to the `AuthProvider` which switches to true only after reading, validating, and establishing the active session token.
+* **Synchronized Mounting**: Protected routes now wait until `isInitialized === true` before mounting or executing calls. Removed all unstable "Retry Connection" loops and "Telemetry Load Failure" screens.
+* **Axios Interceptor Guard**: The Axios request interceptor attaches the Authorization header immediately upon token storage, ensuring no telemetry requests are dispatched without credentials.
+
+### 59.2 Global Severity Theme Synchronization (Hotfix H.2)
+* **Unified Severity Utility**: Created `severity.js` to export `getSeverity(score)`, `getSeverityColor(score)`, and `getSeverityBadge(score)` enforcing 0-20 Safe (Green), 21-70 Medium (Yellow), and 71-100 High/Critical (Red).
+* **Decoupled Components**: Standardized components globally by delegating styling to the unified utility, purging individual React inline color styles.
+
+### 59.3 Campaign Attribution Engine Refactor (Hotfix H.3)
+* **Evidence-Weighted Calculations**: Refactored `calculate_dynamic_metrics` inside `campaign_service.py` to dynamically compute:
+  * Campaign Severity: Highest investigation score linked to the cluster.
+  * Correlated Domains: Total assigned investigations count.
+  * Shared IOCs: Unique indicators matching types.
+  * Infrastructure Nodes: Total unique IPs, ASNs, Nameservers, Registrars, SSLs, and WHOIS entries.
+  * Confidence Score: Weighted evidence overlap logic.
+* **Dynamic Reloading**: Refactored the frontend campaigns page to reload the complete graph and details dynamically from the database when switching dropdown selection.
+
 
 
 

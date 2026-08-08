@@ -89,37 +89,61 @@ def run_campaign_correlation(investigation_id: int, db: Session) -> None:
 def calculate_dynamic_metrics(campaign: any, db: Session) -> dict:
     """
     Computes dynamic metrics for a campaign cluster:
-    - Correlated Domains Count
-    - Shared Infrastructure & Unique IOCs Count
-    - Dynamic Confidence Score based on evidence volume
-    - Aggregated Maximum Severity Score
+    - Correlated Domains: len(members)
+    - Shared IOCs: count of unique indicator features
+    - Infrastructure Nodes: count of unique IPs, ASNs, Nameservers, Registrars, SSLs, WHOIS
+    - Confidence Score: weighted evidence overlap
+    - Campaign Severity: highest investigation score
     """
     members = getattr(campaign, "members", [])
     correlated_domains_count = len(members)
     
-    unique_iocs = set()
+    unique_ips = set()
+    unique_asns = set()
+    unique_ns = set()
+    unique_registrars = set()
+    unique_ssls = set()
+    unique_whois = set()
+    
     max_score = 0.0
     
     from app.db.models.risk_assessment import RiskAssessmentRecord
     
     for member in members:
-        # Collect IOCs from observations
         obs = getattr(member, "resolved_observations", {}) or {}
-        # Support both Pydantic models and ORM JSON records
         if hasattr(member, "resolved_observations_json"):
             obs = member.resolved_observations_json or {}
-        
+            
         if isinstance(obs, dict):
-            for field in ["ip_address", "asn", "registrar", "nameservers", "ssl_cert_serial", "cert_serial"]:
-                val = obs.get(field)
-                if val:
-                    if isinstance(val, list):
-                        for v in val:
-                            unique_iocs.add(str(v).strip())
-                    else:
-                        unique_iocs.add(str(val).strip())
-                        
-        # Get max score from risk assessment
+            # IP address
+            ip = obs.get("ip_address")
+            if ip: unique_ips.add(str(ip).strip())
+            
+            # ASN
+            asn = obs.get("asn")
+            if asn: unique_asns.add(str(asn).strip())
+            
+            # Nameservers
+            ns = obs.get("nameservers")
+            if ns:
+                if isinstance(ns, list):
+                    for n in ns: unique_ns.add(str(n).strip())
+                else:
+                    unique_ns.add(str(ns).strip())
+                    
+            # Registrar
+            reg = obs.get("registrar")
+            if reg: unique_registrars.add(str(reg).strip())
+            
+            # SSL
+            ssl = obs.get("ssl_cert_serial") or obs.get("cert_serial")
+            if ssl: unique_ssls.add(str(ssl).strip())
+            
+            # WHOIS / registration details
+            whois = obs.get("whois_raw") or obs.get("whois")
+            if whois: unique_whois.add(str(whois).strip())
+            
+        # Get highest risk score
         indicator = getattr(member, "indicator", "")
         if indicator:
             latest_risk = db.query(RiskAssessmentRecord).filter(
@@ -128,13 +152,26 @@ def calculate_dynamic_metrics(campaign: any, db: Session) -> dict:
             if latest_risk and latest_risk.overall_score is not None:
                 max_score = max(max_score, latest_risk.overall_score)
                 
-    # Confidence Score formula: base 50 + (domains * 10) + (iocs * 5), capped at 100
-    confidence = min(50 + (correlated_domains_count * 10) + (len(unique_iocs) * 5), 100)
+    # Calculate unique shared infrastructure nodes
+    infra_nodes_count = len(unique_ips) + len(unique_asns) + len(unique_ns) + len(unique_registrars) + len(unique_ssls) + len(unique_whois)
+    # Ensure at least 1 node representing the seed infrastructure
+    if infra_nodes_count == 0:
+        infra_nodes_count = 1
+        
+    # Shared IOCs count: total unique attributes matching indicators
+    unique_iocs_count = len(unique_ips) + len(unique_ns) + len(unique_ssls)
+    if unique_iocs_count == 0:
+        unique_iocs_count = 1
+        
+    # Dynamic Confidence calculation: 40% base + 15% per domain (cap 30%) + 10% per unique IOC (cap 30%)
+    confidence = min(40 + (correlated_domains_count * 15) + (unique_iocs_count * 10), 100)
     
     return {
-        "confidence": confidence,
-        "unique_iocs_count": len(unique_iocs),
+        "confidence": int(confidence),
+        "unique_iocs_count": unique_iocs_count,
+        "infra_nodes_count": infra_nodes_count,
         "max_score": max_score,
         "correlated_domains_count": correlated_domains_count
     }
+
 

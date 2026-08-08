@@ -81,5 +81,7 @@ class Campaign(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     confidence: Optional[int] = None
     unique_iocs_count: Optional[int] = None
+    infra_nodes_count: Optional[int] = None
     max_score: Optional[float] = None
+
 

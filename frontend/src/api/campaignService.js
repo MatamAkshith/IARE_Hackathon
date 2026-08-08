@@ -79,9 +79,10 @@ export async function getCampaignDetails(id) {
     lastSeen: new Date(campaign.updated_at).toISOString().replace('T', ' ').substring(0, 16),
     totalDomains: campaign.members?.length || 0,
     activeDomains: activeCount,
-    infrastructureCount: graph.nodes?.length || 0,
+    infrastructureCount: campaign.infra_nodes_count || graph.nodes?.length || 0,
     iocs: (campaign.members || []).map(m => m.indicator)
   }
+
 
   // Connected domains list — include scan_id from resolved_observations for drill-down
   const connectedDomains = (campaign.members || []).map((m, index) => ({

@@ -18,6 +18,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setTokenState] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState(null);
 
   // ── Initialize from stored token ───────────────────────────────────────
@@ -42,10 +43,12 @@ export const AuthProvider = ({ children }) => {
         removeToken();
       } finally {
         setLoading(false);
+        setIsInitialized(true);
       }
     };
 
     initializeAuth();
+
 
     // Stage E.5: Inactivity / expiration checker loop (runs every 10s)
     const checkInterval = setInterval(() => {
@@ -102,6 +105,7 @@ export const AuthProvider = ({ children }) => {
       setTokenState(response.token);
       setToken(response.token);
       setUser(response.user);
+      setIsInitialized(true);
 
       return response.user;
     } catch (err) {
@@ -121,6 +125,7 @@ export const AuthProvider = ({ children }) => {
     setTokenState(null);
     setUser(null);
     setError(null);
+    setIsInitialized(false);
     // Best-effort server-side audit log
     if (currentToken) {
       await authService.logout(currentToken).catch(() => {});
@@ -134,6 +139,7 @@ export const AuthProvider = ({ children }) => {
     user,
     token,
     loading,
+    isInitialized,
     error,
     login,
     logout,
@@ -145,5 +151,6 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
+
   );
 };
