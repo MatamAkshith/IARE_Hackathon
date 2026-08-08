@@ -10,9 +10,14 @@ import ThreatTimeline from '../components/dashboard/ThreatTimeline'
 import ThreatSummary from '../components/dashboard/ThreatSummary'
 import StatusPanel from '../components/dashboard/StatusPanel'
 
+import { useAuth } from '../auth/hooks/useAuth'
+
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { user, loading: authLoading } = useAuth()
   const { dashboard, loading, error, refetch } = useDashboard()
+
+  if (authLoading || !user) return <SkeletonLoader />
 
   if (loading) return <SkeletonLoader />
   if (error) return <ErrorFallback message={error} onRetry={refetch} />

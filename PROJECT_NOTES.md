@@ -61,6 +61,7 @@ Every implementation must remain consistent with these sections. Every completed
 | ✅ **LOCKED** | Final Demo Readiness | Dynamic metrics synchronized, debug logs purged, and production stability audited. Phase F 100% COMPLETE. |
 | ✅ **LOCKED** | Session & Queue Hotfixes | Hotfixes G.1 and G.2 (Session tab close auto-logout and stale pending scans recovery) completed and verified. |
 | ✅ **LOCKED** | Campaign Attribution Hotfix | Hotfixes G.3 and G.4 (Automatic campaign correlation engine and synchronized UI badges) completed and verified. |
+| ✅ **LOCKED** | Bootstrap & Queue Sync Hotfixes | Hotfixes G.5 and G.6 (Auth context load ordering, stale queue database recovery, and UI count sync) completed and verified. |
 
 
 ---
@@ -1817,6 +1818,21 @@ This section provides a full cross-referenced audit of every commit in the repos
 * **Modularity Refactor**: Extracted the scans queue table into a dedicated reusable component `ScanTable.jsx` under `components/scans/`.
 * **Color-Coded Badges**: Programmed a deterministic hashing function in `ScanTable.jsx` to assign custom colors (brand-teal, purple, amber, teal) to Campaign badges, linking directly to `/campaigns?campaignId={uid}`.
 * **Immediate Response Sync**: Refactored `_populate_scan_campaign` and the API payload mapping to return the newly calculated `campaign_name` and `campaign_uid` immediately on status update, guaranteeing the frontend receives it without needing page refreshes.
+
+---
+
+## 57. Hotfix G.5 & G.6 Authentication Bootstrap & Dashboard Auto-Recovery, Investigation State Synchronization & Queue Cleanup (2026-08-08)
+
+### 57.1 Authentication Bootstrap & Dashboard Auto-Recovery (Hotfix G.5)
+* **Bootstrap Race Condition Resolution**: Repositioned `DataProvider` inside `AuthProvider` within `App.jsx`, ensuring the authentication context initialization completes before any dashboard components load and fire requests.
+* **Axios Interceptor Guard**: Secured `client.js` request interceptors to consistently attach Bearer tokens.
+* **Dynamic Mount Guards**: Inserted `authLoading || !user` loading checkpoints in `Dashboard.jsx` to render a skeleton loader during session decoding, preventing "Missing Bearer Token" errors.
+* **Session Redirects**: Cleanly redirected invalid/expired token users to `/login?session=expired` without triggering layout error banners.
+
+### 57.2 Investigation State Synchronization & Queue Cleanup (Hotfix G.6)
+* **Scan Recovery Synchronization**: Configured `DashboardService.get_stats` and `get_recent_feed` to run stale scan recovery checks synchronously on database fetch.
+* **Stale Scan Database Healing**: Ensured scans stuck in PENDING or PROCESSING states beyond 3 minutes are automatically marked as FAILED, updating metric counts across both the Dashboard and the Scan Table.
+
 
 
 

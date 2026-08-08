@@ -22,6 +22,13 @@ class DashboardService:
     """
 
     def get_stats(self, db: Session) -> Dict[str, Any]:
+        # Stage G.6: Recover any hung scans first
+        try:
+            from app.services.investigation_service import recover_stale_scans
+            recover_stale_scans(db)
+        except Exception as e:
+            logger.error(f"[get_stats] Error recovering stale scans: {e}")
+
         # 1. Get total_scans
         total_scans = db.query(Scan).count()
 
@@ -127,6 +134,13 @@ class DashboardService:
 
 
     def get_recent_feed(self, db: Session, limit: int = 10) -> List[Dict[str, Any]]:
+        # Stage G.6: Recover any hung scans first
+        try:
+            from app.services.investigation_service import recover_stale_scans
+            recover_stale_scans(db)
+        except Exception as e:
+            logger.error(f"[get_recent_feed] Error recovering stale scans: {e}")
+
         # Fetch scans ordered by created_at desc
         scans = db.query(Scan).order_by(Scan.created_at.desc()).limit(limit).all()
         feed = []

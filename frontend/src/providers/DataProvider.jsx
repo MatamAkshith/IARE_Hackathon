@@ -16,6 +16,7 @@ import { getDashboard } from '../services/dashboardService'
 import { getCampaigns } from '../services/campaignService'
 import { getReports } from '../services/reportService'
 import { isApiError } from '../api/index.js'
+import { useAuth } from '../auth/hooks/useAuth'
 
 export const DataContext = createContext(null)
 
@@ -81,12 +82,21 @@ export function DataProvider({ children }) {
     }
   }
 
-  // Load all telemetry on mount
+  const { isAuthenticated } = useAuth()
+
+  // Load all telemetry only when authenticated
   useEffect(() => {
-    fetchDashboard()
-    fetchCampaigns()
-    fetchReports()
-  }, [])
+    if (isAuthenticated) {
+      fetchDashboard()
+      fetchCampaigns()
+      fetchReports()
+    } else {
+      // Clear data if logged out
+      setDashboard({ data: null, loading: true, error: null })
+      setCampaigns({ data: null, loading: true, error: null })
+      setReports({ data: null, loading: true, error: null })
+    }
+  }, [isAuthenticated])
 
   const value = {
     dashboard: {
