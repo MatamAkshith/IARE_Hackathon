@@ -64,6 +64,8 @@ Every implementation must remain consistent with these sections. Every completed
 | ✅ **LOCKED** | Bootstrap & Queue Sync Hotfixes | Hotfixes G.5 and G.6 (Auth context load ordering, stale queue database recovery, and UI count sync) completed and verified. |
 | ✅ **LOCKED** | Severity & Metrics Hotfixes | Hotfixes G.7 and G.8 (Unified Green/Yellow/Red severity mapping and dynamic backend campaign calculations) completed and verified. |
 | ✅ **LOCKED** | Auth, Theme & Engine Hotfixes | Hotfixes H.1, H.2, and H.3 (Authentication initialization race condition fix, global severity theme synchronization, and campaign engine refactor) completed and verified. |
+| ✅ **LOCKED** | Risk Engine & Severity Sync | Tasks I.1 and I.2 (Deterministic & explainable risk scoring engine and campaign severity/verdict synchronization) completed and verified. |
+
 
 
 
@@ -1867,6 +1869,25 @@ This section provides a full cross-referenced audit of every commit in the repos
   * Infrastructure Nodes: Total unique IPs, ASNs, Nameservers, Registrars, SSLs, and WHOIS entries.
   * Confidence Score: Weighted evidence overlap logic.
 * **Dynamic Reloading**: Refactored the frontend campaigns page to reload the complete graph and details dynamically from the database when switching dropdown selection.
+
+---
+
+## 60. Tasks I.1 & I.2 Deterministic Risk Scoring Engine, Campaign Severity & Verdict Synchronization (2026-08-08)
+
+### 60.1 Deterministic & Explainable Risk Scoring Engine (Task I.1)
+* **Categorized Scoring Framework**: Refactored `service.py` under `app/services/risk_engine` to calculate risk score as the sum of six deterministic telemetry categories (Domain Structure max 25, DNS max 15, WHOIS max 15, SSL max 15, HTML max 15, Threat Intel max 15).
+* **Escalation Rules**:
+  - Implemented Brand Impersonation + Credentials Form (Login form or Password inputs) +20 points bonus.
+  - Enforced a minimum score of 75.0 (HIGH) for sensitive keyword combinations (e.g. `infosys-employee-benefits.net`).
+  - Enforced a minimum score of 80.0 (HIGH) for campaign-overlapping indicators.
+* **Explainable Output**: Formatted and appended distinct `RiskFactor` records to the breakdown payload so the scores are fully transparent and explainable.
+
+### 60.2 Campaign Severity & Verdict Synchronization (Task I.2)
+* **Max Campaign Severity Rule**: Configured the backend campaign endpoints to calculate campaign severity dynamically as `MAX(all member investigation scores)`.
+* **Universal Severity Mapping**: Overrode `campaign.severity` dynamically based on the aggregated max score, mapping to the universal rules (0-20 Safe, 21-70 Medium, 71-100 High).
+* **Elimination of Contradictions**: Unified the Verdict card, Campaign cards, drop-down headers, and Reports to consume this single source of truth.
+* **Dynamic Mitigation Recommendation**: Configured the Verdict card recommendation text based on severity (Safe: Continue monitoring, Medium: Investigate infra/DNS, High: Block domains & initiate incident response).
+
 
 
 

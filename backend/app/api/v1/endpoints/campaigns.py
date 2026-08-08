@@ -100,6 +100,12 @@ def list_campaigns(
             c.unique_iocs_count = metrics["unique_iocs_count"]
             c.infra_nodes_count = metrics["infra_nodes_count"]
             c.max_score = metrics["max_score"]
+            if c.max_score <= 20:
+                c.severity = "low"
+            elif c.max_score <= 70:
+                c.severity = "medium"
+            else:
+                c.severity = "high"
         return campaigns
     except Exception as exc:
         logger.error(f"[list_campaigns] Database query failed: {exc}", exc_info=True)
@@ -133,7 +139,14 @@ def get_campaign(
     campaign.unique_iocs_count = metrics["unique_iocs_count"]
     campaign.infra_nodes_count = metrics["infra_nodes_count"]
     campaign.max_score = metrics["max_score"]
+    if campaign.max_score <= 20:
+        campaign.severity = "low"
+    elif campaign.max_score <= 70:
+        campaign.severity = "medium"
+    else:
+        campaign.severity = "high"
     return campaign
+
 
 
 

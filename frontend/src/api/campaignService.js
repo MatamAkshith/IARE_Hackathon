@@ -73,7 +73,8 @@ export async function getCampaignDetails(id) {
     campaignName: campaign.name,
     campaignId: campaign.campaign_id,
     status: campaign.status,
-    riskLevel: campaign.severity === 'critical' || campaign.severity === 'high' ? 'Critical' : 'High',
+    riskLevel: (campaign.severity || 'low').toUpperCase(),
+
     confidence: `${campaign.confidence || 85}%`,
     firstSeen: new Date(campaign.created_at).toISOString().replace('T', ' ').substring(0, 16),
     lastSeen: new Date(campaign.updated_at).toISOString().replace('T', ' ').substring(0, 16),
@@ -108,8 +109,13 @@ export async function getCampaignDetails(id) {
       severity: campaign.severity,
       sharedIndicators: campaign.unique_iocs_count || graph.edges?.length || 0,
       correlatedDomains: campaign.members?.length || 0,
-      recommendation: 'Block associated domains and monitor DNS queries.'
+      recommendation: (campaign.severity || 'low').toLowerCase() === 'low' || (campaign.severity || 'low').toLowerCase() === 'safe'
+        ? 'Continue monitoring; no immediate blocking required.'
+        : (campaign.severity || 'low').toLowerCase() === 'medium'
+        ? 'Investigate related infrastructure and DNS changes.'
+        : 'Block domains immediately & initiate incident response protocols.'
     },
+
     timeline: presentationTimeline
   })
 }

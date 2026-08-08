@@ -104,18 +104,12 @@ class RiskScoringService:
 
         domain_factors: List[RiskFactor] = []
         dns_factors: List[RiskFactor] = []
+        whois_factors: List[RiskFactor] = []
         tls_factors: List[RiskFactor] = []
         html_factors: List[RiskFactor] = []
         ti_factors: List[RiskFactor] = []
 
-        # Introduce a base risk score for all domains (accounting for general internet noise)
-        raw_score = 10.0
-
-        # Intent keywords pattern matching
-        intent_keywords = ['login', 'verify', 'auth', 'update', 'secure', 'account', 'banking', 'portal', 'signin', 'support']
-        is_intent_matched = any(kw in host for kw in intent_keywords)
-
-        # ── 1. Target Brand & Intent Heuristics (+35 points) ────────────────── #
+        # ── 1. Target Brand & Intent Heuristics (0-25 pts) ────────────────── #
         monitored_brands = ["microsoft", "google", "amazon", "paypal", "infosys", "vardhaman", "vmeg"]
         official_brand_domains = {
             "google": ["google.com", "google.co.in", "google.net", "youtube.com", "googleblog.com"],
@@ -128,7 +122,7 @@ class RiskScoringService:
         }
 
         has_brand_keyword = any(brand in host for brand in monitored_brands)
-        is_impersonation = False
+        is_brand_impersonation = False
         if has_brand_keyword:
             is_official = False
             for brand in monitored_brands:
@@ -139,44 +133,67 @@ class RiskScoringService:
                             is_official = True
                             break
             if not is_official:
-                is_impersonation = True
+                is_brand_impersonation = True
 
-        if is_impersonation and is_intent_matched:
+        domain_contrib = 0.0
+        if is_brand_impersonation:
+            domain_contrib += 15.0
             domain_factors.append(RiskFactor(
-                name="Generalized Phishing Impersonation Penalty",
-                score_contribution=35.0,
-                description="Domain name combines a recognized brand and phishing intent words without authorization.",
-                weight=35.0,
+                name="Brand Impersonation Detection",
+                score_contribution=15.0,
+                description="The domain name is unauthorizedly impersonating a registered enterprise brand.",
+                weight=15.0,
                 evidence_key="indicator"
             ))
-            raw_score += 35.0
 
-        # ── 2. Infrastructure Penalty Stacking ────────────────────────────── #
-        
-        # A. Missing MX records on intent-matched domain: +20 points
+        suspicious_keywords = ["login", "password", "verify", "update", "employee", "payroll", "benefits", "confirm", "account", "secure", "auth", "signin", "support", "portal"]
+        keyword_count = sum(1 for kw in suspicious_keywords if kw in host)
+        if keyword_count > 0:
+            kw_contrib = min(keyword_count * 3.0, 10.0)
+            domain_contrib += kw_contrib
+            domain_factors.append(RiskFactor(
+                name="Deceptive Keyword(s) in Hostname",
+                score_contribution=kw_contrib,
+                description=f"Hostname contains {keyword_count} phishing-sensitive keywords.",
+                weight=10.0,
+                evidence_key="indicator"
+            ))
+
+        if host.count('-') >= 2:
+            domain_contrib += 10.0
+            domain_factors.append(RiskFactor(
+                name="Suspicious Multi-Hyphen Structure",
+                score_contribution=10.0,
+                description="The domain name uses multiple hyphenations, commonly seen in typosquatting campaigns.",
+                weight=10.0,
+                evidence_key="indicator"
+            ))
+
+        subdomains = host.split('.')
+        if len(subdomains) > 3:
+            domain_contrib += 5.0
+            domain_factors.append(RiskFactor(
+                name="High Subdomain Count",
+                score_contribution=5.0,
+                description="Domain structure includes multiple levels of subdomains which can obscure the root authority.",
+                weight=5.0,
+                evidence_key="indicator"
+            ))
+
+        domain_score = min(domain_contrib, 25.0)
+
+        # ── 2. DNS Intelligence (0-15 pts) ────────────────────────────────── #
+        dns_contrib = 0.0
         mx_records = evidence.get("mx_records")
-        has_mx = True
-        if mx_records is not None:
-            if not mx_records or mx_records == [] or mx_records == "":
-                has_mx = False
-        else:
-            has_mx = False
-
-        if not has_mx and is_intent_matched:
+        if mx_records is None or not mx_records or mx_records == [] or mx_records == "":
+            dns_contrib += 10.0
             dns_factors.append(RiskFactor(
-                name="Missing MX Records on Sensitive Target",
-                score_contribution=20.0,
-                description="Domain contains sensitive intent keywords but lacks MX email server records.",
-                weight=20.0,
+                name="Missing MX Records",
+                score_contribution=10.0,
+                description="No active mail exchange records exist for this domain name.",
+                weight=10.0,
                 evidence_key="mx_records"
             ))
-            raw_score += 20.0
-
-        # B. Invalid/Missing TLS certificate (+20 points) & domain age < 30 days (+15 points)
-        ssl_valid = evidence.get("ssl_valid")
-        tls_issuer = str(evidence.get("tls_issuer") or evidence.get("cert_issuer") or "").lower()
-        is_self_signed = "self signed" in tls_issuer or "expired" in tls_issuer or "fake" in tls_issuer
-        has_tls_anomaly = (ssl_valid is False or is_self_signed or ssl_valid is None)
 
         has_age_anomaly = False
         age = evidence.get("domain_age_days")
@@ -187,52 +204,140 @@ class RiskScoringService:
             except (ValueError, TypeError):
                 pass
 
-        if has_tls_anomaly:
-            tls_factors.append(RiskFactor(
-                name="Invalid or Missing TLS Certificate",
-                score_contribution=20.0,
-                description="The site lacks a valid certificate, uses a self-signed TLS cert, or TLS validation failed.",
-                weight=20.0,
-                evidence_key="ssl_valid"
-            ))
-            raw_score += 20.0
-
         if has_age_anomaly:
-            tls_factors.append(RiskFactor(
-                name="Young Domain Age",
-                score_contribution=15.0,
-                description="The domain registration age is under 30 days.",
-                weight=15.0,
+            dns_contrib += 10.0
+            dns_factors.append(RiskFactor(
+                name="Recently Created Domain",
+                score_contribution=10.0,
+                description=f"Domain age is under 30 days ({age} days).",
+                weight=10.0,
                 evidence_key="domain_age_days"
             ))
-            raw_score += 15.0
 
-        # C. High entropy or double-hyphen domain structure: +15 points
-        def calculate_entropy(s: str) -> float:
-            import math
-            if not s:
-                return 0.0
-            entropy = 0.0
-            for x in set(s):
-                p_x = s.count(x) / len(s)
-                entropy += - p_x * math.log2(p_x)
-            return entropy
-
-        domain_part = host.split('.')[0] if '.' in host else host
-        is_multi_hyphenated = host.count('-') >= 2
-        is_high_entropy = calculate_entropy(domain_part) >= 4.0
-
-        if is_multi_hyphenated or is_high_entropy:
-            domain_factors.append(RiskFactor(
-                name="Suspicious Domain Structure",
-                score_contribution=15.0,
-                description="Domain name is high-entropy or contains multiple hyphens.",
-                weight=15.0,
-                evidence_key="indicator"
+        ns = evidence.get("nameservers")
+        if ns and any(x in str(ns).lower() for x in ["disposable", "suspicious", "free"]):
+            dns_contrib += 10.0
+            dns_factors.append(RiskFactor(
+                name="Suspicious Name Server Host",
+                score_contribution=10.0,
+                description="Domain is delegated to a low-reputation or disposable nameserver provider.",
+                weight=10.0,
+                evidence_key="nameservers"
             ))
-            raw_score += 15.0
 
-        # D. Active match on external threat feeds: +30 points per match
+        dns_score = min(dns_contrib, 15.0)
+
+        # ── 3. WHOIS Signals (0-15 pts) ───────────────────────────────────── #
+        whois_contrib = 0.0
+        whois_privacy = evidence.get("whois_privacy") or evidence.get("registrant_redacted")
+        if whois_privacy is True:
+            whois_contrib += 10.0
+            whois_factors.append(RiskFactor(
+                name="WHOIS Registration Privacy Enabled",
+                score_contribution=10.0,
+                description="Registrant ownership details are hidden behind a proxy service.",
+                weight=10.0,
+                evidence_key="whois_privacy"
+            ))
+
+        reg_date = evidence.get("whois_registration_date") or evidence.get("creation_date")
+        if reg_date:
+            whois_contrib += 10.0
+            whois_factors.append(RiskFactor(
+                name="Fresh Registration Date Signal",
+                score_contribution=10.0,
+                description="WHOIS creation date matches recent domain registration trends.",
+                weight=10.0,
+                evidence_key="whois_registration_date"
+            ))
+
+        registrar = str(evidence.get("registrar") or "").lower()
+        if registrar and any(x in registrar for x in ["namecheap", "freenom", "cheap", "privacy", "reg"]):
+            whois_contrib += 10.0
+            whois_factors.append(RiskFactor(
+                name="Low-Reputation Registrar Service",
+                score_contribution=10.0,
+                description="Domain is registered through a low-reputation or high-abuse registrar.",
+                weight=10.0,
+                evidence_key="registrar"
+            ))
+
+        whois_score = min(whois_contrib, 15.0)
+
+        # ── 4. SSL Analysis (0-15 pts) ────────────────────────────────────── #
+        ssl_contrib = 0.0
+        ssl_valid = evidence.get("ssl_valid")
+        tls_issuer = str(evidence.get("tls_issuer") or "").lower()
+        is_self_signed = "self signed" in tls_issuer or "expired" in tls_issuer or "fake" in tls_issuer
+        if ssl_valid is False or ssl_valid is None or is_self_signed:
+            ssl_contrib += 15.0
+            tls_factors.append(RiskFactor(
+                name="Invalid/Missing TLS Certificate",
+                score_contribution=15.0,
+                description="No valid SSL/TLS certificate was present or issuer is untrusted.",
+                weight=15.0,
+                evidence_key="ssl_valid"
+            ))
+
+        ssl_expiring = evidence.get("ssl_expiring_soon")
+        if ssl_expiring is True:
+            ssl_contrib += 10.0
+            tls_factors.append(RiskFactor(
+                name="SSL Certificate Expiring Soon",
+                score_contribution=10.0,
+                description="The domain's cryptographic certificate will expire in a few days.",
+                weight=10.0,
+                evidence_key="ssl_expiring_soon"
+            ))
+
+        ssl_score = min(ssl_contrib, 15.0)
+
+        # ── 5. HTML Indicators (0-15 pts) ─────────────────────────────────── #
+        html_contrib = 0.0
+        has_login_form = evidence.get("has_login_form")
+        if has_login_form is True:
+            html_contrib += 10.0
+            html_factors.append(RiskFactor(
+                name="Login Forms Detected",
+                score_contribution=10.0,
+                description="HTML parser discovered credential submission forms.",
+                weight=10.0,
+                evidence_key="has_login_form"
+            ))
+
+        pwd_inputs = evidence.get("password_inputs")
+        pwd_inputs_count = 0
+        if pwd_inputs:
+            try:
+                pwd_inputs_count = int(pwd_inputs)
+            except (ValueError, TypeError):
+                pass
+
+        if pwd_inputs_count > 0:
+            html_contrib += 10.0
+            html_factors.append(RiskFactor(
+                name="Password Input Field Presence",
+                score_contribution=10.0,
+                description=f"HTML content includes {pwd_inputs} password text fields.",
+                weight=10.0,
+                evidence_key="password_inputs"
+            ))
+
+        brand_visual = evidence.get("brand_visual_match")
+        if brand_visual is True:
+            html_contrib += 10.0
+            html_factors.append(RiskFactor(
+                name="Impersonated Brand Visual Match",
+                score_contribution=10.0,
+                description="The page styling or logos mimic the targeted brand visual identity.",
+                weight=10.0,
+                evidence_key="brand_visual_match"
+            ))
+
+        html_score = min(html_contrib, 15.0)
+
+        # ── 6. Threat Intelligence (0-15 pts) ─────────────────────────────── #
+        ti_contrib = 0.0
         vt_verdict = str(evidence.get("virustotal_verdict") or "").lower().strip()
         pt_verdict = evidence.get("phishtank_verdict")
         uh_verdict = evidence.get("urlhaus_verdict")
@@ -247,81 +352,89 @@ class RiskScoringService:
         if isinstance(uh_verdict, str) and uh_verdict.lower() in ("malicious", "online", "active"):
             is_malicious_uh = True
 
-        if vt_verdict in ("malicious", "phishing", "suspicious"):
+        if vt_verdict in ("malicious", "phishing", "suspicious") or is_phish_pt or is_malicious_uh:
+            ti_contrib += 15.0
             ti_factors.append(RiskFactor(
-                name="VirusTotal Threat Match",
-                score_contribution=30.0,
-                description="Indicator is flagged in the VirusTotal threat engine.",
-                weight=30.0,
+                name="Active Threat Feed Match",
+                score_contribution=15.0,
+                description="Indicator is flagged active in third-party threat intelligence databases.",
+                weight=15.0,
                 evidence_key="virustotal_verdict"
             ))
-            raw_score += 30.0
 
-        if is_phish_pt:
+        shared_infra = evidence.get("shared_infra_match")
+        if shared_infra:
+            ti_contrib += 10.0
             ti_factors.append(RiskFactor(
-                name="PhishTank Threat Match",
-                score_contribution=30.0,
-                description="Indicator is flagged in the PhishTank database.",
-                weight=30.0,
-                evidence_key="phishtank_verdict"
-            ))
-            raw_score += 30.0
-
-        if is_malicious_uh:
-            ti_factors.append(RiskFactor(
-                name="URLHaus Threat Match",
-                score_contribution=30.0,
-                description="Indicator is flagged in the URLHaus database.",
-                weight=30.0,
-                evidence_key="urlhaus_verdict"
-            ))
-            raw_score += 30.0
-
-        # ── 3. HTML Content & Other Minor Rules ────────────────────────────── #
-        has_login_form = evidence.get("has_login_form")
-        if has_login_form is True:
-            html_factors.append(RiskFactor(
-                name="Login / Credential Form Detected",
+                name="Shared Malicious Infrastructure ASN",
                 score_contribution=10.0,
-                description="Page contains a login or credential-harvesting form.",
+                description="Indicator shares hosting space with known malicious hosts.",
                 weight=10.0,
+                evidence_key="shared_infra_match"
+            ))
+
+        campaign_overlap = evidence.get("campaign_overlap") or evidence.get("campaign_id") is not None
+        if campaign_overlap:
+            ti_contrib += 15.0
+            ti_factors.append(RiskFactor(
+                name="Correlated Campaign Overlap",
+                score_contribution=15.0,
+                description="Indicator is clustered under a known malicious campaign group.",
+                weight=15.0,
+                evidence_key="campaign_overlap"
+            ))
+
+        ti_score = min(ti_contrib, 15.0)
+
+        # Base Sum
+        base_sum = 5.0 + domain_score + dns_score + whois_score + ssl_score + html_score + ti_score
+
+        # ── Escalation Rules ──────────────────────────────────────────────── #
+        bonus = 0.0
+        # Escalation Rule 1: Brand Impersonation AND Credential Form (Login Form or Password inputs) -> Add +20 bonus
+        has_credentials_form = (has_login_form is True) or (pwd_inputs_count > 0)
+        if is_brand_impersonation and has_credentials_form:
+            bonus += 20.0
+            html_factors.append(RiskFactor(
+                name="Impersonation & Credential Form Escalation",
+                score_contribution=20.0,
+                description="Combination of brand impersonation and password/login entry triggers critical risk bonus.",
+                weight=20.0,
                 evidence_key="has_login_form"
             ))
-            raw_score += 10.0
 
-        pwd_inputs = evidence.get("password_inputs")
-        if pwd_inputs is not None:
-            try:
-                count = int(pwd_inputs)
-                if count > 0:
-                    html_factors.append(RiskFactor(
-                        name="Password Input Field(s) Detected",
-                        score_contribution=5.0,
-                        description=f"Page contains {count} password input field(s).",
-                        weight=5.0,
-                        evidence_key="password_inputs"
-                    ))
-                    raw_score += 5.0
-            except (ValueError, TypeError):
-                pass
+        final_score = base_sum + bonus
 
-        whois_privacy = evidence.get("whois_privacy") or evidence.get("registrant_redacted")
-        if whois_privacy is True:
-            dns_factors.append(RiskFactor(
-                name="WHOIS Privacy Enabled",
-                score_contribution=5.0,
-                description="Registrant information is redacted.",
-                weight=5.0,
-                evidence_key="whois_privacy"
-            ))
-            raw_score += 5.0
+        # Escalation Rule 2: Minimum 75 if multiple keywords or combinations appear
+        suspicious_combos = ["login", "password", "verify", "update", "employee", "payroll", "benefits", "confirm", "account"]
+        has_combo_kw = any(kw in host for kw in suspicious_combos)
+        if has_combo_kw:
+            if final_score < 75.0:
+                final_score = 75.0
+                domain_factors.append(RiskFactor(
+                    name="Phishing Keyword Minimum Score Enforced",
+                    score_contribution=75.0 - base_sum,
+                    description="Suspicious combination of targeting keywords guarantees at least HIGH severity.",
+                    weight=10.0,
+                    evidence_key="indicator"
+                ))
 
-        # Calibrate raw score by confidence (confidence calibration removed)
-        calibrated_score = raw_score
+        # Escalation Rule 3: Minimum 80 if domain belongs to existing campaign
+        if campaign_overlap:
+            if final_score < 80.0:
+                final_score = 80.0
+                ti_factors.append(RiskFactor(
+                    name="Campaign Overlap Minimum Score Enforced",
+                    score_contribution=80.0 - base_sum,
+                    description="Coordinated campaign overlap status automatically enforces HIGH severity.",
+                    weight=15.0,
+                    evidence_key="campaign_overlap"
+                ))
+
         was_calibrated = False
 
         # Clamp between 0.0 and 100.0
-        final_score = self._validator.enforce_boundaries(raw_score)
+        final_score = self._validator.enforce_boundaries(final_score)
 
         # Map to severity
         severity = _map_severity(final_score)
@@ -329,11 +442,12 @@ class RiskScoringService:
         # Assemble breakdown
         breakdown = RiskBreakdown(
             domain_intelligence=domain_factors,
-            dns_whois=dns_factors,
+            dns_whois=dns_factors + whois_factors,
             tls_certificate=tls_factors,
             html_content=html_factors,
             threat_intelligence=ti_factors,
         )
+
 
         all_factors = breakdown.all_factors()
 
