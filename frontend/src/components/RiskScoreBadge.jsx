@@ -9,8 +9,9 @@ import React from 'react'
 export default function RiskScoreBadge({ score }) {
   if (score === undefined || score === null) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-400 border border-slate-700">
-        N/A
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded border text-[10px] font-semibold bg-blue-950/20 text-blue-400 border-blue-800/40">
+        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+        PENDING
       </span>
     )
   }
