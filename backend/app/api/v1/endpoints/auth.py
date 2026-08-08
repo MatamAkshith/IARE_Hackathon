@@ -187,3 +187,24 @@ def get_me(
         account_status=current_user.account_status,
         last_login_at=current_user.last_login_at,
     )
+
+
+class AutoLogoutRequest(BaseModel):
+    token: str
+    user_id: str
+
+
+@router.post("/auto-logout", status_code=status.HTTP_200_OK)
+def auto_logout(
+    *,
+    request: Request,
+    payload: AutoLogoutRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    轻量级 Beacon 自动登出处理器。当浏览器标签页关闭时，
+    前端发送 sendBeacon 请求，后端写入 auto_logout 审计日志。
+    """
+    logger.info(f"[auto_logout] Browser tab closed for user_id='{payload.user_id}'")
+    _write_audit(db, "auto_logout", request, user_id=payload.user_id)
+    return {"detail": "Auto logout recorded successfully."}

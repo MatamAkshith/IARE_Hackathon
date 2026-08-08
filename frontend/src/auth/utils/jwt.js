@@ -10,14 +10,17 @@ const TOKEN_KEY = 'threatlens_auth_token';
 
 // ── Storage helpers ──────────────────────────────────────────────────────────
 
-/** Retrieve the stored JWT from localStorage. */
-export const getToken = () => localStorage.getItem(TOKEN_KEY);
+/** Retrieve the stored JWT from sessionStorage. */
+export const getToken = () => sessionStorage.getItem(TOKEN_KEY);
 
-/** Persist a JWT to localStorage. */
-export const setToken = (token) => localStorage.setItem(TOKEN_KEY, token);
+/** Persist a JWT to sessionStorage. */
+export const setToken = (token) => sessionStorage.setItem(TOKEN_KEY, token);
 
-/** Remove the stored JWT from localStorage. */
-export const removeToken = () => localStorage.removeItem(TOKEN_KEY);
+/** Remove the stored JWT from sessionStorage. */
+export const removeToken = () => {
+  sessionStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(TOKEN_KEY);
+};
 
 // ── Token decoding ───────────────────────────────────────────────────────────
 

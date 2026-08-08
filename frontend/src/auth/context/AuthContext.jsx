@@ -63,6 +63,31 @@ export const AuthProvider = ({ children }) => {
     return () => clearInterval(checkInterval);
   }, []);
 
+  // Stage G.1: Auto logout on tab close
+  useEffect(() => {
+    const handleTabClose = () => {
+      if (token && user) {
+        const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1';
+        const url = `${baseUrl}/auth/auto-logout`;
+        const payload = JSON.stringify({
+          token: token,
+          user_id: user.user_id
+        });
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon(url, blob);
+        
+        sessionStorage.removeItem('threatlens_auth_token');
+        localStorage.removeItem('threatlens_auth_token');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleTabClose);
+    return () => {
+      window.removeEventListener('beforeunload', handleTabClose);
+    };
+  }, [token, user]);
+
+
   // ── Login ──────────────────────────────────────────────────────────────
   /**
    * @param {string} userId

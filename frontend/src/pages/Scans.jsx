@@ -197,8 +197,16 @@ export default function Scans() {
                   <tbody>
                     {scans.length > 0 ? (
                       scans.map((scan) => {
-                        // Helper to render severity badge
+                        // Helper to render severity
                         const getScoreBadge = () => {
+                          if (scan.status === 'failed') {
+                            return (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded border text-[10px] font-semibold bg-rose-950/20 text-rose-400 border-rose-800/40" title="Analysis pipeline failed due to network timeout or service crash.">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                FAILED
+                              </span>
+                            )
+                          }
                           if (scan.status === 'pending' || scan.status === 'scanning') {
                             return (
                               <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-400 animate-pulse border border-slate-700/50">
@@ -297,7 +305,16 @@ export default function Scans() {
                                    </button>
                                  </div>
                                ) : (
-                                 <span className="text-slate-600 text-[10px] font-semibold select-none">—</span>
+                                 <div className="flex items-center justify-center">
+                                   <button
+                                     type="button"
+                                     onClick={() => setUrl(scan.domain)}
+                                     className="px-2.5 py-1 rounded border border-rose-900 bg-rose-950/20 text-rose-400 hover:text-rose-300 font-bold text-[10px] uppercase transition-all"
+                                     title="Retry submitting this domain for threat analysis"
+                                   >
+                                     Retry
+                                   </button>
+                                 </div>
                                )}
                              </td>
                           </tr>
@@ -305,7 +322,7 @@ export default function Scans() {
                       })
                     ) : (
                       <tr>
-                        <td colSpan="5" className="py-8 text-center text-slate-500 font-medium">
+                        <td colSpan="6" className="py-8 text-center text-slate-500 font-medium">
                           No scans in queue. Submit a URL above to start.
                         </td>
                       </tr>

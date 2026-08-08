@@ -59,6 +59,7 @@ Every implementation must remain consistent with these sections. Every completed
 | ✅ **LOCKED** | Navigation & Route Recovery | All protected routes restored, deep-links validated, and sidebar synchronization completed. |
 | ✅ **LOCKED** | E2E Validation & Polish | End-to-end investigation pipeline validated, raw placeholders purged, UI components standardized, and platform demo-ready. |
 | ✅ **LOCKED** | Final Demo Readiness | Dynamic metrics synchronized, debug logs purged, and production stability audited. Phase F 100% COMPLETE. |
+| ✅ **LOCKED** | Session & Queue Hotfixes | Hotfixes G.1 and G.2 (Session tab close auto-logout and stale pending scans recovery) completed and verified. |
 
 
 ---
@@ -1787,6 +1788,22 @@ This section provides a full cross-referenced audit of every commit in the repos
 ### 54.4 Known Limitations (Decision Log)
 1. **Stateless JWT Session Termination**: JWT keys are stateless. Immediate termination is handled on the client-side by purging the localStorage key, while the server records a `logout` audit trail entry (no distributed blacklist mechanism implemented to maintain simplicity).
 2. **Background Pipeline Async Lock**: In-progress scans poll for status updates; if the server undergoes a sudden reboot, the scan status remains "failed" to allow manual operator re-submission.
+
+---
+
+## 55. Hotfix G.1 & G.2 Session Lifecycle & Automatic Logout, Investigation Queue & Pending Scan Recovery (2026-08-08)
+
+### 55.1 Session Lifecycle & Automatic Logout (Hotfix G.1)
+* **Tab Closure Detection**: Registered a `beforeunload` event listener inside `AuthContext.jsx` that automatically triggers when the operator closes the browser tab or window.
+* **Auto-Logout Beacons**: Integrated lightweight `navigator.sendBeacon` requests directed to `/auth/auto-logout` transmitting the active JWT and operator identifier.
+* **Backend Audit trail**: Created the `/auth/auto-logout` endpoint on the backend auth router that intercepts beacons, invalidates token caches, and writes an `auto_logout` entry to the security audit logs.
+* **Forced Relogin**: Switched authentication token storage from persistent `localStorage` to ephemeral `sessionStorage` in `jwt.js` and `client.js`. This guarantees browser-native session destruction upon tab closure while preserving authentication state across page refreshes.
+
+### 55.2 Pending Scan Recovery & UI Sync (Hotfix G.2)
+* **Stale Scan Recovery Mechanism**: Programmed `recover_stale_scans` inside a new helper module `investigation_service.py` that queries scans stuck in `pending`, `scanning`, or `processing` states for more than 3 minutes, and automatically transitions them to `failed`.
+* **Database Healing Trigger**: Integrated the recovery helper directly inside the GET `/scans` API endpoint, ensuring that stale scans are healed whenever the operator loads the ingestion log.
+* **UI Ingestion Log Redesign**: Modified the Scans queue table in `Scans.jsx` to render a themed `FAILED` status badge, fixed table layout column spanning (`colSpan="6"`), and added a one-click `Retry` action trigger.
+
 
 
 

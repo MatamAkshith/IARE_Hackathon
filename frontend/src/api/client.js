@@ -24,6 +24,7 @@
 
 import axios from 'axios'
 import { normalizeError } from './errorHandler.js'
+import { getToken, removeToken } from '../auth/utils/jwt.js'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api/v1'
@@ -48,7 +49,7 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     // Stage E.1: Attach Bearer token if stored
-    const token = localStorage.getItem('threatlens_auth_token')
+    const token = getToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -98,7 +99,7 @@ apiClient.interceptors.response.use(
 
     if (apiError.status === 401) {
       console.warn('[ThreatLens API] Unauthorized or expired session detected. Redirecting to login.')
-      localStorage.removeItem('threatlens_auth_token')
+      removeToken()
       // Only redirect if not already on the login page to avoid infinite redirect loops
       if (!window.location.pathname.startsWith('/login')) {
         window.location.href = '/login?session=expired'

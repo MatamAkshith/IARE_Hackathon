@@ -56,6 +56,13 @@ def read_scans(
     skip: int = 0,
     limit: int = 100
 ) -> Any:
+    # Stage G.2: Recover any hung scans first
+    try:
+        from app.services.investigation_service import recover_stale_scans
+        recover_stale_scans(db)
+    except Exception as e:
+        logger.error(f"[read_scans] Error recovering stale scans: {e}")
+
     scans = scan_repo.get_multi(db, skip=skip, limit=limit)
     for scan in scans:
         _populate_scan_campaign(db, scan)
